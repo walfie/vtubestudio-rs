@@ -38,7 +38,7 @@ macro_rules! define_request_response_pairs {
         $(req_name = $req_name:literal,)?
         $(resp_name = $resp_name:literal,)?
         req = { $($req:tt)* },
-        resp = { $($resp:tt)* },
+        resp = $(( $resp_inner:ident ))? $({ $($resp_fields:tt)* })?,
     },)*) => {
         $(
             paste! {
@@ -70,7 +70,7 @@ macro_rules! define_request_response_pairs {
 
                 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
                 #[serde(rename_all = "camelCase")]
-                pub struct [<$rust_name Response>] { $($resp)* }
+                pub struct [<$rust_name Response>] $(($resp_inner);)? $({ $($resp_fields)* })?
 
                 impl Response for [<$rust_name Response>] {}
 
@@ -351,15 +351,7 @@ define_request_response_pairs!(
         req = {
             pub name: String,
         },
-        // TODO: The response data is the same as the `Parameter` struct
-        resp = {
-            pub name: String,
-            pub added_by: String,
-            pub value: f32,
-            pub min: f32,
-            pub max: f32,
-            pub default_value: f32,
-        },
+        resp = (Parameter),
     },
 
     {
@@ -559,6 +551,43 @@ mod tests {
                     vtubestudio_version: "1.9.0".into(),
                     current_session_authenticated: false,
                 }
+                .into(),
+            }
+        )
+    }
+
+    #[test]
+    fn parameter_value_response() {
+        assert_eq!(
+            serde_json::from_value::<ResponseEnvelope>(json!({
+                "apiName": "VTubeStudioPublicAPI",
+                "apiVersion": "1.0",
+                "timestamp": 1625405710728i64,
+                "requestID": "SomeID",
+                "messageType": "ParameterValueResponse",
+                "data": {
+                    "name": "MyCustomParamName1",
+                    "addedBy": "My Plugin Name",
+                    "value": 12.4,
+                    "min": -30,
+                    "max": 30,
+                    "defaultValue": 0
+                }
+            }))
+            .unwrap(),
+            ResponseEnvelope {
+                api_name: "VTubeStudioPublicAPI".into(),
+                api_version: "1.0".into(),
+                request_id: "SomeID".into(),
+                timestamp: 1625405710728,
+                data: ParameterValueResponse(Parameter {
+                    name: "MyCustomParamName1".into(),
+                    added_by: "My Plugin Name".into(),
+                    value: 12.4,
+                    min: -30.0,
+                    max: 30.0,
+                    default_value: 0.0
+                })
                 .into(),
             }
         )
