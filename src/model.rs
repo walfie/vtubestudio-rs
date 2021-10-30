@@ -16,6 +16,22 @@ pub struct Request {
 pub enum RequestData {
     #[serde(rename = "APIStateRequest")]
     ApiStateRequest,
+    #[serde(rename = "AuthenticationTokenRequest")]
+    AuthenticationTokenRequest(AuthenticationTokenRequest),
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct AuthenticationTokenRequest {
+    pub plugin_name: String,
+    pub plugin_developer: String,
+    pub plugin_icon: String,
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct AuthenticationTokenResponse {
+    pub authentication_token: String,
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
@@ -37,9 +53,13 @@ pub enum ResponseData {
     ApiStateResponse(ApiStateResponse),
     #[serde(rename = "APIError")]
     ApiErrorResponse(ApiErrorResponse),
+    #[serde(rename = "VTubeStudioAPIStateBroadcast")]
+    VTubeStudioApiStateBroadcast(VTubeStudioApiStateBroadcast),
+    #[serde(rename = "AuthenticationTokenResponse")]
+    AuthenticationTokenResponse(AuthenticationTokenResponse),
 }
 
-#[derive(Default, Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct ApiStateResponse {
     pub active: bool,
@@ -47,12 +67,22 @@ pub struct ApiStateResponse {
     pub current_session_authenticated: bool,
 }
 
-#[derive(Default, Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct ApiErrorResponse {
     #[serde(rename = "errorID")]
     pub error_id: i64,
     pub message: String,
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct VTubeStudioApiStateBroadcast {
+    pub active: bool,
+    pub port: i64,
+    #[serde(rename = "instanceID")]
+    pub instance_id: String,
+    pub window_title: String,
 }
 
 #[cfg(test)]
