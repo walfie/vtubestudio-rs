@@ -124,7 +124,8 @@ define_request_response_pairs!(
         req = {},
         resp = {
             pub active: bool,
-            pub v_tube_studio_version: String,
+            #[serde(rename = "vTubeStudioVersion")]
+            pub vtubestudio_version: String,
             pub current_session_authenticated: bool,
         },
     },
@@ -189,7 +190,7 @@ mod tests {
                 timestamp: 1625405710728,
                 data: ApiStateResponse {
                     active: true,
-                    v_tube_studio_version: "1.9.0".into(),
+                    vtubestudio_version: "1.9.0".into(),
                     current_session_authenticated: false,
                 }
                 .into(),
@@ -203,7 +204,7 @@ mod tests {
 
         let resp = ApiStateResponse {
             active: true,
-            v_tube_studio_version: "1.9.0".into(),
+            vtubestudio_version: "1.9.0".into(),
             current_session_authenticated: false,
         };
 
