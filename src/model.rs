@@ -1,10 +1,11 @@
 use paste::paste;
+use serde::de::DeserializeOwned;
 use serde::{Deserialize, Serialize};
 use std::borrow::Cow;
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
-pub struct Request {
+pub struct RequestEnvelope {
     pub api_name: Cow<'static, str>,
     pub api_version: Cow<'static, str>,
     #[serde(rename = "requestID")]
@@ -15,7 +16,7 @@ pub struct Request {
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
-pub struct Response {
+pub struct ResponseEnvelope {
     pub api_name: String,
     pub api_version: String,
     pub timestamp: i64,
@@ -25,11 +26,11 @@ pub struct Response {
     pub data: ResponseData,
 }
 
-pub trait ApiRequest {
-    type Response: ApiResponse;
+pub trait Request {
+    type Response: Response + DeserializeOwned;
 }
 
-pub trait ApiResponse {}
+pub trait Response {}
 
 macro_rules! define_request_response_pairs {
     ($({
@@ -51,7 +52,7 @@ macro_rules! define_request_response_pairs {
                     }
                 }
 
-                impl ApiRequest for [<$rust_name Request>] {
+                impl Request for [<$rust_name Request>] {
                     type Response = [<$rust_name Response>];
                 }
 
@@ -71,7 +72,7 @@ macro_rules! define_request_response_pairs {
                 #[serde(rename_all = "camelCase")]
                 pub struct [<$rust_name Response>] { $($resp)* }
 
-                impl ApiResponse for [<$rust_name Response>] {}
+                impl Response for [<$rust_name Response>] {}
 
                 impl From<[<$rust_name Response>]> for ResponseData {
                     fn from(value: [<$rust_name Response>]) -> Self {
@@ -515,7 +516,7 @@ mod tests {
     #[test]
     fn request() {
         assert_eq!(
-            serde_json::to_value(&Request {
+            serde_json::to_value(&RequestEnvelope {
                 api_name: "VTubeStudioPublicAPI".into(),
                 api_version: "1.0".into(),
                 request_id: Some("MyIDWithLessThan64Characters".into()),
@@ -535,7 +536,7 @@ mod tests {
     #[test]
     fn response() {
         assert_eq!(
-            serde_json::from_value::<Response>(json!({
+            serde_json::from_value::<ResponseEnvelope>(json!({
                 "apiName": "VTubeStudioPublicAPI",
                 "apiVersion": "1.0",
                 "timestamp": 1625405710728i64,
@@ -548,7 +549,7 @@ mod tests {
                 }
             }))
             .unwrap(),
-            Response {
+            ResponseEnvelope {
                 api_name: "VTubeStudioPublicAPI".into(),
                 api_version: "1.0".into(),
                 request_id: "MyIDWithLessThan64Characters".into(),
@@ -576,7 +577,7 @@ mod tests {
         let resp_enum = ResponseData::from(resp.clone());
 
         assert_eq!(
-            <ApiStateRequest as ApiRequest>::Response::try_from(resp_enum).unwrap(),
+            <ApiStateRequest as Request>::Response::try_from(resp_enum).unwrap(),
             resp
         );
     }
