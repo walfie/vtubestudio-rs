@@ -1,3 +1,4 @@
+use paste::paste;
 use serde::{Deserialize, Serialize};
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
@@ -12,29 +13,6 @@ pub struct Request {
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
-#[serde(tag = "messageType", content = "data")]
-pub enum RequestData {
-    #[serde(rename = "APIStateRequest")]
-    ApiStateRequest,
-    #[serde(rename = "AuthenticationTokenRequest")]
-    AuthenticationTokenRequest(AuthenticationTokenRequest),
-}
-
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
-#[serde(rename_all = "camelCase")]
-pub struct AuthenticationTokenRequest {
-    pub plugin_name: String,
-    pub plugin_developer: String,
-    pub plugin_icon: String,
-}
-
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
-#[serde(rename_all = "camelCase")]
-pub struct AuthenticationTokenResponse {
-    pub authentication_token: String,
-}
-
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct Response {
     pub api_name: String,
@@ -46,44 +24,85 @@ pub struct Response {
     pub data: ResponseData,
 }
 
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
-#[serde(tag = "messageType", content = "data")]
-pub enum ResponseData {
-    #[serde(rename = "APIStateResponse")]
-    ApiStateResponse(ApiStateResponse),
-    #[serde(rename = "APIError")]
-    ApiErrorResponse(ApiErrorResponse),
-    #[serde(rename = "VTubeStudioAPIStateBroadcast")]
-    VTubeStudioApiStateBroadcast(VTubeStudioApiStateBroadcast),
-    #[serde(rename = "AuthenticationTokenResponse")]
-    AuthenticationTokenResponse(AuthenticationTokenResponse),
+macro_rules! define_request_response_pairs {
+    ($({
+        rust_name = $rust_name:ident,
+        $(req_name = $req_name:literal,)?
+        $(resp_name = $resp_name:literal,)?
+        req = { $($req:tt)* },
+        resp = { $($resp:tt)* },
+    },)*) => {
+        $(
+            paste! {
+                #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+                #[serde(rename_all = "camelCase")]
+                pub struct [<$rust_name Request>] { $($req)* }
+
+                impl From<[<$rust_name Request>]> for RequestData {
+                    fn from(value: [<$rust_name Request>]) -> Self {
+                        RequestData::[<$rust_name Request>](value)
+                    }
+                }
+
+                #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+                #[serde(rename_all = "camelCase")]
+                pub struct [<$rust_name Response>] { $($resp)* }
+
+                impl From<[<$rust_name Response>]> for ResponseData {
+                    fn from(value: [<$rust_name Response>]) -> Self {
+                        ResponseData::[<$rust_name Response>](value)
+                    }
+                }
+            }
+        )*
+
+        paste! {
+            #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+            #[serde(tag = "messageType", content = "data")]
+            pub enum RequestData {
+                $(
+                    $(#[serde(rename = $req_name)])?
+                    [<$rust_name Request>]( [<$rust_name Request>] ),
+                )*
+            }
+
+            #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+            #[serde(tag = "messageType", content = "data")]
+            pub enum ResponseData {
+                $(
+                    $(#[serde(rename = $resp_name)])?
+                    [<$rust_name Response>]( [<$rust_name Response>] ),
+                )*
+            }
+
+        }
+    };
 }
 
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
-#[serde(rename_all = "camelCase")]
-pub struct ApiStateResponse {
-    pub active: bool,
-    pub v_tube_studio_version: String,
-    pub current_session_authenticated: bool,
-}
-
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
-#[serde(rename_all = "camelCase")]
-pub struct ApiErrorResponse {
-    #[serde(rename = "errorID")]
-    pub error_id: i64,
-    pub message: String,
-}
-
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
-#[serde(rename_all = "camelCase")]
-pub struct VTubeStudioApiStateBroadcast {
-    pub active: bool,
-    pub port: i64,
-    #[serde(rename = "instanceID")]
-    pub instance_id: String,
-    pub window_title: String,
-}
+define_request_response_pairs!(
+    {
+        rust_name = ApiState,
+        req_name = "APIStateRequest",
+        resp_name = "APIStateResponse",
+        req = {},
+        resp = {
+            pub active: bool,
+            pub v_tube_studio_version: String,
+            pub current_session_authenticated: bool,
+        },
+    },
+    {
+        rust_name = AuthenticationToken,
+        req = {
+            pub plugin_name: String,
+            pub plugin_developer: String,
+            pub plugin_icon: String,
+        },
+        resp = {
+            pub authentication_token: String,
+        },
+    },
+);
 
 #[cfg(test)]
 mod tests {
@@ -97,7 +116,7 @@ mod tests {
                 api_name: "VTubeStudioPublicAPI".into(),
                 api_version: "1.0".into(),
                 request_id: "MyIDWithLessThan64Characters".into(),
-                data: RequestData::ApiStateRequest,
+                data: ApiStateRequest {}.into(),
             })
             .unwrap(),
             json!({
@@ -105,6 +124,7 @@ mod tests {
                 "apiVersion": "1.0",
                 "requestID": "MyIDWithLessThan64Characters",
                 "messageType": "APIStateRequest",
+                "data": {}
             })
         )
     }
@@ -130,11 +150,12 @@ mod tests {
                 api_version: "1.0".into(),
                 request_id: "MyIDWithLessThan64Characters".into(),
                 timestamp: 1625405710728,
-                data: ResponseData::ApiStateResponse(ApiStateResponse {
+                data: ApiStateResponse {
                     active: true,
                     v_tube_studio_version: "1.9.0".into(),
                     current_session_authenticated: false
-                }),
+                }
+                .into(),
             }
         )
     }
