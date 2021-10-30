@@ -7,7 +7,7 @@ pub struct Request {
     pub api_name: String,
     pub api_version: String,
     #[serde(rename = "requestID")]
-    pub request_id: String,
+    pub request_id: Option<String>,
     #[serde(flatten)]
     pub data: RequestData,
 }
@@ -152,7 +152,7 @@ mod tests {
             serde_json::to_value(&Request {
                 api_name: "VTubeStudioPublicAPI".into(),
                 api_version: "1.0".into(),
-                request_id: "MyIDWithLessThan64Characters".into(),
+                request_id: Some("MyIDWithLessThan64Characters".into()),
                 data: ApiStateRequest {}.into(),
             })
             .unwrap(),
