@@ -1,11 +1,12 @@
 use paste::paste;
 use serde::{Deserialize, Serialize};
+use std::borrow::Cow;
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct Request {
-    pub api_name: String,
-    pub api_version: String,
+    pub api_name: Cow<'static, str>,
+    pub api_version: Cow<'static, str>,
     #[serde(rename = "requestID")]
     pub request_id: Option<String>,
     #[serde(flatten)]
