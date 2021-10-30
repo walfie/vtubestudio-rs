@@ -15,7 +15,7 @@ pub struct Request {
 #[serde(tag = "messageType", content = "data")]
 pub enum RequestData {
     #[serde(rename = "APIStateRequest")]
-    ApiState,
+    ApiStateRequest,
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
@@ -34,7 +34,9 @@ pub struct Response {
 #[serde(tag = "messageType", content = "data")]
 pub enum ResponseData {
     #[serde(rename = "APIStateResponse")]
-    ApiState(ApiStateResponse),
+    ApiStateResponse(ApiStateResponse),
+    #[serde(rename = "APIError")]
+    ApiErrorResponse(ApiErrorResponse),
 }
 
 #[derive(Default, Debug, Clone, PartialEq, Serialize, Deserialize)]
@@ -43,6 +45,14 @@ pub struct ApiStateResponse {
     pub active: bool,
     pub v_tube_studio_version: String,
     pub current_session_authenticated: bool,
+}
+
+#[derive(Default, Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct ApiErrorResponse {
+    #[serde(rename = "errorID")]
+    pub error_id: i64,
+    pub message: String,
 }
 
 #[cfg(test)]
@@ -57,7 +67,7 @@ mod tests {
                 api_name: "VTubeStudioPublicAPI".into(),
                 api_version: "1.0".into(),
                 request_id: "MyIDWithLessThan64Characters".into(),
-                data: RequestData::ApiState,
+                data: RequestData::ApiStateRequest,
             })
             .unwrap(),
             json!({
@@ -90,7 +100,7 @@ mod tests {
                 api_version: "1.0".into(),
                 request_id: "MyIDWithLessThan64Characters".into(),
                 timestamp: 1625405710728,
-                data: ResponseData::ApiState(ApiStateResponse {
+                data: ResponseData::ApiStateResponse(ApiStateResponse {
                     active: true,
                     v_tube_studio_version: "1.9.0".into(),
                     current_session_authenticated: false
