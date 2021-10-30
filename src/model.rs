@@ -107,6 +107,10 @@ macro_rules! define_request_response_pairs {
             #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
             #[serde(tag = "messageType", content = "data")]
             pub enum ResponseData {
+                #[serde(rename = "APIError")]
+                ApiError(ApiError),
+                #[serde(rename = "VTubeStudioAPIStateBroadcast")]
+                VTubeStudioApiStateBroadcast(ApiError),
                 $(
                     $(#[serde(rename = $resp_name)])?
                     [<$rust_name Response>]( [<$rust_name Response>] ),
@@ -130,6 +134,7 @@ define_request_response_pairs!(
             pub current_session_authenticated: bool,
         },
     },
+
     {
         rust_name = AuthenticationToken,
         req = {
@@ -141,7 +146,366 @@ define_request_response_pairs!(
             pub authentication_token: String,
         },
     },
+
+    {
+        rust_name = Authentication,
+        req = {
+            pub plugin_name: String,
+            pub plugin_developer: String,
+            pub authentication_token: String,
+        },
+        resp = {
+            pub authenticated: bool,
+            pub reason: String,
+        },
+    },
+
+    {
+        rust_name = Statistics,
+        req = {},
+        resp = {
+            pub uptime: i64,
+            pub framerate: i32,
+            #[serde(rename = "vTubeStudioVersion")]
+            pub vtubestudio_version: String,
+            pub allowed_plugins: i32,
+            pub connected_plugins: i32,
+            pub started_with_steam: bool,
+            pub window_width: i32,
+            pub window_height: i32,
+            pub window_is_fullscreen: bool,
+        },
+    },
+
+    {
+        rust_name = VtsFolderInfo,
+        req_name = "VTSFolderInfoRequest",
+        resp_name = "VTSFolderInfoResponse",
+        req = {},
+        resp = {
+            pub models: String,
+            pub backgrounds: String,
+            pub items: String,
+            pub config: String,
+            pub logs: String,
+            pub backup: String,
+        },
+    },
+
+    {
+        rust_name = CurrentModel,
+        req = {},
+        resp = {
+            pub model_loaded: bool,
+            pub model_name: String,
+            #[serde(rename = "modelID")]
+            pub model_id: String,
+            pub vts_model_name: String,
+            pub vts_model_icon_name: String,
+            #[serde(rename = "live2DModelName")]
+            pub live2d_model_name: String,
+            pub model_load_time: i64,
+            pub time_since_model_loaded: i64,
+            #[serde(rename = "numberOfLive2DParameters")]
+            pub number_of_live2d_parameters: i32,
+            #[serde(rename = "numberOfLive2DArtmeshes")]
+            pub number_of_live2d_artmeshes: i32,
+            pub has_physics_file: bool,
+            pub number_of_textures: i32,
+            pub texture_resolution: i32,
+            pub model_position: ModelPosition,
+        },
+    },
+
+    {
+        rust_name = AvailableModels,
+        req = {},
+        resp = {
+            pub number_of_models: i32,
+            pub available_models: Vec<Model>,
+        },
+    },
+
+    {
+        rust_name = ModelLoad,
+        req = {
+            #[serde(rename = "modelID")]
+            pub model_id: String,
+        },
+        resp = {
+            #[serde(rename = "modelID")]
+            pub model_id: String,
+        },
+    },
+
+
+    {
+        rust_name = MoveModel,
+        req = {
+            pub time_in_seconds: f64,
+            pub values_are_relative_to_model: bool,
+            pub position_x: f64,
+            pub position_y: f64,
+            pub rotation: f64,
+            pub size: f64,
+        },
+        resp = {},
+    },
+
+    {
+        rust_name = HotkeysInCurrentModel,
+        req = {
+            #[serde(rename = "modelID")]
+            pub model_id: String,
+        },
+        resp = {
+            pub model_loaded: bool,
+            pub model_name: String,
+            #[serde(rename = "modelID")]
+            pub model_id: String,
+            pub available_hotkeys: Vec<Hotkey>,
+        },
+    },
+
+    {
+        rust_name = HotkeyTrigger,
+        req = {
+            #[serde(rename = "hotkeyID")]
+            pub hotkey_id: String,
+        },
+        resp = {
+            #[serde(rename = "hotkeyID")]
+            pub hotkey_id: String,
+        },
+    },
+
+    {
+        rust_name = ArtMeshList,
+        req = {},
+        resp = {
+            pub model_loaded: bool,
+            pub number_of_art_mesh_names: i32,
+            pub number_of_art_mesh_tags: i32,
+            pub art_mesh_names: Vec<String>,
+            pub art_mesh_tags: Vec<String>,
+        },
+    },
+
+    {
+        rust_name = ColorTint,
+        req = {
+            pub color_tint: ColorTint,
+            pub art_mesh_matcher: ArtMeshMatcher,
+        },
+        resp = {
+            pub matched_art_meshes: i32,
+        },
+    },
+
+    {
+        rust_name = SceneColorOverlayInfo,
+        req = {},
+        resp = {
+            pub active: bool,
+            pub items_included: bool,
+            pub is_window_capture: bool,
+            pub base_brightness: i32,
+            pub color_boost: i32,
+            pub smoothing: i32,
+            pub color_overlay_r: u8,
+            pub color_overlay_g: u8,
+            pub color_overlay_b: u8,
+            pub color_avg_r: u8,
+            pub color_avg_g: u8,
+            pub color_avg_b: u8,
+            pub left_capture_part: CapturePart,
+            pub middle_capture_part: CapturePart,
+            pub right_capture_part: CapturePart,
+        },
+    },
+
+    {
+        rust_name = FaceFound,
+        req = {},
+        resp = {
+            pub found: bool,
+        },
+    },
+
+    {
+        rust_name = InputParameterList,
+        req = {},
+        resp = {
+            pub model_loaded: bool,
+            pub model_name: String,
+            #[serde(rename = "modelID")]
+            pub model_id: String,
+            pub custom_parameters: Vec<Parameter>,
+            pub default_parameters: Vec<Parameter>,
+        },
+    },
+
+    {
+        rust_name = ParameterValue,
+        req = {
+            pub name: String,
+        },
+        // TODO: The response data is the same as the `Parameter` struct
+        resp = {
+            pub name: String,
+            pub added_by: String,
+            pub value: f32,
+            pub min: f32,
+            pub max: f32,
+            pub default_value: f32,
+        },
+    },
+
+    {
+        rust_name = Live2DParameterList,
+        req = {},
+        resp = {
+            pub model_loaded: bool,
+            pub model_name: String,
+            #[serde(rename = "modelID")]
+            pub model_id: String,
+            pub parameters: Vec<Parameter>,
+        },
+    },
+
+    {
+        rust_name = ParameterCreation,
+        req = {
+            pub parameter_name: String,
+            pub explanation: String,
+            pub min: f32,
+            pub max: f32,
+            pub default_value: f32,
+        },
+        resp = {
+            pub parameter_name: String,
+        },
+    },
+
+    {
+        rust_name = ParameterDeletion,
+        req = {
+            pub parameter_name: String,
+        },
+        resp = {
+            pub parameter_name: String,
+        },
+    },
+
+    {
+        rust_name = InjectParameterData,
+        req = {
+            pub parameter_values: Vec<ParameterValue>,
+        },
+        resp = {},
+    },
+
 );
+
+#[derive(Default, Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct ApiError {
+    #[serde(rename = "errorID")]
+    pub error_id: i32,
+    pub message: String,
+}
+
+#[derive(Default, Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct StateBroadcast {
+    pub active: bool,
+    pub port: i32,
+    #[serde(rename = "instanceID")]
+    pub instance_id: String,
+    pub window_title: String,
+}
+
+#[derive(Default, Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct ModelPosition {
+    pub position_x: f64,
+    pub position_y: f64,
+    pub rotation: f64,
+    pub size: f64,
+}
+
+#[derive(Default, Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct Model {
+    pub model_loaded: bool,
+    pub model_name: String,
+    #[serde(rename = "modelID")]
+    pub model_id: String,
+    pub vts_model_name: String,
+    pub vts_model_icon_name: String,
+}
+
+#[derive(Default, Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct Hotkey {
+    pub name: String,
+    #[serde(rename = "type")]
+    pub type_field: String,
+    pub file: String,
+    #[serde(rename = "hotkeyID")]
+    pub hotkey_id: String,
+}
+
+#[derive(Default, Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct ColorTint {
+    pub color_r: u8,
+    pub color_g: u8,
+    pub color_b: u8,
+    pub color_a: u8,
+    pub mix_with_scene_lighting_color: f32,
+    #[serde(rename = "jeb_")]
+    pub jeb: bool,
+}
+
+#[derive(Default, Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct ArtMeshMatcher {
+    pub tint_all: bool,
+    pub art_mesh_number: Vec<i32>,
+    pub name_exact: Vec<String>,
+    pub name_contains: Vec<String>,
+    pub tag_exact: Vec<String>,
+    pub tag_contains: Vec<String>,
+}
+
+#[derive(Default, Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct CapturePart {
+    pub active: bool,
+    pub color_r: u8,
+    pub color_g: u8,
+    pub color_b: u8,
+}
+
+#[derive(Default, Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct Parameter {
+    pub name: String,
+    pub added_by: String,
+    pub value: f32,
+    pub min: f32,
+    pub max: f32,
+    pub default_value: f32,
+}
+
+#[derive(Default, Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct ParameterValue {
+    pub id: String,
+    pub value: f64,
+    pub weight: Option<f64>,
+}
 
 #[cfg(test)]
 mod tests {
