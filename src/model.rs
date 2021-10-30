@@ -24,6 +24,12 @@ pub struct Response {
     pub data: ResponseData,
 }
 
+pub trait ApiRequest {
+    type Response: ApiResponse;
+}
+
+pub trait ApiResponse {}
+
 macro_rules! define_request_response_pairs {
     ($({
         rust_name = $rust_name:ident,
@@ -44,15 +50,46 @@ macro_rules! define_request_response_pairs {
                     }
                 }
 
+                impl ApiRequest for [<$rust_name Request>] {
+                    type Response = [<$rust_name Response>];
+                }
+
+                impl std::convert::TryFrom<RequestData> for [<$rust_name Request>] {
+                    type Error = RequestData;
+
+                    fn try_from(value: RequestData) -> Result<Self, Self::Error> {
+                        if let RequestData::[<$rust_name Request>](inner) = value {
+                            Ok(inner)
+                        } else {
+                            Err(value)
+                        }
+                    }
+                }
+
                 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
                 #[serde(rename_all = "camelCase")]
                 pub struct [<$rust_name Response>] { $($resp)* }
+
+                impl ApiResponse for [<$rust_name Response>] {}
 
                 impl From<[<$rust_name Response>]> for ResponseData {
                     fn from(value: [<$rust_name Response>]) -> Self {
                         ResponseData::[<$rust_name Response>](value)
                     }
                 }
+
+                impl std::convert::TryFrom<ResponseData> for [<$rust_name Response>] {
+                    type Error = ResponseData;
+
+                    fn try_from(value: ResponseData) -> Result<Self, Self::Error> {
+                        if let ResponseData::[<$rust_name Response>](inner) = value {
+                            Ok(inner)
+                        } else {
+                            Err(value)
+                        }
+                    }
+                }
+
             }
         )*
 
@@ -153,10 +190,28 @@ mod tests {
                 data: ApiStateResponse {
                     active: true,
                     v_tube_studio_version: "1.9.0".into(),
-                    current_session_authenticated: false
+                    current_session_authenticated: false,
                 }
                 .into(),
             }
         )
+    }
+
+    #[test]
+    fn request_response_pairs() {
+        use std::convert::TryFrom;
+
+        let resp = ApiStateResponse {
+            active: true,
+            v_tube_studio_version: "1.9.0".into(),
+            current_session_authenticated: false,
+        };
+
+        let resp_enum = ResponseData::from(resp.clone());
+
+        assert_eq!(
+            <ApiStateRequest as ApiRequest>::Response::try_from(resp_enum).unwrap(),
+            resp
+        );
     }
 }
