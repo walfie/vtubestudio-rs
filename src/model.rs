@@ -27,10 +27,22 @@ pub struct ResponseEnvelope {
 }
 
 pub trait Request {
+    const MESSAGE_TYPE: &'static str;
     type Response: Response + DeserializeOwned;
 }
 
-pub trait Response {}
+pub trait Response {
+    const MESSAGE_TYPE: &'static str;
+}
+
+macro_rules! first_expr {
+    ($value:expr) => {
+        $value
+    };
+    ($value:expr, $_:expr) => {
+        $value
+    };
+}
 
 macro_rules! define_request_response_pairs {
     ($({
@@ -54,6 +66,10 @@ macro_rules! define_request_response_pairs {
 
                 impl Request for [<$rust_name Request>] {
                     type Response = [<$rust_name Response>];
+                    const MESSAGE_TYPE: &'static str = first_expr![
+                        $($resp_name,)?
+                        concat!(stringify!($rust_name), "Request")
+                    ];
                 }
 
                 impl std::convert::TryFrom<RequestData> for [<$rust_name Request>] {
@@ -84,7 +100,12 @@ macro_rules! define_request_response_pairs {
                 #[serde(rename_all = "camelCase")]
                 pub struct [<$rust_name Response>] $(($resp_inner);)? $({ $($resp_fields)* })?
 
-                impl Response for [<$rust_name Response>] {}
+                impl Response for [<$rust_name Response>] {
+                    const MESSAGE_TYPE: &'static str = first_expr![
+                        $($req_name,)?
+                        concat!(stringify!($rust_name), "Response")
+                    ];
+                }
 
                 impl From<[<$rust_name Response>]> for ResponseData {
                     fn from(value: [<$rust_name Response>]) -> Self {
@@ -135,7 +156,7 @@ macro_rules! define_request_response_pairs {
                 #[serde(rename = "APIError")]
                 ApiError(ApiError),
                 #[serde(rename = "VTubeStudioAPIStateBroadcast")]
-                VTubeStudioApiStateBroadcast(ApiError),
+                VTubeStudioApiStateBroadcast(VTubeStudioApiStateBroadcast),
                 $(
                     $(#[serde(rename = $resp_name)])?
                     [<$rust_name Response>]( [<$rust_name Response>] ),
@@ -432,14 +453,22 @@ pub struct ApiError {
     pub message: String,
 }
 
+impl Response for ApiError {
+    const MESSAGE_TYPE: &'static str = "ApiError";
+}
+
 #[derive(Default, Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
-pub struct StateBroadcast {
+pub struct VTubeStudioApiStateBroadcast {
     pub active: bool,
     pub port: i32,
     #[serde(rename = "instanceID")]
     pub instance_id: String,
     pub window_title: String,
+}
+
+impl Response for VTubeStudioApiStateBroadcast {
+    const MESSAGE_TYPE: &'static str = "VTubeStudioAPIStateBroadcast";
 }
 
 #[derive(Default, Debug, Clone, PartialEq, Serialize, Deserialize)]
