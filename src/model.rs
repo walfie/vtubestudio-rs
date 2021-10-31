@@ -68,6 +68,18 @@ macro_rules! define_request_response_pairs {
                     }
                 }
 
+                impl<'a> std::convert::TryFrom<&'a RequestData> for &'a [<$rust_name Request>] {
+                    type Error = ();
+
+                    fn try_from(value: &'a RequestData) -> Result<Self, Self::Error> {
+                        if let RequestData::[<$rust_name Request>](inner) = value {
+                            Ok(inner)
+                        } else {
+                            Err(())
+                        }
+                    }
+                }
+
                 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
                 #[serde(rename_all = "camelCase")]
                 pub struct [<$rust_name Response>] $(($resp_inner);)? $({ $($resp_fields)* })?
@@ -88,6 +100,18 @@ macro_rules! define_request_response_pairs {
                             Ok(inner)
                         } else {
                             Err(value)
+                        }
+                    }
+                }
+
+                impl<'a> std::convert::TryFrom<&'a ResponseData> for &'a [<$rust_name Response>] {
+                    type Error = ();
+
+                    fn try_from(value: &'a ResponseData) -> Result<Self, Self::Error> {
+                        if let ResponseData::[<$rust_name Response>](inner) = value {
+                            Ok(inner)
+                        } else {
+                            Err(())
                         }
                     }
                 }
