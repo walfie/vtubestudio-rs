@@ -1,7 +1,7 @@
 use crate::data::{ApiError, ResponseData};
 use std::error::Error as StdError;
 
-pub type Result<T> = std::result::Result<T, Error>;
+pub type Result<T, E = Error> = std::result::Result<T, E>;
 
 #[derive(thiserror::Error, Debug)]
 pub enum Error {
@@ -16,4 +16,8 @@ pub enum Error {
     },
     #[error("failed to parse JSON")]
     Json(#[from] serde_json::Error),
+    #[error("websocket error")]
+    WebSocket(#[from] tokio_tungstenite::tungstenite::error::Error),
+    #[error("unexpected websocket message: {0}")]
+    UnexpectedWebSocketMessage(tokio_tungstenite::tungstenite::Message),
 }

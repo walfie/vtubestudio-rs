@@ -3,9 +3,14 @@ use crate::error::{Error, Result};
 
 use futures_core::stream::TryStream;
 use futures_sink::Sink;
+use futures_util::sink::SinkExt;
+use futures_util::stream::StreamExt;
 use std::convert::TryFrom;
 use std::pin::Pin;
+use tokio::net::TcpStream;
 use tokio_tower::multiplex::{Client as MultiplexClient, TagStore};
+use tokio_tungstenite::tungstenite::Message;
+use tokio_tungstenite::{MaybeTlsStream, WebSocketStream};
 use tower::util::ServiceExt;
 use tower::Service;
 use uuid::Uuid;
@@ -32,20 +37,38 @@ pub struct Client<T>(MultiplexClient<MultiplexTransport<T>, TransportError<T>, R
 where
     T: Sink<RequestEnvelope> + TryStream;
 
-impl<T> Client<T>
-where
-    T: Sink<RequestEnvelope> + TryStream,
-{
-    pub fn new<U>(underlying: U) -> Client<U>
-    where
-        U: Sink<RequestEnvelope, Error = Error>
+pub async fn new(
+    url: &str,
+) -> Result<
+    Client<
+        impl Sink<RequestEnvelope, Error = Error>
             + TryStream<Ok = ResponseEnvelope, Error = Error>
             + Send
             + 'static,
-    {
-        let client = MultiplexClient::new(MultiplexTransport::new(underlying, Tagger));
-        Client(client)
-    }
+    >,
+> {
+    let (ws, _) = tokio_tungstenite::connect_async(url).await?;
+
+    let transport = ws
+        .filter_map(|msg| {
+            futures_util::future::ready(match msg {
+                Ok(Message::Text(s)) => {
+                    Some(serde_json::from_str::<ResponseEnvelope>(&s).map_err(|e| Error::Json(e)))
+                }
+                Ok(Message::Ping(..)) => None,
+                Ok(other) => Some(Err(Error::UnexpectedWebSocketMessage(other))),
+                Err(e) => Some(Err(Error::WebSocket(e))),
+            })
+        })
+        .with(|req: RequestEnvelope| {
+            futures_util::future::ready(
+                serde_json::to_string(&req)
+                    .map(Message::Text)
+                    .map_err(Error::Json),
+            )
+        });
+
+    Ok(Client::from_transport(transport))
 }
 
 impl<T> Client<T>
@@ -55,6 +78,14 @@ where
         + Send
         + 'static,
 {
+    pub fn from_transport(underlying: T) -> Self {
+        let client =
+            MultiplexClient::with_error_handler(MultiplexTransport::new(underlying, Tagger), |e| {
+                eprintln!("encountered error: {:?}", e)
+            });
+        Client(client)
+    }
+
     pub async fn send<Req: Request>(&mut self, data: Req) -> Result<Req::Response> {
         let id = Uuid::new_v4().to_string();
 
@@ -84,24 +115,5 @@ where
                 received: e,
             }),
         }
-    }
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-    use tokio::sync::mpsc;
-    use tokio_stream::wrappers::ReceiverStream;
-    use tokio_util::sync::PollSender;
-
-    #[tokio::test]
-    async fn send() -> Result<()> {
-        let (req_tx, _req_rx) = mpsc::channel::<RequestEnvelope>(5);
-        let (_resp_tx, resp_rx) = mpsc::channel::<Result<ResponseEnvelope>>(5);
-
-        PollSender::new(req_tx);
-        ReceiverStream::new(resp_rx);
-
-        todo!()
     }
 }

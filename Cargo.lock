@@ -830,6 +830,7 @@ version = "0.1.0-alpha.0"
 dependencies = [
  "futures-core",
  "futures-sink",
+ "futures-util",
  "paste",
  "serde",
  "serde_json",
