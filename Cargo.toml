@@ -4,6 +4,20 @@ version = "0.1.0-alpha.0"
 edition = "2018"
 
 [dependencies]
+futures-core = "0.3.17"
+futures-sink = "0.3.17"
 paste = "1.0.5"
 serde = { version = "1.0.130", features = ["derive"] }
 serde_json = "1.0.68"
+thiserror = "1.0.30"
+tokio = { version = "1.13.0", features = ["sync"] }
+tokio-tower = "0.6.0"
+tokio-tungstenite = "0.15.0"
+tower = { version = "0.4.10", features = ["util"] }
+uuid = { version = "0.8.2", features = ["v4"] }
+
+[dev-dependencies]
+tokio = { version = "1.13.0", features = ["macros"] }
+tower-test = "0.4.0"
+tokio-util = { version = "0.6.9", features = ["codec"] }
+tokio-stream = "0.1.8"
