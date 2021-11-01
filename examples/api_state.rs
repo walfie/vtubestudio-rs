@@ -1,5 +1,5 @@
 use vtubestudio::data::*;
-use vtubestudio::{Client, Result};
+use vtubestudio::{Client, Error, Result};
 
 #[tokio::main(flavor = "current_thread")]
 async fn main() -> Result<()> {
@@ -15,8 +15,18 @@ async fn main() -> Result<()> {
             authentication_token: "123".into(),
         })
         .await?;
-
     println!("{:#?}", resp);
+
+    // This should fail since we're not authenticated
+    let resp = client.send(AvailableModelsRequest {}).await;
+    match resp {
+        Ok(_) => panic!("Expected auth error"),
+        Err(Error::Api(e)) => {
+            assert!(e.is_auth_error());
+            println!("Got expected error: {:#?}", e);
+        }
+        Err(e) => eprintln!("Got unexpected error: {:#?}", e),
+    }
 
     Ok(())
 }

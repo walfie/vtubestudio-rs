@@ -21,3 +21,9 @@ pub enum Error {
     #[error("unexpected websocket message: {0}")]
     UnexpectedWebSocketMessage(tokio_tungstenite::tungstenite::Message),
 }
+
+impl Error {
+    pub fn is_auth_error(&self) -> bool {
+        matches!(self, Error::Api(e) if e.is_auth_error())
+    }
+}

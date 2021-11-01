@@ -29,10 +29,12 @@ pub struct ResponseEnvelope {
 
 pub trait Request: Into<RequestData> {
     const MESSAGE_TYPE: &'static str;
-    type Response: Response + DeserializeOwned;
+    type Response: Response;
 }
 
-pub trait Response: Into<ResponseData> + TryFrom<ResponseData, Error = ResponseData> {
+pub trait Response:
+    DeserializeOwned + Into<ResponseData> + TryFrom<ResponseData, Error = ResponseData>
+{
     const MESSAGE_TYPE: &'static str;
 }
 
@@ -433,6 +435,12 @@ pub struct ApiError {
 
 impl Response for ApiError {
     const MESSAGE_TYPE: &'static str = "ApiError";
+}
+
+impl ApiError {
+    pub fn is_auth_error(&self) -> bool {
+        self.error_id == 8
+    }
 }
 
 impl_enum!(ResponseData, ApiError);
