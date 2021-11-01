@@ -1,12 +1,12 @@
 use crate::data::{ApiError, ResponseData};
-use std::error::Error as StdError;
 
 pub type Result<T, E = Error> = std::result::Result<T, E>;
+type BoxError = Box<dyn std::error::Error + Send + Sync>;
 
 #[derive(thiserror::Error, Debug)]
 pub enum Error {
     #[error("transport error")]
-    Transport(#[from] Box<dyn StdError + Send + Sync>),
+    Transport(#[from] BoxError),
     #[error("received APIError {}: {}", .0.error_id, .0.message)]
     Api(ApiError),
     #[error("received unexpected response (expected {expected}, received {received:?})")]

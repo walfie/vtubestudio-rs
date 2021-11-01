@@ -1,18 +1,16 @@
 use crate::data::*;
 use crate::error::{Error, Result};
 
+use futures_core::Stream;
 use futures_sink::Sink;
-use futures_util::Stream;
 use pin_project_lite::pin_project;
 use std::pin::Pin;
 use std::task::{Context, Poll};
-use tokio::net::TcpStream;
 use tokio_tungstenite::tungstenite;
 use tokio_tungstenite::tungstenite::Message;
-use tokio_tungstenite::{MaybeTlsStream, WebSocketStream};
 
 pin_project! {
-    pub struct WebSocketTransport<T = WebSocketStream<MaybeTlsStream<TcpStream>>> {
+    pub struct WebSocketTransport<T> {
         #[pin]
         inner: T
     }
@@ -74,10 +72,7 @@ where
 {
     type Item = Result<ResponseEnvelope, Error>;
 
-    fn poll_next(
-        self: core::pin::Pin<&mut Self>,
-        cx: &mut core::task::Context<'_>,
-    ) -> Poll<Option<Self::Item>> {
+    fn poll_next(self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Option<Self::Item>> {
         let mut this = self.project();
 
         Poll::Ready(loop {

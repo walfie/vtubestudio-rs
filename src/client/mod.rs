@@ -6,8 +6,8 @@ use crate::data::*;
 use crate::error::{Error, Result};
 
 use futures_core::stream::TryStream;
+use futures_core::Stream;
 use futures_sink::Sink;
-use futures_util::Stream;
 use std::convert::TryFrom;
 use std::pin::Pin;
 use tokio::net::TcpStream;
