@@ -1,11 +1,13 @@
 mod transport;
 pub use crate::client::transport::WebSocketTransport;
+pub use tokio_tungstenite::tungstenite::client::IntoClientRequest;
 
 use crate::data::*;
 use crate::error::{Error, Result};
 
 use futures_core::stream::TryStream;
 use futures_sink::Sink;
+use futures_util::Stream;
 use std::convert::TryFrom;
 use std::pin::Pin;
 use tokio::net::TcpStream;
@@ -38,24 +40,28 @@ pub struct Client<T>(MultiplexClient<MultiplexTransport<T>, TransportError<T>, R
 where
     T: Sink<RequestEnvelope> + TryStream;
 
-pub async fn new(
-    url: &str,
-) -> Result<Client<WebSocketTransport<WebSocketStream<MaybeTlsStream<TcpStream>>>>> {
-    let (ws, _) = tokio_tungstenite::connect_async(url).await?;
+impl Client<WebSocketTransport<WebSocketStream<MaybeTlsStream<TcpStream>>>> {
+    pub async fn connect<R>(url: R) -> Result<Self>
+    where
+        R: IntoClientRequest + Unpin,
+    {
+        let (ws, _) = tokio_tungstenite::connect_async(url).await?;
 
-    Ok(Client::from_transport(WebSocketTransport::new(ws)))
+        Ok(Client::from_transport(WebSocketTransport::new(ws)))
+    }
 }
 
 impl<T> Client<T>
 where
     T: Sink<RequestEnvelope, Error = Error>
-        + TryStream<Ok = ResponseEnvelope, Error = Error>
+        + Stream<Item = Result<ResponseEnvelope, Error>>
         + Send
         + 'static,
 {
     pub fn from_transport(underlying: T) -> Self {
         let client =
             MultiplexClient::with_error_handler(MultiplexTransport::new(underlying, Tagger), |e| {
+                // TODO
                 eprintln!("encountered error: {:?}", e)
             });
         Client(client)

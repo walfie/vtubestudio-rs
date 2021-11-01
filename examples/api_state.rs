@@ -1,9 +1,9 @@
 use vtubestudio::data::*;
-use vtubestudio::Result;
+use vtubestudio::{Client, Result};
 
 #[tokio::main(flavor = "current_thread")]
 async fn main() -> Result<()> {
-    let mut client = vtubestudio::client::new("ws://localhost:8001").await?;
+    let mut client = Client::connect("ws://localhost:8001").await?;
 
     let resp = client.send(ApiStateRequest {}).await?;
     println!("{:#?}", resp);
