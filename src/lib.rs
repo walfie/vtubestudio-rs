@@ -1,6 +1,5 @@
-pub mod client;
 pub mod data;
 pub mod error;
+pub mod transport;
 
-pub use crate::client::{Client, TungsteniteClient};
-pub use crate::error::{Error, Result};
+pub use crate::error::Error;

@@ -1,12 +1,10 @@
 use crate::data::{ApiError, ResponseData};
-
-pub type Result<T, E = Error> = std::result::Result<T, E>;
-type BoxError = Box<dyn std::error::Error + Send + Sync>;
+use crate::transport::Transport;
 
 #[derive(thiserror::Error, Debug)]
-pub enum Error {
+pub enum Error<T: Transport> {
     #[error("transport error")]
-    Transport(#[from] BoxError),
+    Transport(#[from] tokio_tower::Error<T::Underlying, T::Message>),
     #[error("received APIError {}: {}", .0.error_id, .0.message)]
     Api(ApiError),
     #[error("received unexpected response (expected {expected}, received {received:?})")]
@@ -16,13 +14,11 @@ pub enum Error {
     },
     #[error("failed to parse JSON")]
     Json(#[from] serde_json::Error),
-    #[error("websocket error")]
-    WebSocket(#[from] tokio_tungstenite::tungstenite::error::Error),
-    #[error("unexpected websocket message: {0}")]
-    UnexpectedWebSocketMessage(tokio_tungstenite::tungstenite::Message),
+    #[error("unexpected websocket message")]
+    UnexpectedWebSocketMessage(T::Message),
 }
 
-impl Error {
+impl<T: Transport> Error<T> {
     pub fn is_auth_error(&self) -> bool {
         matches!(self, Error::Api(e) if e.is_auth_error())
     }
