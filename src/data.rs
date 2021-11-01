@@ -166,7 +166,7 @@ define_request_response_pairs!(
         req = {
             pub plugin_name: String,
             pub plugin_developer: String,
-            pub plugin_icon: String,
+            pub plugin_icon: Option<String>,
         },
         resp = {
             pub authentication_token: String,
@@ -282,7 +282,7 @@ define_request_response_pairs!(
         rust_name = HotkeysInCurrentModel,
         req = {
             #[serde(rename = "modelID")]
-            pub model_id: String,
+            pub model_id: Option<String>,
         },
         resp = {
             pub model_loaded: bool,
@@ -395,10 +395,10 @@ define_request_response_pairs!(
         rust_name = ParameterCreation,
         req = {
             pub parameter_name: String,
-            pub explanation: String,
-            pub min: f32,
-            pub max: f32,
-            pub default_value: f32,
+            pub explanation: Option<String>,
+            pub min: f64,
+            pub max: f64,
+            pub default_value: f64,
         },
         resp = {
             pub parameter_name: String,
@@ -499,7 +499,7 @@ pub struct ColorTint {
     pub color_g: u8,
     pub color_b: u8,
     pub color_a: u8,
-    pub mix_with_scene_lighting_color: f32,
+    pub mix_with_scene_lighting_color: Option<f64>,
     #[serde(rename = "jeb_")]
     pub jeb: bool,
 }
@@ -529,10 +529,10 @@ pub struct CapturePart {
 pub struct Parameter {
     pub name: String,
     pub added_by: String,
-    pub value: f32,
-    pub min: f32,
-    pub max: f32,
-    pub default_value: f32,
+    pub value: f64,
+    pub min: f64,
+    pub max: f64,
+    pub default_value: f64,
 }
 
 #[derive(Default, Debug, Clone, PartialEq, Serialize, Deserialize)]

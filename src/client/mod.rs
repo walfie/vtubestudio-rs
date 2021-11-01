@@ -40,7 +40,8 @@ pub struct Client<T>(MultiplexClient<MultiplexTransport<T>, TransportError<T>, R
 where
     T: Sink<RequestEnvelope> + TryStream;
 
-impl Client<WebSocketTransport<WebSocketStream<MaybeTlsStream<TcpStream>>>> {
+pub type TungsteniteClient = Client<WebSocketTransport<WebSocketStream<MaybeTlsStream<TcpStream>>>>;
+impl TungsteniteClient {
     pub async fn connect<R>(url: R) -> Result<Self>
     where
         R: IntoClientRequest + Unpin,

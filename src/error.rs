@@ -6,7 +6,7 @@ pub type Result<T, E = Error> = std::result::Result<T, E>;
 #[derive(thiserror::Error, Debug)]
 pub enum Error {
     #[error("transport error")]
-    Transport(#[from] Box<dyn StdError + Send>),
+    Transport(#[from] Box<dyn StdError + Send + Sync>),
     #[error("received APIError {}: {}", .0.error_id, .0.message)]
     Api(ApiError),
     #[error("received unexpected response (expected {expected}, received {received:?})")]
