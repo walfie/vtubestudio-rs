@@ -832,6 +832,7 @@ dependencies = [
  "futures-sink",
  "futures-util",
  "paste",
+ "pin-project-lite",
  "serde",
  "serde_json",
  "thiserror",
