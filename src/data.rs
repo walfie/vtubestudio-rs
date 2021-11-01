@@ -91,7 +91,7 @@ macro_rules! define_request_response_pairs {
     },)*) => {
         $(
             paste! {
-                #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+                #[derive(Default, Debug, Clone, PartialEq, Serialize, Deserialize)]
                 #[serde(rename_all = "camelCase")]
                 pub struct [<$rust_name Request>] { $($req)* }
 
@@ -105,7 +105,7 @@ macro_rules! define_request_response_pairs {
 
                 impl_enum!(RequestData, [<$rust_name Request>]);
 
-                #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+                #[derive(Default, Debug, Clone, PartialEq, Serialize, Deserialize)]
                 #[serde(rename_all = "camelCase")]
                 pub struct [<$rust_name Response>] $(($resp_inner);)? $({ $($resp_fields)* })?
 
@@ -428,6 +428,8 @@ define_request_response_pairs!(
 #[derive(Default, Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct ApiError {
+    // TODO: ErrorId enum
+    // https://github.com/DenchiSoft/VTubeStudio/blob/master/Files/ErrorID.cs
     #[serde(rename = "errorID")]
     pub error_id: i32,
     pub message: String,
@@ -485,8 +487,10 @@ pub struct Model {
 #[serde(rename_all = "camelCase")]
 pub struct Hotkey {
     pub name: String,
+    // TODO: HotkeyType enum
+    // https://github.com/DenchiSoft/VTubeStudio/blob/master/Files/HotkeyAction.cs
     #[serde(rename = "type")]
-    pub type_field: String,
+    pub type_: String,
     pub file: String,
     #[serde(rename = "hotkeyID")]
     pub hotkey_id: String,
