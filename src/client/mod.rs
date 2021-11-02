@@ -1,31 +1,24 @@
-mod transport;
-pub use crate::client::transport::WebSocketTransport;
-pub use tokio_tungstenite::tungstenite::client::IntoClientRequest;
+use crate::data::{Request, RequestEnvelope, Response, ResponseData, ResponseEnvelope};
+use crate::error::Error;
+use crate::transport::{ApiTransport, WebSocketTransport};
 
-use crate::data::*;
-use crate::error::{Error, Result};
-
-use futures_core::stream::TryStream;
-use futures_core::Stream;
-use futures_sink::Sink;
 use std::convert::TryFrom;
 use std::pin::Pin;
-use tokio::net::TcpStream;
-use tokio_tower::multiplex::{Client as MultiplexClient, TagStore};
-use tokio_tungstenite::{MaybeTlsStream, WebSocketStream};
+use tokio_tower::multiplex::{Client as MultiplexClient, MultiplexTransport, TagStore};
 use tower::util::ServiceExt;
 use tower::Service;
-use uuid::Uuid;
 
-// TODO: Add ID generator trait
-struct Tagger;
-impl TagStore<RequestEnvelope, ResponseEnvelope> for Tagger {
+#[derive(Debug)]
+pub struct IdTagger(usize);
+
+impl TagStore<RequestEnvelope, ResponseEnvelope> for IdTagger {
     type Tag = String;
 
-    fn assign_tag(self: Pin<&mut Self>, request: &mut RequestEnvelope) -> Self::Tag {
-        let uuid = Uuid::new_v4().to_string();
-        request.request_id = Some(uuid.clone());
-        uuid
+    fn assign_tag(mut self: Pin<&mut Self>, request: &mut RequestEnvelope) -> Self::Tag {
+        let id = self.0.to_string();
+        request.request_id = Some(id.clone());
+        self.0 += 1;
+        id
     }
 
     fn finish_tag(self: Pin<&mut Self>, response: &ResponseEnvelope) -> Self::Tag {
@@ -33,61 +26,38 @@ impl TagStore<RequestEnvelope, ResponseEnvelope> for Tagger {
     }
 }
 
-type MultiplexTransport<T> = tokio_tower::multiplex::MultiplexTransport<T, Tagger>;
-type TransportError<T> = tokio_tower::Error<MultiplexTransport<T>, RequestEnvelope>;
-
-pub struct Client<T>(MultiplexClient<MultiplexTransport<T>, TransportError<T>, RequestEnvelope>)
-where
-    T: Sink<RequestEnvelope> + TryStream;
-
-pub type TungsteniteClient = Client<WebSocketTransport<WebSocketStream<MaybeTlsStream<TcpStream>>>>;
-impl TungsteniteClient {
-    pub async fn connect<R>(url: R) -> Result<Self>
-    where
-        R: IntoClientRequest + Unpin,
-    {
-        let (ws, _) = tokio_tungstenite::connect_async(url).await?;
-
-        Ok(Client::from_transport(WebSocketTransport::new(ws)))
-    }
+#[derive(Debug)]
+pub struct Client<T: WebSocketTransport> {
+    client: MultiplexClient<
+        MultiplexTransport<ApiTransport<T>, IdTagger>,
+        crate::Error<T>,
+        RequestEnvelope,
+    >,
 }
 
 impl<T> Client<T>
 where
-    T: Sink<RequestEnvelope, Error = Error>
-        + Stream<Item = Result<ResponseEnvelope, Error>>
-        + Send
-        + 'static,
+    T: WebSocketTransport,
 {
-    pub fn from_transport(underlying: T) -> Self {
-        let client =
-            MultiplexClient::with_error_handler(MultiplexTransport::new(underlying, Tagger), |e| {
-                // TODO
-                eprintln!("encountered error: {:?}", e)
-            });
-        Client(client)
+    pub fn new(ws_transport: T::Underlying) -> Self {
+        let tagger = IdTagger(0);
+
+        let api_transport = ApiTransport::new(ws_transport);
+        let multiplex_transport = MultiplexTransport::new(api_transport, tagger);
+        let client = MultiplexClient::new(multiplex_transport);
+
+        Self { client }
     }
 
-    pub async fn send<Req: Request>(&mut self, data: Req) -> Result<Req::Response> {
-        let id = Uuid::new_v4().to_string();
-
+    pub async fn send<Req: Request>(&mut self, data: Req) -> Result<Req::Response, Error<T>> {
         let msg = RequestEnvelope {
             api_name: "VTubeStudioPublicAPI".into(),
             api_version: "1.0".into(),
-            request_id: Some(id),
+            request_id: None, // This will be filled by `IdTagger`
             data: data.into(),
         };
 
-        self.0
-            .ready()
-            .await
-            .map_err(|e| Error::Transport(Box::new(e)))?;
-
-        let resp = self
-            .0
-            .call(msg)
-            .await
-            .map_err(|e| Error::Transport(Box::new(e)))?;
+        let resp = self.client.ready().await?.call(msg).await?;
 
         match Req::Response::try_from(resp.data) {
             Ok(data) => Ok(data),

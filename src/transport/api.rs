@@ -1,52 +1,51 @@
-use crate::data::*;
-use crate::error::{Error, Result};
+use crate::data::{RequestEnvelope, ResponseEnvelope};
+use crate::error::TransportError;
+use crate::transport::WebSocketTransport;
 
 use futures_core::Stream;
 use futures_sink::Sink;
 use pin_project_lite::pin_project;
 use std::pin::Pin;
 use std::task::{Context, Poll};
-use tokio_tungstenite::tungstenite;
-use tokio_tungstenite::tungstenite::Message;
 
 pin_project! {
-    pub struct WebSocketTransport<T> {
+    #[derive(Debug)]
+    pub struct ApiTransport<T: WebSocketTransport> {
         #[pin]
-        inner: T
+        inner: T::Underlying
     }
 }
 
-impl<T> WebSocketTransport<T>
+impl<T> ApiTransport<T>
 where
-    T: Sink<Message, Error = tungstenite::Error>
-        + Stream<Item = Result<Message, tungstenite::Error>>,
+    T: WebSocketTransport,
 {
-    pub fn new(inner: T) -> Self {
+    pub fn new(inner: T::Underlying) -> Self {
         Self { inner }
     }
 }
 
-impl<T> Sink<RequestEnvelope> for WebSocketTransport<T>
+impl<T> Sink<RequestEnvelope> for ApiTransport<T>
 where
-    T: Sink<Message, Error = tungstenite::Error>,
+    T: WebSocketTransport,
 {
-    type Error = Error;
+    type Error = TransportError<T>;
 
     fn poll_ready(mut self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Result<(), Self::Error>> {
         self.as_mut()
             .project()
             .inner
             .poll_ready(cx)
-            .map_err(Error::WebSocket)
+            .map_err(TransportError::Write)
     }
 
     fn start_send(mut self: Pin<&mut Self>, item: RequestEnvelope) -> Result<(), Self::Error> {
-        let json = serde_json::to_string(&item).map_err(Error::Json)?;
+        let json = serde_json::to_string(&item).map_err(TransportError::Json)?;
         self.as_mut()
             .project()
             .inner
-            .start_send(Message::Text(json))
-            .map_err(Error::WebSocket)
+            .start_send(T::create_message(json))
+            .map_err(TransportError::Write)
     }
 
     fn poll_flush(mut self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Result<(), Self::Error>> {
@@ -54,7 +53,7 @@ where
             .project()
             .inner
             .poll_flush(cx)
-            .map_err(Error::WebSocket)
+            .map_err(TransportError::Write)
     }
 
     fn poll_close(mut self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Result<(), Self::Error>> {
@@ -62,27 +61,30 @@ where
             .project()
             .inner
             .poll_close(cx)
-            .map_err(Error::WebSocket)
+            .map_err(TransportError::Write)
     }
 }
 
-impl<T> Stream for WebSocketTransport<T>
+impl<T> Stream for ApiTransport<T>
 where
-    T: Stream<Item = Result<Message, tungstenite::Error>>,
+    T: WebSocketTransport,
 {
-    type Item = Result<ResponseEnvelope, Error>;
+    type Item = Result<ResponseEnvelope, TransportError<T>>;
 
     fn poll_next(self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Option<Self::Item>> {
         let mut this = self.project();
 
         Poll::Ready(loop {
             match futures_util::ready!(this.inner.as_mut().poll_next(cx)) {
-                Some(Ok(msg)) => match msg {
-                    Message::Ping(..) => (),
-                    Message::Text(s) => break Some(serde_json::from_str(&s).map_err(Error::Json)),
-                    other => break Some(Err(Error::UnexpectedWebSocketMessage(other))),
+                Some(Ok(msg)) => match T::extract_text(msg) {
+                    Ok(Some(s)) => {
+                        let json = serde_json::from_str(&s).map_err(TransportError::Json);
+                        break Some(json);
+                    }
+                    Ok(None) => (),
+                    Err(msg) => break Some(Err(TransportError::UnexpectedMessage(msg))),
                 },
-                Some(Err(e)) => break Some(Err(Error::WebSocket(e))),
+                Some(Err(e)) => break Some(Err(TransportError::Read(e))),
                 None => break None,
             }
         })
