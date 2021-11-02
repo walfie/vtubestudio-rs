@@ -1,4 +1,4 @@
-use crate::client::id::IdTagger;
+use crate::client::IdTagger;
 use crate::data::{ApiError, RequestEnvelope, ResponseData};
 use crate::transport::{ApiTransport, WebSocketTransport};
 use tokio_tower::multiplex::MultiplexTransport;

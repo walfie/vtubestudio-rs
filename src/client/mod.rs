@@ -1,15 +1,30 @@
-pub(crate) mod id;
-
-pub use crate::client::id::{IdTagger, NumericIdGenerator, RequestIdGenerator};
-
-use crate::data::{Request, RequestEnvelope, Response, ResponseData};
+use crate::data::{Request, RequestEnvelope, Response, ResponseData, ResponseEnvelope};
 use crate::error::Error;
 use crate::transport::{ApiTransport, WebSocketTransport};
 
 use std::convert::TryFrom;
-use tokio_tower::multiplex::{Client as MultiplexClient, MultiplexTransport};
+use std::pin::Pin;
+use tokio_tower::multiplex::{Client as MultiplexClient, MultiplexTransport, TagStore};
 use tower::util::ServiceExt;
 use tower::Service;
+
+#[derive(Debug)]
+pub struct IdTagger(usize);
+
+impl TagStore<RequestEnvelope, ResponseEnvelope> for IdTagger {
+    type Tag = String;
+
+    fn assign_tag(mut self: Pin<&mut Self>, request: &mut RequestEnvelope) -> Self::Tag {
+        let id = self.0.to_string();
+        request.request_id = Some(id.clone());
+        self.0 += 1;
+        id
+    }
+
+    fn finish_tag(self: Pin<&mut Self>, response: &ResponseEnvelope) -> Self::Tag {
+        response.request_id.clone()
+    }
+}
 
 #[derive(Debug)]
 pub struct Client<T: WebSocketTransport> {
@@ -25,15 +40,12 @@ where
     T: WebSocketTransport,
 {
     pub fn new(ws_transport: T::Underlying) -> Self {
-        let tagger = IdTagger {
-            id_generator: NumericIdGenerator::new(),
-        };
+        let tagger = IdTagger(0);
 
         let api_transport = ApiTransport::new(ws_transport);
-
         let multiplex_transport = MultiplexTransport::new(api_transport, tagger);
-
         let client = MultiplexClient::new(multiplex_transport);
+
         Self { client }
     }
 
@@ -41,7 +53,7 @@ where
         let msg = RequestEnvelope {
             api_name: "VTubeStudioPublicAPI".into(),
             api_version: "1.0".into(),
-            request_id: None,
+            request_id: None, // This will be filled by `IdTagger`
             data: data.into(),
         };
 
