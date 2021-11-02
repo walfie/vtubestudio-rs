@@ -8,7 +8,7 @@ use thiserror::Error;
 #[derive(Error, Debug)]
 pub enum Error<T: WebSocketTransport> {
     #[error("transport error")]
-    Transport(#[from] TransportError<T>),
+    Transport(#[from] TransportError<T::StreamError, T::SinkError>),
     #[error("transport error")]
     Multiplex(
         #[from] tokio_tower::Error<MultiplexTransport<ApiTransport<T>, IdTagger>, RequestEnvelope>,
@@ -23,13 +23,13 @@ pub enum Error<T: WebSocketTransport> {
 }
 
 #[derive(Error, Debug)]
-pub enum TransportError<T: WebSocketTransport> {
+pub enum TransportError<R, W> {
     #[error("failed to parse JSON")]
     Json(#[from] serde_json::Error),
     #[error("read error")]
-    Read(T::StreamError),
+    Read(R),
     #[error("write error")]
-    Write(T::SinkError),
+    Write(W),
 }
 
 impl<T: WebSocketTransport> Error<T> {

@@ -29,7 +29,7 @@ impl<T> Sink<RequestEnvelope> for ApiTransport<T>
 where
     T: WebSocketTransport,
 {
-    type Error = TransportError<T>;
+    type Error = TransportError<T::StreamError, T::SinkError>;
 
     fn poll_ready(mut self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Result<(), Self::Error>> {
         self.as_mut()
@@ -69,7 +69,7 @@ impl<T> Stream for ApiTransport<T>
 where
     T: WebSocketTransport,
 {
-    type Item = Result<ResponseEnvelope, TransportError<T>>;
+    type Item = Result<ResponseEnvelope, TransportError<T::StreamError, T::SinkError>>;
 
     fn poll_next(self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Option<Self::Item>> {
         let mut this = self.project();
