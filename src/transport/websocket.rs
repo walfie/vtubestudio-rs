@@ -16,7 +16,7 @@ pub trait WebSocketTransport: 'static {
         + Debug
         + 'static;
 
-    fn extract_text(msg: Self::Message) -> Result<Option<String>, Self::Message>;
+    fn extract_text(msg: Self::Message) -> Option<String>;
     fn create_message(text: String) -> Self::Message;
 }
 
@@ -33,11 +33,11 @@ where
     type StreamError = tungstenite::Error;
     type Underlying = tokio_tungstenite::WebSocketStream<S>;
 
-    fn extract_text(msg: Self::Message) -> Result<Option<String>, Self::Message> {
-        match msg {
-            Self::Message::Text(s) => Ok(Some(s)),
-            Self::Message::Ping(..) => Ok(None),
-            other => Err(other),
+    fn extract_text(msg: Self::Message) -> Option<String> {
+        if let Self::Message::Text(s) = msg {
+            Some(s)
+        } else {
+            None
         }
     }
 

@@ -76,14 +76,12 @@ where
 
         Poll::Ready(loop {
             match futures_util::ready!(this.inner.as_mut().poll_next(cx)) {
-                Some(Ok(msg)) => match T::extract_text(msg) {
-                    Ok(Some(s)) => {
+                Some(Ok(msg)) => {
+                    if let Some(s) = T::extract_text(msg) {
                         let json = serde_json::from_str(&s).map_err(TransportError::Json);
                         break Some(json);
                     }
-                    Ok(None) => (),
-                    Err(msg) => break Some(Err(TransportError::UnexpectedMessage(msg))),
-                },
+                }
                 Some(Err(e)) => break Some(Err(TransportError::Read(e))),
                 None => break None,
             }

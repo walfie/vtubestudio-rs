@@ -30,8 +30,6 @@ pub enum TransportError<T: WebSocketTransport> {
     Read(T::StreamError),
     #[error("write error")]
     Write(T::SinkError),
-    #[error("unexpected websocket message")]
-    UnexpectedMessage(T::Message),
 }
 
 impl<T: WebSocketTransport> Error<T> {
