@@ -30,7 +30,7 @@ impl TagStore<RequestEnvelope, ResponseEnvelope> for IdTagger {
 pub struct Client<T: WebSocketTransport> {
     client: MultiplexClient<
         MultiplexTransport<ApiTransport<T>, IdTagger>,
-        crate::Error<T>,
+        Error<T::StreamError, T::SinkError>,
         RequestEnvelope,
     >,
 }
@@ -49,13 +49,11 @@ where
         Self { client }
     }
 
-    pub async fn send<Req: Request>(&mut self, data: Req) -> Result<Req::Response, Error<T>> {
-        let msg = RequestEnvelope {
-            api_name: "VTubeStudioPublicAPI".into(),
-            api_version: "1.0".into(),
-            request_id: None, // This will be filled by `IdTagger`
-            data: data.into(),
-        };
+    pub async fn send<Req: Request>(
+        &mut self,
+        data: Req,
+    ) -> Result<Req::Response, Error<T::StreamError, T::SinkError>> {
+        let msg = RequestEnvelope::new(data.into());
 
         let resp = self.client.ready().await?.call(msg).await?;
 
