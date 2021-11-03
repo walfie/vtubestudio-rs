@@ -4,6 +4,9 @@ use serde::{Deserialize, Serialize};
 use std::borrow::Cow;
 use std::convert::TryFrom;
 
+pub const API_NAME: &'static str = "VTubeStudioPublicAPI";
+pub const API_VERSION: &'static str = "1.0";
+
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct RequestEnvelope {
@@ -13,6 +16,17 @@ pub struct RequestEnvelope {
     pub request_id: Option<String>,
     #[serde(flatten)]
     pub data: RequestData,
+}
+
+impl RequestEnvelope {
+    pub fn new(data: RequestData) -> Self {
+        Self {
+            api_name: Cow::Borrowed(API_NAME),
+            api_version: Cow::Borrowed(API_VERSION),
+            request_id: None,
+            data,
+        }
+    }
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]

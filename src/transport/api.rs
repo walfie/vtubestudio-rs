@@ -29,14 +29,14 @@ impl<T> Sink<RequestEnvelope> for ApiTransport<T>
 where
     T: WebSocketTransport,
 {
-    type Error = TransportError<T::StreamError, T::SinkError>;
+    type Error = TransportError<T::SinkError>;
 
     fn poll_ready(mut self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Result<(), Self::Error>> {
         self.as_mut()
             .project()
             .inner
             .poll_ready(cx)
-            .map_err(TransportError::Write)
+            .map_err(TransportError::Underlying)
     }
 
     fn start_send(mut self: Pin<&mut Self>, item: RequestEnvelope) -> Result<(), Self::Error> {
@@ -45,7 +45,7 @@ where
             .project()
             .inner
             .start_send(T::create_message(json))
-            .map_err(TransportError::Write)
+            .map_err(TransportError::Underlying)
     }
 
     fn poll_flush(mut self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Result<(), Self::Error>> {
@@ -53,7 +53,7 @@ where
             .project()
             .inner
             .poll_flush(cx)
-            .map_err(TransportError::Write)
+            .map_err(TransportError::Underlying)
     }
 
     fn poll_close(mut self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Result<(), Self::Error>> {
@@ -61,7 +61,7 @@ where
             .project()
             .inner
             .poll_close(cx)
-            .map_err(TransportError::Write)
+            .map_err(TransportError::Underlying)
     }
 }
 
@@ -69,7 +69,7 @@ impl<T> Stream for ApiTransport<T>
 where
     T: WebSocketTransport,
 {
-    type Item = Result<ResponseEnvelope, TransportError<T::StreamError, T::SinkError>>;
+    type Item = Result<ResponseEnvelope, TransportError<T::StreamError>>;
 
     fn poll_next(self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Option<Self::Item>> {
         let mut this = self.project();
@@ -82,7 +82,7 @@ where
                         break Some(json);
                     }
                 }
-                Some(Err(e)) => break Some(Err(TransportError::Read(e))),
+                Some(Err(e)) => break Some(Err(TransportError::Underlying(e))),
                 None => break None,
             }
         })
