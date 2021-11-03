@@ -16,7 +16,6 @@ tokio = { version = "1.13.0", features = ["sync"] }
 tokio-tower = "0.6.0"
 tokio-tungstenite = "0.15.0"
 tower = { version = "0.4.10", features = ["util"] }
-uuid = { version = "0.8.2", features = ["v4"] }
 
 [dev-dependencies]
 tokio = { version = "1.13.0", features = ["macros"] }
