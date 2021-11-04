@@ -1,5 +1,5 @@
 use crate::data::{Request, RequestEnvelope, Response, ResponseData, ResponseEnvelope};
-use crate::error::Error;
+use crate::error::{Error, MultiplexError, TransportError};
 use crate::transport::{ApiTransport, WebSocketTransport};
 
 use std::convert::TryFrom;
@@ -30,7 +30,7 @@ impl TagStore<RequestEnvelope, ResponseEnvelope> for IdTagger {
 pub struct Client<T: WebSocketTransport> {
     client: MultiplexClient<
         MultiplexTransport<ApiTransport<T>, IdTagger>,
-        Error<T::StreamError, T::SinkError>,
+        MultiplexError<TransportError<T::StreamError>, TransportError<T::SinkError>>,
         RequestEnvelope,
     >,
 }
@@ -52,7 +52,8 @@ where
     pub async fn send<Req: Request>(
         &mut self,
         data: Req,
-    ) -> Result<Req::Response, Error<T::StreamError, T::SinkError>> {
+    ) -> Result<Req::Response, Error<TransportError<T::StreamError>, TransportError<T::SinkError>>>
+    {
         let msg = RequestEnvelope::new(data.into());
 
         let resp = self.client.ready().await?.call(msg).await?;

@@ -6,18 +6,8 @@ use thiserror::Error;
 
 #[derive(Error, Debug)]
 pub enum Error<R, W> {
-    #[error("underlying transport failed while attempting to receive a response")]
-    Read(R),
-    #[error("underlying transport failed to send a request")]
-    Write(W),
-    #[error("failed to parse JSON")]
-    Json(#[from] serde_json::Error),
-    #[error("no more in-flight requests allowed")]
-    TransportFull,
-    #[error("connection was dropped")]
-    ConnectionDropped,
-    #[error("received server response with unexpected request ID")]
-    Desynchronized,
+    #[error("transport error")]
+    Transport(#[from] MultiplexError<R, W>),
     #[error("received APIError {}: {}", .0.error_id, .0.message)]
     Api(ApiError),
     #[error("received unexpected response (expected {expected}, received {received:?})")]
@@ -35,21 +25,34 @@ pub enum TransportError<E> {
     Json(#[from] serde_json::Error),
 }
 
-impl<T, I, R, W> From<tokio_tower::Error<T, I>> for Error<R, W>
+#[derive(Error, Debug)]
+pub enum MultiplexError<R, W> {
+    #[error("underlying transport failed while attempting to receive a response")]
+    Read(R),
+    #[error("underlying transport failed to send a request")]
+    Write(W),
+    #[error("no more in-flight requests allowed")]
+    TransportFull,
+    #[error("connection was dropped")]
+    ConnectionDropped,
+    #[error("received server response with unexpected request ID")]
+    Desynchronized,
+}
+
+impl<T, I> From<tokio_tower::Error<T, I>>
+    for MultiplexError<<T as TryStream>::Error, <T as Sink<I>>::Error>
 where
-    T: Sink<I, Error = TransportError<W>> + TryStream<Error = TransportError<R>>,
+    T: Sink<I> + TryStream,
 {
     fn from(error: tokio_tower::Error<T, I>) -> Self {
         use tokio_tower::Error::*;
 
         match error {
-            BrokenTransportSend(TransportError::Underlying(e)) => Error::Write(e),
-            BrokenTransportSend(TransportError::Json(e)) => Error::Json(e),
-            BrokenTransportRecv(Some(TransportError::Underlying(e))) => Error::Read(e),
-            BrokenTransportRecv(Some(TransportError::Json(e))) => Error::Json(e),
-            BrokenTransportRecv(None) | ClientDropped => Error::ConnectionDropped,
-            TransportFull => Error::TransportFull,
-            Desynchronized => Error::Desynchronized,
+            BrokenTransportSend(e) => Self::Write(e),
+            BrokenTransportRecv(Some(e)) => Self::Read(e),
+            BrokenTransportRecv(None) | ClientDropped => Self::ConnectionDropped,
+            TransportFull => Self::TransportFull,
+            Desynchronized => Self::Desynchronized,
         }
     }
 }
