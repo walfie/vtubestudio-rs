@@ -1,6 +1,6 @@
 use crate::data::{RequestEnvelope, ResponseEnvelope};
 use crate::error::TransportError;
-use crate::transport2::convert::MessageConvert;
+use crate::transport2::codec::MessageCodec;
 
 use futures_core::{Stream, TryStream};
 use futures_sink::Sink;
@@ -10,32 +10,29 @@ use std::task::{Context, Poll};
 
 pin_project! {
     #[derive(Debug, Clone)]
-    pub struct ApiTransport<T, M> {
+    pub struct ApiTransport<T, C> {
         #[pin]
         transport: T,
-        converter: M
+        codec: C
     }
 }
 
-impl<T, M> ApiTransport<T, M>
+impl<T, C> ApiTransport<T, C>
 where
-    T: Sink<M::Message> + TryStream,
-    M: MessageConvert,
+    T: Sink<C::Message> + TryStream,
+    C: MessageCodec,
 {
-    pub fn new(transport: T, converter: M) -> Self {
-        Self {
-            transport,
-            converter,
-        }
+    pub fn new(transport: T, codec: C) -> Self {
+        Self { transport, codec }
     }
 }
 
-impl<T, M> Sink<RequestEnvelope> for ApiTransport<T, M>
+impl<T, C> Sink<RequestEnvelope> for ApiTransport<T, C>
 where
-    T: Sink<M::Message>,
-    M: MessageConvert,
+    T: Sink<C::Message>,
+    C: MessageCodec,
 {
-    type Error = TransportError<<T as Sink<M::Message>>::Error>;
+    type Error = TransportError<<T as Sink<C::Message>>::Error>;
 
     fn poll_ready(mut self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Result<(), Self::Error>> {
         self.as_mut()
@@ -50,7 +47,7 @@ where
         self.as_mut()
             .project()
             .transport
-            .start_send(M::create_message(json))
+            .start_send(C::create_message(json))
             .map_err(TransportError::Underlying)
     }
 
@@ -71,10 +68,10 @@ where
     }
 }
 
-impl<T, M> Stream for ApiTransport<T, M>
+impl<T, C> Stream for ApiTransport<T, C>
 where
-    T: TryStream<Ok = M::Message>,
-    M: MessageConvert,
+    T: TryStream<Ok = C::Message>,
+    C: MessageCodec,
 {
     type Item = Result<ResponseEnvelope, TransportError<<T as TryStream>::Error>>;
 
@@ -84,7 +81,7 @@ where
         Poll::Ready(loop {
             match futures_util::ready!(this.transport.as_mut().try_poll_next(cx)) {
                 Some(Ok(msg)) => {
-                    if let Some(s) = M::extract_text(msg) {
+                    if let Some(s) = C::extract_text(msg) {
                         let json = serde_json::from_str(&s).map_err(TransportError::Json);
                         break Some(json);
                     }

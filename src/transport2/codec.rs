@@ -1,4 +1,4 @@
-pub trait MessageConvert {
+pub trait MessageCodec {
     type Message;
 
     fn extract_text(msg: Self::Message) -> Option<String>;
@@ -8,7 +8,7 @@ pub trait MessageConvert {
 #[derive(Debug)]
 pub struct Tungstenite;
 
-impl MessageConvert for Tungstenite {
+impl MessageCodec for Tungstenite {
     type Message = tokio_tungstenite::tungstenite::Message;
 
     fn extract_text(msg: Self::Message) -> Option<String> {
