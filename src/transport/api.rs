@@ -1,6 +1,6 @@
+use crate::codec::MessageCodec;
 use crate::data::{RequestEnvelope, ResponseEnvelope};
 use crate::error::TransportError;
-use crate::transport::codec::MessageCodec;
 
 use futures_core::{Stream, TryStream};
 use futures_sink::Sink;
@@ -43,11 +43,11 @@ where
     }
 
     fn start_send(mut self: Pin<&mut Self>, item: RequestEnvelope) -> Result<(), Self::Error> {
-        let json = serde_json::to_string(&item).map_err(TransportError::Json)?;
+        let json_str = serde_json::to_string(&item).map_err(TransportError::Json)?;
         self.as_mut()
             .project()
             .transport
-            .start_send(C::create_message(json))
+            .start_send(C::encode(json_str))
             .map_err(TransportError::Underlying)
     }
 
@@ -81,7 +81,7 @@ where
         Poll::Ready(loop {
             match futures_util::ready!(this.transport.as_mut().try_poll_next(cx)) {
                 Some(Ok(msg)) => {
-                    if let Some(s) = C::extract_text(msg) {
+                    if let Some(s) = C::decode(msg) {
                         let json = serde_json::from_str(&s).map_err(TransportError::Json);
                         break Some(json);
                     }
