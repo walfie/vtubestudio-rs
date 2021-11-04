@@ -1,8 +1,10 @@
 use crate::data::{Request, RequestEnvelope, Response, ResponseData, ResponseEnvelope};
-use crate::error::{Error, MultiplexError, TransportError};
-use crate::transport::{ApiTransport, WebSocketTransport};
+use crate::error::{Error, MultiplexError};
 
+use futures_core::TryStream;
+use futures_sink::Sink;
 use std::convert::TryFrom;
+use std::error::Error as StdError;
 use std::pin::Pin;
 use tokio_tower::multiplex::{Client as MultiplexClient, MultiplexTransport, TagStore};
 use tower::util::ServiceExt;
@@ -27,23 +29,27 @@ impl TagStore<RequestEnvelope, ResponseEnvelope> for IdTagger {
 }
 
 #[derive(Debug)]
-pub struct Client<T: WebSocketTransport> {
+pub struct Client<T>
+where
+    T: Sink<RequestEnvelope> + TryStream,
+{
     client: MultiplexClient<
-        MultiplexTransport<ApiTransport<T>, IdTagger>,
-        MultiplexError<TransportError<T::StreamError>, TransportError<T::SinkError>>,
+        MultiplexTransport<T, IdTagger>,
+        MultiplexError<<T as TryStream>::Error, <T as Sink<RequestEnvelope>>::Error>,
         RequestEnvelope,
     >,
 }
 
 impl<T> Client<T>
 where
-    T: WebSocketTransport,
+    T: Sink<RequestEnvelope> + TryStream<Ok = ResponseEnvelope> + Send + 'static,
+    <T as Sink<RequestEnvelope>>::Error: StdError + Send,
+    <T as TryStream>::Error: StdError + Send,
 {
-    pub fn new(ws_transport: T::Underlying) -> Self {
+    pub fn new(transport: T) -> Self {
         let tagger = IdTagger(0);
 
-        let api_transport = ApiTransport::new(ws_transport);
-        let multiplex_transport = MultiplexTransport::new(api_transport, tagger);
+        let multiplex_transport = MultiplexTransport::new(transport, tagger);
         let client = MultiplexClient::new(multiplex_transport);
 
         Self { client }
@@ -52,7 +58,7 @@ where
     pub async fn send<Req: Request>(
         &mut self,
         data: Req,
-    ) -> Result<Req::Response, Error<TransportError<T::StreamError>, TransportError<T::SinkError>>>
+    ) -> Result<Req::Response, Error<<T as TryStream>::Error, <T as Sink<RequestEnvelope>>::Error>>
     {
         let msg = RequestEnvelope::new(data.into());
 

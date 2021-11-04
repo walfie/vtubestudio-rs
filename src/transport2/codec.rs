@@ -6,9 +6,9 @@ pub trait MessageCodec {
 }
 
 #[derive(Debug)]
-pub struct Tungstenite;
+pub struct TungsteniteCodec;
 
-impl MessageCodec for Tungstenite {
+impl MessageCodec for TungsteniteCodec {
     type Message = tokio_tungstenite::tungstenite::Message;
 
     fn extract_text(msg: Self::Message) -> Option<String> {
