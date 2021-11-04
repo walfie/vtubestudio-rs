@@ -1,40 +1,43 @@
 use crate::data::{RequestEnvelope, ResponseEnvelope};
 use crate::error::TransportError;
-use crate::transport::WebSocketTransport;
+use crate::transport::codec::MessageCodec;
 
-use futures_core::Stream;
+use futures_core::{Stream, TryStream};
 use futures_sink::Sink;
 use pin_project_lite::pin_project;
 use std::pin::Pin;
 use std::task::{Context, Poll};
 
 pin_project! {
-    #[derive(Debug)]
-    pub struct ApiTransport<T: WebSocketTransport> {
+    #[derive(Debug, Clone)]
+    pub struct ApiTransport<T, C> {
         #[pin]
-        inner: T::Underlying
+        transport: T,
+        codec: C
     }
 }
 
-impl<T> ApiTransport<T>
+impl<T, C> ApiTransport<T, C>
 where
-    T: WebSocketTransport,
+    T: Sink<C::Message> + TryStream,
+    C: MessageCodec,
 {
-    pub fn new(inner: T::Underlying) -> Self {
-        Self { inner }
+    pub fn new(transport: T, codec: C) -> Self {
+        Self { transport, codec }
     }
 }
 
-impl<T> Sink<RequestEnvelope> for ApiTransport<T>
+impl<T, C> Sink<RequestEnvelope> for ApiTransport<T, C>
 where
-    T: WebSocketTransport,
+    T: Sink<C::Message>,
+    C: MessageCodec,
 {
-    type Error = TransportError<T::SinkError>;
+    type Error = TransportError<<T as Sink<C::Message>>::Error>;
 
     fn poll_ready(mut self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Result<(), Self::Error>> {
         self.as_mut()
             .project()
-            .inner
+            .transport
             .poll_ready(cx)
             .map_err(TransportError::Underlying)
     }
@@ -43,15 +46,15 @@ where
         let json = serde_json::to_string(&item).map_err(TransportError::Json)?;
         self.as_mut()
             .project()
-            .inner
-            .start_send(T::create_message(json))
+            .transport
+            .start_send(C::create_message(json))
             .map_err(TransportError::Underlying)
     }
 
     fn poll_flush(mut self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Result<(), Self::Error>> {
         self.as_mut()
             .project()
-            .inner
+            .transport
             .poll_flush(cx)
             .map_err(TransportError::Underlying)
     }
@@ -59,25 +62,26 @@ where
     fn poll_close(mut self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Result<(), Self::Error>> {
         self.as_mut()
             .project()
-            .inner
+            .transport
             .poll_close(cx)
             .map_err(TransportError::Underlying)
     }
 }
 
-impl<T> Stream for ApiTransport<T>
+impl<T, C> Stream for ApiTransport<T, C>
 where
-    T: WebSocketTransport,
+    T: TryStream<Ok = C::Message>,
+    C: MessageCodec,
 {
-    type Item = Result<ResponseEnvelope, TransportError<T::StreamError>>;
+    type Item = Result<ResponseEnvelope, TransportError<<T as TryStream>::Error>>;
 
     fn poll_next(self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Option<Self::Item>> {
         let mut this = self.project();
 
         Poll::Ready(loop {
-            match futures_util::ready!(this.inner.as_mut().poll_next(cx)) {
+            match futures_util::ready!(this.transport.as_mut().try_poll_next(cx)) {
                 Some(Ok(msg)) => {
-                    if let Some(s) = T::extract_text(msg) {
+                    if let Some(s) = C::extract_text(msg) {
                         let json = serde_json::from_str(&s).map_err(TransportError::Json);
                         break Some(json);
                     }
@@ -86,9 +90,5 @@ where
                 None => break None,
             }
         })
-    }
-
-    fn size_hint(&self) -> (usize, Option<usize>) {
-        self.inner.size_hint()
     }
 }
