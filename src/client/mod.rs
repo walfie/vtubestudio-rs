@@ -4,7 +4,6 @@ use crate::error::{Error, MultiplexError};
 use futures_core::TryStream;
 use futures_sink::Sink;
 use std::convert::TryFrom;
-use std::error::Error as StdError;
 use std::future::Future;
 use std::pin::Pin;
 use std::task::{Context, Poll};
@@ -51,10 +50,19 @@ where
     <T as TryStream>::Error: Send,
 {
     pub fn new(transport: T) -> Self {
+        Self::with_error_handler(transport, |_| ())
+    }
+
+    pub fn with_error_handler<F>(transport: T, on_service_error: F) -> Self
+    where
+        F: FnOnce(MultiplexError<<T as TryStream>::Error, <T as Sink<RequestEnvelope>>::Error>)
+            + Send
+            + 'static,
+    {
         let tagger = IdTagger(0);
 
         let multiplex_transport = MultiplexTransport::new(transport, tagger);
-        let client = MultiplexClient::new(multiplex_transport);
+        let client = MultiplexClient::with_error_handler(multiplex_transport, on_service_error);
 
         Self { client }
     }
