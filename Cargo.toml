@@ -21,5 +21,5 @@ tower = { version = "0.4.10", features = ["util"] }
 tokio = { version = "1.13.0", features = ["macros"] }
 tokio-stream = "0.1.8"
 tokio-util = { version = "0.6.9", features = ["codec"] }
-tower = { version = "0.4.10", features = ["reconnect"] }
+tower = { version = "0.4.10", features = ["reconnect", "retry"] }
 tower-test = "0.4.0"

@@ -11,7 +11,7 @@ use tokio_tungstenite::tungstenite::client::IntoClientRequest;
 use tokio_tungstenite::{MaybeTlsStream, WebSocketStream};
 use tower::Service;
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct TungsteniteConnector;
 
 impl<R> Service<R> for TungsteniteConnector
