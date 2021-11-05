@@ -1,3 +1,5 @@
+pub(crate) mod maker;
+
 use crate::data::{Request, RequestEnvelope, Response, ResponseData, ResponseEnvelope};
 use crate::error::{Error, MultiplexError};
 
