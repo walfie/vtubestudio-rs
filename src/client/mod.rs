@@ -3,7 +3,6 @@ use crate::error::{Error, MultiplexError};
 
 use futures_core::TryStream;
 use futures_sink::Sink;
-use futures_util::TryFutureExt;
 use std::convert::TryFrom;
 use std::error::Error as StdError;
 use std::future::Future;
@@ -31,23 +30,25 @@ impl TagStore<RequestEnvelope, ResponseEnvelope> for IdTagger {
     }
 }
 
+type ClientInner<T> = MultiplexClient<
+    MultiplexTransport<T, IdTagger>,
+    MultiplexError<<T as TryStream>::Error, <T as Sink<RequestEnvelope>>::Error>,
+    RequestEnvelope,
+>;
+
 #[derive(Debug)]
 pub struct Client<T>
 where
     T: Sink<RequestEnvelope> + TryStream,
 {
-    client: MultiplexClient<
-        MultiplexTransport<T, IdTagger>,
-        MultiplexError<<T as TryStream>::Error, <T as Sink<RequestEnvelope>>::Error>,
-        RequestEnvelope,
-    >,
+    client: ClientInner<T>,
 }
 
 impl<T> Client<T>
 where
     T: Sink<RequestEnvelope> + TryStream<Ok = ResponseEnvelope> + Send + 'static,
-    <T as Sink<RequestEnvelope>>::Error: StdError + Send,
-    <T as TryStream>::Error: StdError + Send,
+    <T as Sink<RequestEnvelope>>::Error: Send,
+    <T as TryStream>::Error: Send,
 {
     pub fn new(transport: T) -> Self {
         let tagger = IdTagger(0);
@@ -81,58 +82,18 @@ where
 impl<T> Service<RequestEnvelope> for Client<T>
 where
     T: Sink<RequestEnvelope> + TryStream<Ok = ResponseEnvelope> + Send + 'static,
-    <T as Sink<RequestEnvelope>>::Error: StdError + Send,
-    <T as TryStream>::Error: StdError + Send,
+    <T as Sink<RequestEnvelope>>::Error: Send,
+    <T as TryStream>::Error: Send,
 {
     type Response = ResponseEnvelope;
-    type Error = Error<<T as TryStream>::Error, <T as Sink<RequestEnvelope>>::Error>;
+    type Error = MultiplexError<<T as TryStream>::Error, <T as Sink<RequestEnvelope>>::Error>;
     type Future = Pin<Box<dyn Future<Output = Result<Self::Response, Self::Error>> + Send>>;
 
     fn poll_ready(&mut self, cx: &mut Context<'_>) -> Poll<Result<(), Self::Error>> {
-        self.client.poll_ready(cx).map_err(Error::from)
+        self.client.poll_ready(cx)
     }
 
     fn call(&mut self, req: RequestEnvelope) -> Self::Future {
-        Box::pin(self.client.call(req).map_err(Error::from))
-    }
-}
-
-impl<T, Req> Service<Req> for Client<T>
-where
-    T: Sink<RequestEnvelope> + TryStream<Ok = ResponseEnvelope> + Send + 'static,
-    Req: Request + Send,
-    <T as Sink<RequestEnvelope>>::Error: StdError + Send,
-    <T as TryStream>::Error: StdError + Send,
-{
-    type Response = Req::Response;
-
-    type Error = Error<<T as TryStream>::Error, <T as Sink<RequestEnvelope>>::Error>;
-    type Future = Pin<Box<dyn Future<Output = Result<Self::Response, Self::Error>> + Send>>;
-
-    fn poll_ready(&mut self, cx: &mut Context<'_>) -> Poll<Result<(), Self::Error>> {
-        self.client.poll_ready(cx).map_err(Error::from)
-    }
-
-    fn call(&mut self, req: Req) -> Self::Future {
-        let msg = RequestEnvelope::new(req.into());
-
-        use futures_util::future::ready;
-
-        let resp = self
-            .client
-            .call(msg)
-            .map_err(Self::Error::from)
-            .and_then(|resp| {
-                ready(match Req::Response::try_from(resp.data) {
-                    Ok(data) => Ok(data),
-                    Err(ResponseData::ApiError(e)) => Err(Error::Api(e)),
-                    Err(e) => Err(Error::UnexpectedResponse {
-                        expected: Req::Response::MESSAGE_TYPE,
-                        received: e,
-                    }),
-                })
-            });
-
-        Box::pin(resp)
+        self.client.call(req)
     }
 }
