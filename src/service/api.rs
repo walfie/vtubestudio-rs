@@ -1,5 +1,3 @@
-pub(crate) mod maker;
-
 use crate::data::{Request, RequestEnvelope, Response, ResponseData, ResponseEnvelope};
 use crate::error::Error;
 
@@ -31,21 +29,21 @@ impl TagStore<RequestEnvelope, ResponseEnvelope> for IdTagger {
     }
 }
 
-type ClientInner<T> = MultiplexClient<
+type ServiceInner<T> = MultiplexClient<
     MultiplexTransport<T, IdTagger>,
     Error<<T as TryStream>::Error, <T as Sink<RequestEnvelope>>::Error>,
     RequestEnvelope,
 >;
 
 #[derive(Debug)]
-pub struct Client<T>
+pub struct ApiService<T>
 where
     T: Sink<RequestEnvelope> + TryStream,
 {
-    client: ClientInner<T>,
+    client: ServiceInner<T>,
 }
 
-impl<T> Client<T>
+impl<T> ApiService<T>
 where
     T: Sink<RequestEnvelope> + TryStream<Ok = ResponseEnvelope> + Send + 'static,
     <T as Sink<RequestEnvelope>>::Error: Send,
@@ -89,7 +87,7 @@ where
     }
 }
 
-impl<T> Service<RequestEnvelope> for Client<T>
+impl<T> Service<RequestEnvelope> for ApiService<T>
 where
     T: Sink<RequestEnvelope> + TryStream<Ok = ResponseEnvelope> + Send + 'static,
     <T as Sink<RequestEnvelope>>::Error: Send,

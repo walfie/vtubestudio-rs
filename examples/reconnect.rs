@@ -4,7 +4,9 @@ use tower::util::ServiceExt;
 use tower::Service;
 use vtubestudio::data::*;
 use vtubestudio::Error;
-use vtubestudio::{ApiTransport, Client, ClientMaker, TungsteniteCodec, TungsteniteConnector};
+use vtubestudio::{
+    ApiService, ApiTransport, MakeApiService, TungsteniteCodec, TungsteniteConnector,
+};
 
 use tokio::net::TcpStream;
 use tokio_tungstenite::tungstenite;
@@ -15,9 +17,9 @@ async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
     let url = "ws://localhost:8001";
 
     let mut client = Reconnect::new::<
-        Client<ApiTransport<WebSocketStream<MaybeTlsStream<TcpStream>>, TungsteniteCodec>>,
+        ApiService<ApiTransport<WebSocketStream<MaybeTlsStream<TcpStream>>, TungsteniteCodec>>,
         &str,
-    >(ClientMaker::new(TungsteniteConnector), url);
+    >(MakeApiService::new(TungsteniteConnector), url);
 
     // TODO: Retry request if `ConnectionDropped`
     // let mut client = Retry::new(RetryOnDisconnect, client);

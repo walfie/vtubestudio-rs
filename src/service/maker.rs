@@ -1,5 +1,5 @@
-use crate::client::Client;
 use crate::data::{RequestEnvelope, ResponseEnvelope};
+use crate::service::api::ApiService;
 
 use futures_util::future::MapOk;
 use futures_util::TryFutureExt;
@@ -9,12 +9,12 @@ use tokio_tower::MakeTransport;
 use tower::Service;
 
 #[derive(Debug)]
-pub struct ClientMaker<M, R> {
+pub struct MakeApiService<M, R> {
     maker: M,
     _req: PhantomData<fn(R)>,
 }
 
-impl<M, R> ClientMaker<M, R>
+impl<M, R> MakeApiService<M, R>
 where
     M: MakeTransport<R, RequestEnvelope, Item = ResponseEnvelope>,
 {
@@ -26,7 +26,7 @@ where
     }
 }
 
-impl<M, R> Service<R> for ClientMaker<M, R>
+impl<M, R> Service<R> for MakeApiService<M, R>
 where
     M: MakeTransport<R, RequestEnvelope, Item = ResponseEnvelope> + Send,
     M::Future: Send + 'static,
@@ -34,7 +34,7 @@ where
     M::Error: Send,
     M::SinkError: Send,
 {
-    type Response = Client<M::Transport>;
+    type Response = ApiService<M::Transport>;
     type Error = M::MakeError;
     type Future = MapOk<M::Future, fn(M::Transport) -> Self::Response>;
 
@@ -43,6 +43,6 @@ where
     }
 
     fn call(&mut self, request: R) -> Self::Future {
-        self.maker.make_transport(request).map_ok(Client::new)
+        self.maker.make_transport(request).map_ok(ApiService::new)
     }
 }
