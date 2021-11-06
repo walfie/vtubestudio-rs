@@ -1,6 +1,6 @@
 use crate::client::Client;
 use crate::data::{RequestEnvelope, ResponseEnvelope};
-use crate::error::Error;
+use crate::error::TransportError;
 
 use futures_core::TryStream;
 use futures_sink::Sink;
@@ -30,7 +30,7 @@ impl TagStore<RequestEnvelope, ResponseEnvelope> for IdTagger {
 
 type ServiceInner<T> = MultiplexClient<
     MultiplexTransport<T, IdTagger>,
-    Error<<T as TryStream>::Error, <T as Sink<RequestEnvelope>>::Error>,
+    TransportError<<T as TryStream>::Error, <T as Sink<RequestEnvelope>>::Error>,
     RequestEnvelope,
 >;
 
@@ -54,7 +54,7 @@ where
 
     pub fn with_error_handler<F>(transport: T, on_service_error: F) -> Self
     where
-        F: FnOnce(Error<<T as TryStream>::Error, <T as Sink<RequestEnvelope>>::Error>)
+        F: FnOnce(TransportError<<T as TryStream>::Error, <T as Sink<RequestEnvelope>>::Error>)
             + Send
             + 'static,
     {
@@ -78,7 +78,7 @@ where
     <T as TryStream>::Error: Send,
 {
     type Response = ResponseEnvelope;
-    type Error = Error<<T as TryStream>::Error, <T as Sink<RequestEnvelope>>::Error>;
+    type Error = TransportError<<T as TryStream>::Error, <T as Sink<RequestEnvelope>>::Error>;
     type Future = Pin<Box<dyn Future<Output = Result<Self::Response, Self::Error>> + Send>>;
 
     fn poll_ready(&mut self, cx: &mut Context<'_>) -> Poll<Result<(), Self::Error>> {

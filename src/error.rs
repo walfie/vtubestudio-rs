@@ -5,17 +5,9 @@ use futures_sink::Sink;
 use thiserror::Error;
 
 #[derive(Error, Debug)]
-pub enum Error<R, W> {
-    #[error("underlying transport failed while attempting to receive a response")]
-    Read(R),
-    #[error("underlying transport failed to send a request")]
-    Write(W),
-    #[error("no more in-flight requests allowed")]
-    TransportFull,
-    #[error("connection was dropped")]
-    ConnectionDropped,
-    #[error("received server response with unexpected request ID")]
-    Desynchronized,
+pub enum Error<T> {
+    #[error("transport error")]
+    Transport(T),
     #[error("received APIError {}: {}", .0.error_id, .0.message)]
     Api(ApiError),
     #[error("received unexpected response (expected {expected}, received {received:?})")]
@@ -26,14 +18,29 @@ pub enum Error<R, W> {
 }
 
 #[derive(Error, Debug)]
-pub enum TransportError<E> {
-    #[error("underlying transport failed")]
+pub enum TransportError<R, W> {
+    #[error("underlying transport failed while attempting to receive a response")]
+    Read(R),
+    #[error("underlying transport failed to send a request")]
+    Write(W),
+    #[error("no more in-flight requests allowed")]
+    TransportFull,
+    #[error("connection was dropped")]
+    ConnectionDropped,
+    #[error("received server response with unexpected request ID")]
+    Desynchronized,
+}
+
+#[derive(Error, Debug)]
+pub enum WebSocketError<E> {
+    #[error("underlying websocket transport failed")]
     Underlying(E),
     #[error("failed to parse JSON")]
     Json(#[from] serde_json::Error),
 }
 
-impl<T, I> From<tokio_tower::Error<T, I>> for Error<<T as TryStream>::Error, <T as Sink<I>>::Error>
+impl<T, I> From<tokio_tower::Error<T, I>>
+    for TransportError<<T as TryStream>::Error, <T as Sink<I>>::Error>
 where
     T: Sink<I> + TryStream,
 {
@@ -50,7 +57,7 @@ where
     }
 }
 
-impl<R, W> Error<R, W> {
+impl<T> Error<T> {
     pub fn is_auth_error(&self) -> bool {
         matches!(self, Error::Api(e) if e.is_auth_error())
     }

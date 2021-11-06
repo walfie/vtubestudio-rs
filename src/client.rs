@@ -9,9 +9,9 @@ pub struct Client<S> {
     inner: S,
 }
 
-impl<S, R, W> Client<S>
+impl<S> Client<S>
 where
-    S: Service<RequestEnvelope, Response = ResponseEnvelope, Error = Error<R, W>>,
+    S: Service<RequestEnvelope, Response = ResponseEnvelope>,
 {
     pub fn new(service: S) -> Self {
         Self { inner: service }
@@ -21,10 +21,20 @@ where
         self.inner
     }
 
-    pub async fn send<Req: Request>(&mut self, data: Req) -> Result<Req::Response, Error<R, W>> {
+    pub async fn send<Req: Request>(
+        &mut self,
+        data: Req,
+    ) -> Result<Req::Response, Error<S::Error>> {
         let msg = RequestEnvelope::new(data.into());
 
-        let resp = self.inner.ready().await?.call(msg).await?;
+        let resp = self
+            .inner
+            .ready()
+            .await
+            .map_err(Error::Transport)?
+            .call(msg)
+            .await
+            .map_err(Error::Transport)?;
 
         match Req::Response::try_from(resp.data) {
             Ok(data) => Ok(data),
