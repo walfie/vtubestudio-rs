@@ -1,14 +1,13 @@
-use crate::data::{Request, RequestEnvelope, Response, ResponseData, ResponseEnvelope};
+use crate::client::Client;
+use crate::data::{RequestEnvelope, ResponseEnvelope};
 use crate::error::Error;
 
 use futures_core::TryStream;
 use futures_sink::Sink;
-use std::convert::TryFrom;
 use std::future::Future;
 use std::pin::Pin;
 use std::task::{Context, Poll};
 use tokio_tower::multiplex::{Client as MultiplexClient, MultiplexTransport, TagStore};
-use tower::util::ServiceExt;
 use tower::Service;
 
 #[derive(Debug)]
@@ -67,23 +66,8 @@ where
         Self { client }
     }
 
-    pub async fn send<Req: Request>(
-        &mut self,
-        data: Req,
-    ) -> Result<Req::Response, Error<<T as TryStream>::Error, <T as Sink<RequestEnvelope>>::Error>>
-    {
-        let msg = RequestEnvelope::new(data.into());
-
-        let resp = self.client.ready().await?.call(msg).await?;
-
-        match Req::Response::try_from(resp.data) {
-            Ok(data) => Ok(data),
-            Err(ResponseData::ApiError(e)) => Err(Error::Api(e)),
-            Err(e) => Err(Error::UnexpectedResponse {
-                expected: Req::Response::MESSAGE_TYPE,
-                received: e,
-            }),
-        }
+    pub fn to_client(self) -> Client<Self> {
+        Client::new(self)
     }
 }
 

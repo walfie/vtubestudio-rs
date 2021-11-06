@@ -1,9 +1,11 @@
+mod client;
 pub mod codec;
 pub mod data;
 pub mod error;
 pub mod service;
 mod transport;
 
+pub use crate::client::Client;
 pub use crate::codec::{MessageCodec, TungsteniteCodec};
 pub use crate::error::{Error, TransportError};
 pub use crate::service::api::ApiService;
