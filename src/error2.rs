@@ -1,9 +1,23 @@
+use crate::data::{ApiError, ResponseData};
 use futures_core::TryStream;
 use futures_sink::Sink;
 use std::error::Error as StdError;
 use std::fmt;
 
 pub type BoxError = Box<dyn StdError + Send + Sync>;
+
+#[derive(thiserror::Error, Debug)]
+pub enum ClientError {
+    #[error("service error: {0}")]
+    Service(#[from] Error),
+    #[error("received APIError {}: {}", .0.error_id, .0.message)]
+    Api(ApiError),
+    #[error("received unexpected response (expected {expected}, received {received:?})")]
+    UnexpectedResponse {
+        expected: &'static str,
+        received: ResponseData,
+    },
+}
 
 #[derive(Debug)]
 pub struct Error {
@@ -37,13 +51,6 @@ impl Error {
         Error { kind, source: None }
     }
 
-    pub fn new_with_source<E: Into<BoxError>>(kind: ErrorKind, source: Option<E>) -> Self {
-        Error {
-            kind,
-            source: source.map(Into::into),
-        }
-    }
-
     pub fn with_source<E: Into<BoxError>>(mut self, source: E) -> Self {
         self.source = Some(source.into());
         self
@@ -69,11 +76,32 @@ impl Error {
         Self::new(ErrorKind::Custom).with_source(source)
     }
 
+    pub fn kind(&self) -> &ErrorKind {
+        &self.kind
+    }
+
+    pub fn has_kind(&self, kind: ErrorKind) -> bool {
+        if self.kind == kind {
+            return true;
+        }
+
+        let mut source = self.source();
+
+        while let Some(e) = source {
+            match e.downcast_ref::<Error>() {
+                Some(ref found) if found.kind == kind => return true,
+                _ => source = e.source(),
+            }
+        }
+
+        false
+    }
+
     pub fn find_source<E: StdError + 'static>(&self) -> Option<&E> {
         let mut source = self.source();
 
         while let Some(e) = source {
-            match e.downcast_ref() {
+            match e.downcast_ref::<E>() {
                 Some(ref found) => return Some(found),
                 None => source = e.source(),
             }

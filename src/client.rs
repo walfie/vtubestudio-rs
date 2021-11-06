@@ -1,5 +1,5 @@
 use crate::data::{Request, RequestEnvelope, Response, ResponseData, ResponseEnvelope};
-use crate::error::Error;
+use crate::error2::{ClientError, Error};
 use crate::service::{ApiService, TungsteniteApiService};
 use crate::transport::ApiTransport;
 
@@ -29,6 +29,7 @@ impl TungsteniteClient {
 impl<S> Client<S>
 where
     S: Service<RequestEnvelope, Response = ResponseEnvelope>,
+    Error: From<S::Error>,
 {
     pub fn new(service: S) -> Self {
         Self { inner: service }
@@ -38,25 +39,22 @@ where
         self.inner
     }
 
-    pub async fn send<Req: Request>(
-        &mut self,
-        data: Req,
-    ) -> Result<Req::Response, Error<S::Error>> {
+    pub async fn send<Req: Request>(&mut self, data: Req) -> Result<Req::Response, ClientError> {
         let msg = RequestEnvelope::new(data.into());
 
         let resp = self
             .inner
             .ready()
             .await
-            .map_err(Error::Transport)?
+            .map_err(Error::from)?
             .call(msg)
             .await
-            .map_err(Error::Transport)?;
+            .map_err(Error::from)?;
 
         match Req::Response::try_from(resp.data) {
             Ok(data) => Ok(data),
-            Err(ResponseData::ApiError(e)) => Err(Error::Api(e)),
-            Err(e) => Err(Error::UnexpectedResponse {
+            Err(ResponseData::ApiError(e)) => Err(ClientError::Api(e)),
+            Err(e) => Err(ClientError::UnexpectedResponse {
                 expected: Req::Response::MESSAGE_TYPE,
                 received: e,
             }),
