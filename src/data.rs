@@ -47,7 +47,7 @@ pub trait Request: Into<RequestData> {
 }
 
 pub trait Response:
-    DeserializeOwned + Into<ResponseData> + TryFrom<ResponseData, Error = ResponseData>
+    DeserializeOwned + Into<ResponseData> + TryFrom<ResponseData, Error = ResponseData> + Send + 'static
 {
     const MESSAGE_TYPE: &'static str;
 }

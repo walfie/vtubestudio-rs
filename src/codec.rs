@@ -5,7 +5,7 @@ pub trait MessageCodec {
     fn encode(text: String) -> Self::Message;
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct TungsteniteCodec;
 
 impl MessageCodec for TungsteniteCodec {

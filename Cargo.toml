@@ -19,6 +19,6 @@ tower = { version = "0.4.10", features = ["util"] }
 
 [dev-dependencies]
 tokio = { version = "1.13.0", features = ["macros"] }
-tower-test = "0.4.0"
-tokio-util = { version = "0.6.9", features = ["codec"] }
 tokio-stream = "0.1.8"
+tokio-util = { version = "0.6.9", features = ["codec"] }
+tower = { version = "0.4.10", features = ["reconnect", "retry", "buffer"] }
