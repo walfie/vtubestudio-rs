@@ -1,11 +1,13 @@
 use crate::data::{RequestEnvelope, ResponseEnvelope};
 use crate::service::api::ApiService;
+use crate::transport::connector::TungsteniteConnector;
 
 use futures_util::future::MapOk;
 use futures_util::TryFutureExt;
 use std::marker::PhantomData;
 use std::task::{Context, Poll};
 use tokio_tower::MakeTransport;
+use tokio_tungstenite::tungstenite::client::IntoClientRequest;
 use tower::Service;
 
 #[derive(Debug)]
@@ -23,6 +25,15 @@ where
             maker,
             _req: PhantomData,
         }
+    }
+}
+
+impl<R> MakeApiService<TungsteniteConnector, R>
+where
+    R: Send + IntoClientRequest + Unpin + 'static,
+{
+    pub fn new_tungstenite() -> Self {
+        MakeApiService::new(TungsteniteConnector)
     }
 }
 

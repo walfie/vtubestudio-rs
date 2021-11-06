@@ -1,11 +1,11 @@
 use vtubestudio::data::*;
-use vtubestudio::{ApiService, ApiTransport, Error, TungsteniteCodec};
+use vtubestudio::{ApiService, ApiTransport, Error};
 
 #[tokio::main(flavor = "current_thread")]
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let url = "ws://localhost:8001";
     let (ws, _) = tokio_tungstenite::connect_async(url).await?;
-    let transport = ApiTransport::new(ws, TungsteniteCodec);
+    let transport = ApiTransport::new_tungstenite(ws);
     let mut client = ApiService::new(transport).to_client();
 
     let resp = client.send(ApiStateRequest {}).await?;

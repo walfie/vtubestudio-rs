@@ -1,4 +1,4 @@
-use crate::codec::MessageCodec;
+use crate::codec::{MessageCodec, TungsteniteCodec};
 use crate::data::{RequestEnvelope, ResponseEnvelope};
 use crate::error::WebSocketError;
 
@@ -7,6 +7,7 @@ use futures_sink::Sink;
 use pin_project_lite::pin_project;
 use std::pin::Pin;
 use std::task::{Context, Poll};
+use tokio_tungstenite::tungstenite;
 
 pin_project! {
     #[derive(Debug, Clone)]
@@ -24,6 +25,15 @@ where
 {
     pub fn new(transport: T, codec: C) -> Self {
         Self { transport, codec }
+    }
+}
+
+impl<T> ApiTransport<T, TungsteniteCodec>
+where
+    T: Sink<tungstenite::Message> + TryStream,
+{
+    pub fn new_tungstenite(transport: T) -> Self {
+        ApiTransport::new(transport, TungsteniteCodec)
     }
 }
 
