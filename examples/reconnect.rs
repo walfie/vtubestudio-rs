@@ -56,20 +56,15 @@ impl Policy<RequestEnvelope, ResponseEnvelope, Error> for RetryOnDisconnect {
         _req: &RequestEnvelope,
         result: Result<&ResponseEnvelope, &Error>,
     ) -> Option<Self::Future> {
-        match result {
-            Err(e) if self.attempts_left > 0 => {
-                let is_dropped = e.has_kind(ErrorKind::ConnectionDropped);
+        let e = result.err()?;
 
-                if is_dropped {
-                    eprintln!("Connection was dropped! Attempting to reconnect...");
-                    Some(future::ready(Self {
-                        attempts_left: self.attempts_left - 1,
-                    }))
-                } else {
-                    None
-                }
-            }
-            _ => None,
+        if self.attempts_left > 0 && e.has_kind(ErrorKind::ConnectionDropped) {
+            eprintln!("Connection was dropped! Attempting to reconnect...");
+            Some(future::ready(Self {
+                attempts_left: self.attempts_left - 1,
+            }))
+        } else {
+            None
         }
     }
 
