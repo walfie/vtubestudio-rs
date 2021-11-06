@@ -1,5 +1,5 @@
 use crate::data::{Request, RequestEnvelope, Response, ResponseData, ResponseEnvelope};
-use crate::error2::{ClientError, Error};
+use crate::error::{ClientError, Error};
 use crate::service::{ApiService, TungsteniteApiService};
 use crate::transport::ApiTransport;
 

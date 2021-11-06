@@ -1,7 +1,7 @@
 use tower::reconnect::Reconnect;
 use tower::ServiceBuilder;
 use vtubestudio::data::*;
-use vtubestudio::error2::{Error, ErrorKind};
+use vtubestudio::error::{Error, ErrorKind};
 use vtubestudio::service::TungsteniteApiService;
 use vtubestudio::{Client, MakeApiService};
 

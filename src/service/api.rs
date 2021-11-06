@@ -1,6 +1,6 @@
 use crate::client::Client;
 use crate::data::{RequestEnvelope, ResponseEnvelope};
-use crate::error2::Error;
+use crate::error::Error;
 use std::error::Error as StdError;
 
 use futures_core::TryStream;

@@ -1,6 +1,6 @@
 use crate::codec::{MessageCodec, TungsteniteCodec};
 use crate::data::{RequestEnvelope, ResponseEnvelope};
-use crate::error2::{BoxError, Error};
+use crate::error::{BoxError, Error};
 
 use futures_core::{Stream, TryStream};
 use futures_sink::Sink;
