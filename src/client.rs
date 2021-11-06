@@ -1,12 +1,29 @@
 use crate::data::{Request, RequestEnvelope, Response, ResponseData, ResponseEnvelope};
 use crate::error::Error;
+use crate::service::{ApiService, TungsteniteApiService};
+use crate::transport::ApiTransport;
 
 use std::convert::TryFrom;
+use tokio_tungstenite::tungstenite;
+use tokio_tungstenite::tungstenite::client::IntoClientRequest;
 use tower::{Service, ServiceExt};
 
 #[derive(Debug, Clone)]
 pub struct Client<S> {
     inner: S,
+}
+
+pub type TungsteniteClient = Client<TungsteniteApiService>;
+impl TungsteniteClient {
+    pub async fn new_tungstenite<R>(request: R) -> Result<Self, tungstenite::Error>
+    where
+        R: IntoClientRequest + Send + Unpin,
+    {
+        let (ws, _) = tokio_tungstenite::connect_async(request).await?;
+        let transport = ApiTransport::new_tungstenite(ws);
+        let service = ApiService::new(transport);
+        Ok(Self::new(service))
+    }
 }
 
 impl<S> Client<S>

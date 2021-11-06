@@ -1,4 +1,4 @@
-mod client;
+pub mod client;
 pub mod codec;
 pub mod data;
 pub mod error;

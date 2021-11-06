@@ -1,8 +1,8 @@
-pub mod api;
-pub mod connector;
+pub(crate) mod api;
+pub(crate) mod connector;
 
 use crate::codec::TungsteniteCodec;
-use crate::transport::api::ApiTransport;
+pub use crate::transport::api::ApiTransport;
 
 use tokio::net::TcpStream;
 use tokio_tungstenite::{MaybeTlsStream, WebSocketStream};
