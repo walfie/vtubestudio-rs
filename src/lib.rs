@@ -2,6 +2,7 @@ pub mod client;
 pub mod codec;
 pub mod data;
 pub mod error;
+pub mod error2;
 pub mod service;
 mod transport;
 

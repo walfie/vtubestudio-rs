@@ -4,6 +4,7 @@ use crate::transport::connector::TungsteniteConnector;
 
 use futures_util::future::MapOk;
 use futures_util::TryFutureExt;
+use std::error::Error as StdError;
 use std::marker::PhantomData;
 use std::task::{Context, Poll};
 use tokio_tower::MakeTransport;
@@ -42,8 +43,8 @@ where
     M: MakeTransport<R, RequestEnvelope, Item = ResponseEnvelope> + Send,
     M::Future: Send + 'static,
     M::Transport: Send + 'static,
-    M::Error: Send,
-    M::SinkError: Send,
+    M::Error: StdError + Send + Sync,
+    M::SinkError: StdError + Send + Sync,
 {
     type Response = ApiService<M::Transport>;
     type Error = M::MakeError;

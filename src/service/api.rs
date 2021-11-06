@@ -1,6 +1,7 @@
 use crate::client::Client;
 use crate::data::{RequestEnvelope, ResponseEnvelope};
-use crate::error::TransportError;
+use crate::error2::{Error, Result};
+use std::error::Error as StdError;
 
 use futures_core::TryStream;
 use futures_sink::Sink;
@@ -28,11 +29,7 @@ impl TagStore<RequestEnvelope, ResponseEnvelope> for IdTagger {
     }
 }
 
-type ServiceInner<T> = MultiplexClient<
-    MultiplexTransport<T, IdTagger>,
-    TransportError<<T as TryStream>::Error, <T as Sink<RequestEnvelope>>::Error>,
-    RequestEnvelope,
->;
+type ServiceInner<T> = MultiplexClient<MultiplexTransport<T, IdTagger>, Error, RequestEnvelope>;
 
 #[derive(Debug)]
 pub struct ApiService<T>
@@ -45,8 +42,8 @@ where
 impl<T> ApiService<T>
 where
     T: Sink<RequestEnvelope> + TryStream<Ok = ResponseEnvelope> + Send + 'static,
-    <T as Sink<RequestEnvelope>>::Error: Send,
-    <T as TryStream>::Error: Send,
+    <T as Sink<RequestEnvelope>>::Error: StdError + Send + Sync,
+    <T as TryStream>::Error: StdError + Send + Sync,
 {
     pub fn new(transport: T) -> Self {
         Self::with_error_handler(transport, |_| ())
@@ -54,9 +51,7 @@ where
 
     pub fn with_error_handler<F>(transport: T, on_service_error: F) -> Self
     where
-        F: FnOnce(TransportError<<T as TryStream>::Error, <T as Sink<RequestEnvelope>>::Error>)
-            + Send
-            + 'static,
+        F: FnOnce(Error) + Send + 'static,
     {
         let tagger = IdTagger(0);
 
@@ -73,12 +68,12 @@ where
 
 impl<T> Service<RequestEnvelope> for ApiService<T>
 where
-    T: Sink<RequestEnvelope> + TryStream<Ok = ResponseEnvelope> + Send + 'static,
-    <T as Sink<RequestEnvelope>>::Error: Send,
-    <T as TryStream>::Error: Send,
+    T: Sink<RequestEnvelope> + TryStream<Ok = ResponseEnvelope> + 'static,
+    <T as Sink<RequestEnvelope>>::Error: StdError + Send + Sync,
+    <T as TryStream>::Error: StdError + Send + Sync,
 {
     type Response = ResponseEnvelope;
-    type Error = TransportError<<T as TryStream>::Error, <T as Sink<RequestEnvelope>>::Error>;
+    type Error = Error;
     type Future = Pin<Box<dyn Future<Output = Result<Self::Response, Self::Error>> + Send>>;
 
     fn poll_ready(&mut self, cx: &mut Context<'_>) -> Poll<Result<(), Self::Error>> {
