@@ -5,8 +5,6 @@ use std::fmt;
 
 pub type BoxError = Box<dyn StdError + Send + Sync>;
 
-pub type Result<T, E = Error> = std::result::Result<T, E>;
-
 #[derive(Debug)]
 pub struct Error {
     kind: ErrorKind,

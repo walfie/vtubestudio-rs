@@ -1,6 +1,6 @@
 use crate::codec::{MessageCodec, TungsteniteCodec};
 use crate::data::{RequestEnvelope, ResponseEnvelope};
-use crate::error2::{BoxError, Error, Result};
+use crate::error2::{BoxError, Error};
 
 use futures_core::{Stream, TryStream};
 use futures_sink::Sink;
@@ -85,7 +85,7 @@ where
     C: MessageCodec,
     BoxError: From<T::Error>,
 {
-    type Item = Result<ResponseEnvelope>;
+    type Item = Result<ResponseEnvelope, Error>;
 
     fn poll_next(self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Option<Self::Item>> {
         let mut this = self.project();
