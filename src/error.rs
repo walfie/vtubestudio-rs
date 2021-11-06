@@ -3,6 +3,7 @@ use crate::data::{ApiError, ResponseData};
 use futures_core::TryStream;
 use futures_sink::Sink;
 use thiserror::Error;
+use tokio_tungstenite::tungstenite;
 
 #[derive(Error, Debug)]
 pub enum Error<T> {
@@ -16,6 +17,9 @@ pub enum Error<T> {
         received: ResponseData,
     },
 }
+
+/// Type alias for a [TransportError] where the read and write error types are the same
+pub type UnifiedTransportError<E> = TransportError<E, E>;
 
 #[derive(Error, Debug)]
 pub enum TransportError<R, W> {
@@ -38,6 +42,9 @@ pub enum WebSocketError<E> {
     #[error("failed to parse JSON")]
     Json(#[from] serde_json::Error),
 }
+
+pub type TungsteniteWsTransportError = TransportError<TungsteniteWsError, TungsteniteWsError>;
+pub type TungsteniteWsError = WebSocketError<tungstenite::Error>;
 
 impl<T, I> From<tokio_tower::Error<T, I>>
     for TransportError<<T as TryStream>::Error, <T as Sink<I>>::Error>
