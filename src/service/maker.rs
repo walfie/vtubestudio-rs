@@ -10,7 +10,7 @@ use tokio_tower::MakeTransport;
 use tokio_tungstenite::tungstenite::client::IntoClientRequest;
 use tower::Service;
 
-#[derive(Debug)]
+#[derive(Clone, Debug)]
 pub struct MakeApiService<M, R> {
     maker: M,
     _req: PhantomData<fn(R)>,
