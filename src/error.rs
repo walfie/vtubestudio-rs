@@ -47,6 +47,7 @@ impl Error {
         Error { kind, source: None }
     }
 
+    /// Set this error's underlying `source`.
     pub fn with_source<E: Into<BoxError>>(mut self, source: E) -> Self {
         self.source = Some(source.into());
         self
@@ -57,6 +58,8 @@ impl Error {
         self.source
     }
 
+    /// Convert a [`BoxError`] into this error type. If the underlying [`Error`](std::error::Error)
+    /// is not this error type, a new [`Error`] is created with [`ErrorKind::Other`].
     pub fn from_boxed(error: BoxError) -> Self {
         match error.downcast::<Error>() {
             Ok(e) => *e,
@@ -68,6 +71,7 @@ impl Error {
         &self.kind
     }
 
+    /// Check if any error in this error's `source` chain match the given [`ErrorKind`].
     pub fn has_kind(&self, kind: ErrorKind) -> bool {
         if self.kind == kind {
             return true;
@@ -85,6 +89,7 @@ impl Error {
         false
     }
 
+    /// Recurse through this error's `source` chain, returning the first matching error type.
     pub fn find_source<E: StdError + 'static>(&self) -> Option<&E> {
         let mut source = self.source();
 
