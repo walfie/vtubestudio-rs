@@ -78,13 +78,19 @@ where
         }
     }
 
-    pub fn with_token(&mut self, token: String) -> &mut Self {
-        self.token = Some(token);
+    pub fn with_token<T>(mut self, token: String) -> Self
+    where
+        T: Into<Option<String>>,
+    {
+        self.token = token.into();
         self
     }
 
-    pub fn with_auth_request(&mut self, auth_request: AuthenticationTokenRequest) -> &mut Self {
-        self.auth_request = Some(auth_request);
+    pub fn with_auth_request<A>(mut self, auth_request: A) -> Self
+    where
+        A: Into<Option<AuthenticationTokenRequest>>,
+    {
+        self.auth_request = auth_request.into();
         self
     }
 
@@ -110,6 +116,7 @@ where
             authentication_token: "".into(),
         };
 
+        // Attempt to authenticate with the existing token, if it exists
         if let Some(ref token) = self.token {
             auth_req.authentication_token = token.clone();
             if let Ok(_) = send_request(&mut self.service, &auth_req).await {

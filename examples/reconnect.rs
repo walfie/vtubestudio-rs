@@ -18,12 +18,13 @@ async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
         .buffer(10)
         .service(service);
 
-    let mut client = Client::new(service);
-    client.with_auth_request(AuthenticationTokenRequest {
+    let auth_req = AuthenticationTokenRequest {
         plugin_name: "vtubestudio-rs example".into(),
         plugin_developer: "Walfie".into(),
         plugin_icon: None,
-    });
+    };
+
+    let mut client = Client::new(service).with_auth_request(auth_req);
 
     let mut line = String::new();
     loop {
