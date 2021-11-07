@@ -1,6 +1,7 @@
 use crate::data::{ApiError, ResponseData};
 use futures_core::TryStream;
 use futures_sink::Sink;
+use std::borrow::Cow;
 use std::error::Error as StdError;
 use std::fmt;
 
@@ -19,6 +20,14 @@ pub enum Error {
         expected: &'static str,
         received: ResponseData,
     },
+    // TODO
+    #[error("received unexpected response (expected {expected}, received {received:?})")]
+    UnexpectedResponse2 {
+        expected: Cow<'static, str>,
+        received: String,
+    },
+    #[error("JSON deserialization error")]
+    Deserialize(#[from] serde_json::Error),
 }
 
 #[derive(Debug)]

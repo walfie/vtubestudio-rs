@@ -1,11 +1,47 @@
+use crate::error::Error;
+
 use paste::paste;
 use serde::de::DeserializeOwned;
 use serde::{Deserialize, Serialize};
+use serde_json::Value;
 use std::borrow::Cow;
 use std::convert::TryFrom;
 
 pub const API_NAME: &'static str = "VTubeStudioPublicAPI";
 pub const API_VERSION: &'static str = "1.0";
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct RequestEnvelope2 {
+    pub api_name: Cow<'static, str>,
+    pub api_version: Cow<'static, str>,
+    #[serde(rename = "requestID")]
+    pub request_id: Option<String>,
+    pub message_type: Cow<'static, str>,
+    pub data: Value,
+}
+
+impl RequestEnvelope2 {
+    pub fn new<Req: Request>(data: &Req) -> Result<Self, serde_json::Error> {
+        Ok(Self::new_value(
+            Req::MESSAGE_TYPE,
+            serde_json::to_value(&data)?,
+        ))
+    }
+
+    pub fn new_value<M>(message_type: M, data: Value) -> Self
+    where
+        M: Into<Cow<'static, str>>,
+    {
+        Self {
+            api_name: Cow::Borrowed(API_NAME),
+            api_version: Cow::Borrowed(API_VERSION),
+            message_type: message_type.into(),
+            request_id: None,
+            data,
+        }
+    }
+}
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
@@ -15,7 +51,7 @@ pub struct RequestEnvelope {
     #[serde(rename = "requestID")]
     pub request_id: Option<String>,
     #[serde(flatten)]
-    pub data: RequestData,
+    data: RequestData,
 }
 
 impl RequestEnvelope {
@@ -41,7 +77,34 @@ pub struct ResponseEnvelope {
     pub data: ResponseData,
 }
 
-pub trait Request: Into<RequestData> {
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct ResponseEnvelope2 {
+    pub api_name: String,
+    pub api_version: String,
+    pub timestamp: i64,
+    #[serde(rename = "requestID")]
+    pub request_id: String,
+    pub message_type: String,
+    pub data: Value,
+}
+
+impl ResponseEnvelope2 {
+    pub fn parse<Resp: Response>(&self) -> Result<Resp, Error> {
+        if self.message_type == Resp::MESSAGE_TYPE {
+            Ok(Resp::deserialize(&self.data)?)
+        } else if self.message_type == ApiError::MESSAGE_TYPE {
+            Err(Error::Api(ApiError::deserialize(&self.data)?))
+        } else {
+            Err(Error::UnexpectedResponse2 {
+                expected: Resp::MESSAGE_TYPE.into(),
+                received: self.message_type.clone(),
+            })
+        }
+    }
+}
+
+pub trait Request: Into<RequestData> + Serialize {
     const MESSAGE_TYPE: &'static str;
     type Response: Response;
 }
