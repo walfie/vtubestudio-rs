@@ -1,7 +1,6 @@
 use crate::data::ApiError;
 use futures_core::TryStream;
 use futures_sink::Sink;
-use std::borrow::Cow;
 use std::error::Error as StdError;
 use std::fmt;
 
@@ -17,7 +16,7 @@ pub enum Error {
     Api(ApiError),
     #[error("received unexpected response (expected {expected}, received {received})")]
     UnexpectedResponse {
-        expected: Cow<'static, str>,
+        expected: &'static str,
         received: String,
     },
     #[error("JSON deserialization error")]

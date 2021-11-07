@@ -99,7 +99,7 @@ impl ResponseEnvelope {
             Err(Error::Api(ApiError::deserialize(&self.data)?))
         } else {
             Err(Error::UnexpectedResponse {
-                expected: Resp::MESSAGE_TYPE.into(),
+                expected: Resp::MESSAGE_TYPE,
                 received: self.message_type.clone(),
             })
         }
