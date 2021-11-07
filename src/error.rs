@@ -28,10 +28,6 @@ pub struct Error {
 #[derive(thiserror::Error, Debug, PartialEq)]
 #[non_exhaustive]
 pub enum ErrorKind {
-    #[error("JSON error")]
-    Json,
-    #[error("websocket error")]
-    WebSocket,
     #[error("no more in-flight requests allowed")]
     TransportFull,
     #[error("connection was dropped")]
@@ -51,40 +47,20 @@ impl Error {
         Error { kind, source: None }
     }
 
+    pub fn with_source<E: Into<BoxError>>(mut self, source: E) -> Self {
+        self.source = Some(source.into());
+        self
+    }
+
     /// Consumes the error, returning its source.
     pub fn into_source(self) -> Option<Box<dyn StdError + Send + Sync>> {
         self.source
     }
 
-    fn with_source<E: Into<BoxError>>(mut self, source: E) -> Self {
-        self.source = Some(source.into());
-        self
-    }
-
-    pub fn new_websocket<E: Into<BoxError>>(source: E) -> Self {
-        Self::new(ErrorKind::WebSocket).with_source(source)
-    }
-
-    pub fn new_read<E: Into<BoxError>>(source: E) -> Self {
-        Self::new(ErrorKind::Read).with_source(source)
-    }
-
-    pub fn new_json<E: Into<BoxError>>(source: E) -> Self {
-        Self::new(ErrorKind::Json).with_source(source)
-    }
-
-    pub fn new_write<E: Into<BoxError>>(source: E) -> Self {
-        Self::new(ErrorKind::Write).with_source(source)
-    }
-
-    pub fn new_other<E: Into<BoxError>>(source: E) -> Self {
-        Self::new(ErrorKind::Other).with_source(source)
-    }
-
     pub fn from_boxed(error: BoxError) -> Self {
         match error.downcast::<Error>() {
             Ok(e) => *e,
-            Err(e) => Self::new_other(e),
+            Err(e) => Self::new(ErrorKind::Other).with_source(e),
         }
     }
 
@@ -150,8 +126,8 @@ where
         use tokio_tower::Error::*;
 
         match error {
-            BrokenTransportSend(e) => Self::new_write(e),
-            BrokenTransportRecv(Some(e)) => Self::new_read(e),
+            BrokenTransportSend(e) => Self::new(ErrorKind::Write).with_source(e),
+            BrokenTransportRecv(Some(e)) => Self::new(ErrorKind::Read).with_source(e),
             BrokenTransportRecv(None) | ClientDropped => Self::new(ErrorKind::ConnectionDropped),
             TransportFull => Self::new(ErrorKind::TransportFull),
             Desynchronized => Self::new(ErrorKind::Desynchronized),

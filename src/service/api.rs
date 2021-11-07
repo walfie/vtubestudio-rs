@@ -1,7 +1,6 @@
 use crate::client::Client;
 use crate::data::{RequestEnvelope, ResponseEnvelope};
-use crate::error::Error;
-use std::error::Error as StdError;
+use crate::error::{BoxError, Error};
 
 use futures_core::TryStream;
 use futures_sink::Sink;
@@ -42,8 +41,8 @@ where
 impl<T> ApiService<T>
 where
     T: Sink<RequestEnvelope> + TryStream<Ok = ResponseEnvelope> + Send + 'static,
-    <T as Sink<RequestEnvelope>>::Error: StdError + Send + Sync,
-    <T as TryStream>::Error: StdError + Send + Sync,
+    BoxError: From<<T as Sink<RequestEnvelope>>::Error>,
+    BoxError: From<<T as TryStream>::Error>,
 {
     pub fn new(transport: T) -> Self {
         Self::with_error_handler(transport, |_| ())
@@ -69,8 +68,8 @@ where
 impl<T> Service<RequestEnvelope> for ApiService<T>
 where
     T: Sink<RequestEnvelope> + TryStream<Ok = ResponseEnvelope> + 'static,
-    <T as Sink<RequestEnvelope>>::Error: StdError + Send + Sync,
-    <T as TryStream>::Error: StdError + Send + Sync,
+    BoxError: From<<T as Sink<RequestEnvelope>>::Error>,
+    BoxError: From<<T as TryStream>::Error>,
 {
     type Response = ResponseEnvelope;
     type Error = Error;

@@ -1,10 +1,10 @@
 use crate::data::{RequestEnvelope, ResponseEnvelope};
+use crate::error::BoxError;
 use crate::service::api::ApiService;
 use crate::transport::connector::TungsteniteConnector;
 
 use futures_util::future::MapOk;
 use futures_util::TryFutureExt;
-use std::error::Error as StdError;
 use std::marker::PhantomData;
 use std::task::{Context, Poll};
 use tokio_tower::MakeTransport;
@@ -43,8 +43,8 @@ where
     M: MakeTransport<R, RequestEnvelope, Item = ResponseEnvelope> + Send,
     M::Future: Send + 'static,
     M::Transport: Send + 'static,
-    M::Error: StdError + Send + Sync,
-    M::SinkError: StdError + Send + Sync,
+    BoxError: From<M::Error>,
+    BoxError: From<M::SinkError>,
 {
     type Response = ApiService<M::Transport>;
     type Error = M::MakeError;
