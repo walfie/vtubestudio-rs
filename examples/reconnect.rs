@@ -1,8 +1,8 @@
 use tower::reconnect::Reconnect;
 use tower::ServiceBuilder;
 use vtubestudio::data::*;
-use vtubestudio::error::{ServiceError, ServiceErrorKind};
-use vtubestudio::service::TungsteniteApiService;
+use vtubestudio::error::ServiceError;
+use vtubestudio::service::{RetryOnDisconnectPolicy, TungsteniteApiService};
 use vtubestudio::{Client, MakeApiService};
 
 #[tokio::main(flavor = "current_thread")]
@@ -13,7 +13,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
         Reconnect::new::<TungsteniteApiService, &str>(MakeApiService::new_tungstenite(), url);
 
     let service = ServiceBuilder::new()
-        .retry(RetryOnDisconnect::once())
+        .retry(RetryOnDisconnectPolicy::once())
         .map_err(ServiceError::from_boxed)
         .buffer(10)
         .service(service);
@@ -31,44 +31,5 @@ async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
             Ok(resp) => println!("Received response:\n{:#?}\n", resp),
             Err(e) => println!("Received error:\n{}\n{:#?}", e, e),
         }
-    }
-}
-
-use futures_util::future;
-use tower::retry::Policy;
-
-#[derive(Clone)]
-struct RetryOnDisconnect {
-    attempts_left: usize,
-}
-
-impl RetryOnDisconnect {
-    fn once() -> Self {
-        RetryOnDisconnect { attempts_left: 1 }
-    }
-}
-
-impl Policy<RequestEnvelope, ResponseEnvelope, ServiceError> for RetryOnDisconnect {
-    type Future = future::Ready<Self>;
-
-    fn retry(
-        &self,
-        _req: &RequestEnvelope,
-        result: Result<&ResponseEnvelope, &ServiceError>,
-    ) -> Option<Self::Future> {
-        let e = result.err()?;
-
-        if self.attempts_left > 0 && e.has_kind(ServiceErrorKind::ConnectionDropped) {
-            eprintln!("Connection was dropped! Attempting to reconnect...");
-            Some(future::ready(Self {
-                attempts_left: self.attempts_left - 1,
-            }))
-        } else {
-            None
-        }
-    }
-
-    fn clone_request(&self, req: &RequestEnvelope) -> Option<RequestEnvelope> {
-        Some(req.clone())
     }
 }
