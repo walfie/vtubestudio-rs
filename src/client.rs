@@ -1,9 +1,8 @@
-use crate::data::{Request, RequestEnvelope, Response, ResponseData, ResponseEnvelope};
+use crate::data::{Request, RequestEnvelope, ResponseEnvelope};
 use crate::error::{Error, ServiceError};
 use crate::service::{ApiService, TungsteniteApiService};
 use crate::transport::ApiTransport;
 
-use std::convert::TryFrom;
 use tokio_tungstenite::tungstenite;
 use tokio_tungstenite::tungstenite::client::IntoClientRequest;
 use tower::{Service, ServiceExt};
@@ -40,7 +39,7 @@ where
     }
 
     pub async fn send<Req: Request>(&mut self, data: Req) -> Result<Req::Response, Error> {
-        let msg = RequestEnvelope::new(data.into());
+        let msg = RequestEnvelope::new(&data)?;
 
         let resp = self
             .inner
@@ -51,13 +50,6 @@ where
             .await
             .map_err(ServiceError::from)?;
 
-        match Req::Response::try_from(resp.data) {
-            Ok(data) => Ok(data),
-            Err(ResponseData::ApiError(e)) => Err(Error::Api(e)),
-            Err(e) => Err(Error::UnexpectedResponse {
-                expected: Req::Response::MESSAGE_TYPE,
-                received: e,
-            }),
-        }
+        resp.parse::<Req::Response>()
     }
 }

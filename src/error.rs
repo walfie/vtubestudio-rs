@@ -1,4 +1,4 @@
-use crate::data::{ApiError, ResponseData};
+use crate::data::ApiError;
 use futures_core::TryStream;
 use futures_sink::Sink;
 use std::borrow::Cow;
@@ -15,14 +15,8 @@ pub enum Error {
     Service(#[from] ServiceError),
     #[error("received APIError {}: {}", .0.error_id, .0.message)]
     Api(ApiError),
-    #[error("received unexpected response (expected {expected}, received {received:?})")]
+    #[error("received unexpected response (expected {expected}, received {received})")]
     UnexpectedResponse {
-        expected: &'static str,
-        received: ResponseData,
-    },
-    // TODO
-    #[error("received unexpected response (expected {expected}, received {received:?})")]
-    UnexpectedResponse2 {
         expected: Cow<'static, str>,
         received: String,
     },
