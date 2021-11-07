@@ -1,7 +1,6 @@
 use crate::data::{Request, RequestEnvelope, ResponseEnvelope};
 use crate::error::{Error, ServiceError};
-use crate::service::{ApiService, TungsteniteApiService};
-use crate::transport::ApiTransport;
+use crate::service::TungsteniteApiService;
 
 use tokio_tungstenite::tungstenite;
 use tokio_tungstenite::tungstenite::client::IntoClientRequest;
@@ -18,10 +17,9 @@ impl TungsteniteClient {
     where
         R: IntoClientRequest + Send + Unpin,
     {
-        let (ws, _) = tokio_tungstenite::connect_async(request).await?;
-        let transport = ApiTransport::new_tungstenite(ws);
-        let service = ApiService::new(transport);
-        Ok(Self::new(service))
+        Ok(Self::new(
+            TungsteniteApiService::new_tungstenite(request).await?,
+        ))
     }
 }
 

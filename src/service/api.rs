@@ -1,6 +1,7 @@
 use crate::client::Client;
 use crate::data::{RequestEnvelope, ResponseEnvelope};
 use crate::error::{BoxError, ServiceError};
+use crate::transport::{ApiTransport, TungsteniteApiTransport};
 
 use futures_core::TryStream;
 use futures_sink::Sink;
@@ -8,6 +9,8 @@ use std::future::Future;
 use std::pin::Pin;
 use std::task::{Context, Poll};
 use tokio_tower::multiplex::{Client as MultiplexClient, MultiplexTransport, TagStore};
+use tokio_tungstenite::tungstenite;
+use tokio_tungstenite::tungstenite::client::IntoClientRequest;
 use tower::Service;
 
 #[derive(Debug)]
@@ -37,6 +40,18 @@ where
     T: Sink<RequestEnvelope> + TryStream,
 {
     client: ServiceInner<T>,
+}
+
+pub type TungsteniteApiService = ApiService<TungsteniteApiTransport>;
+impl TungsteniteApiService {
+    pub async fn new_tungstenite<R>(request: R) -> Result<Self, tungstenite::Error>
+    where
+        R: IntoClientRequest + Send + Unpin,
+    {
+        let (ws, _) = tokio_tungstenite::connect_async(request).await?;
+        let transport = ApiTransport::new_tungstenite(ws);
+        Ok(ApiService::new(transport))
+    }
 }
 
 impl<T> ApiService<T>
