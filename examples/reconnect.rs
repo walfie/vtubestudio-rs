@@ -25,7 +25,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
         println!("Press Enter to send a request");
         std::io::stdin().read_line(&mut line)?;
 
-        let resp = client.send(ApiStateRequest {}).await;
+        let resp = client.send(&ApiStateRequest {}).await;
 
         match resp {
             Ok(resp) => println!("Received response:\n{:#?}\n", resp),

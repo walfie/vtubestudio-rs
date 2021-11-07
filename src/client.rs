@@ -25,6 +25,27 @@ impl TungsteniteClient {
     }
 }
 
+pub async fn send_request<S, Req: Request>(
+    service: &mut S,
+    data: &Req,
+) -> Result<Req::Response, Error>
+where
+    S: Service<RequestEnvelope, Response = ResponseEnvelope>,
+    ServiceError: From<S::Error>,
+{
+    let msg = RequestEnvelope::new(data)?;
+
+    let resp = service
+        .ready()
+        .await
+        .map_err(ServiceError::from)?
+        .call(msg)
+        .await
+        .map_err(ServiceError::from)?;
+
+    resp.parse::<Req::Response>()
+}
+
 impl<S> Client<S>
 where
     S: Service<RequestEnvelope, Response = ResponseEnvelope>,
@@ -38,18 +59,7 @@ where
         self.inner
     }
 
-    pub async fn send<Req: Request>(&mut self, data: Req) -> Result<Req::Response, Error> {
-        let msg = RequestEnvelope::new(&data)?;
-
-        let resp = self
-            .inner
-            .ready()
-            .await
-            .map_err(ServiceError::from)?
-            .call(msg)
-            .await
-            .map_err(ServiceError::from)?;
-
-        resp.parse::<Req::Response>()
+    pub async fn send<Req: Request>(&mut self, data: &Req) -> Result<Req::Response, Error> {
+        send_request(&mut self.inner, data).await
     }
 }

@@ -6,11 +6,11 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let url = "ws://localhost:8001";
     let mut client = Client::new_tungstenite(url).await?;
 
-    let resp = client.send(ApiStateRequest {}).await?;
+    let resp = client.send(&ApiStateRequest {}).await?;
     println!("{:#?}", resp);
 
     let resp = client
-        .send(AuthenticationRequest {
+        .send(&AuthenticationRequest {
             plugin_name: "name".into(),
             plugin_developer: "dev".into(),
             authentication_token: "123".into(),
@@ -19,7 +19,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     println!("{:#?}", resp);
 
     // This should fail since we're not authenticated
-    let resp = client.send(AvailableModelsRequest {}).await;
+    let resp = client.send(&AvailableModelsRequest {}).await;
     match resp {
         Ok(_) => panic!("Expected auth error"),
         Err(Error::Api(e)) => {
