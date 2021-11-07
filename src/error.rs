@@ -9,7 +9,7 @@ pub type BoxError = Box<dyn StdError + Send + Sync>;
 #[derive(thiserror::Error, Debug)]
 pub enum ClientError {
     #[error("service error: {0}")]
-    Service(#[from] Error),
+    Service(#[from] ServiceError),
     #[error("received APIError {}: {}", .0.error_id, .0.message)]
     Api(ApiError),
     #[error("received unexpected response (expected {expected}, received {received:?})")]
@@ -20,7 +20,7 @@ pub enum ClientError {
 }
 
 #[derive(Debug)]
-pub struct Error {
+pub struct ServiceError {
     kind: ErrorKind,
     source: Option<BoxError>,
 }
@@ -42,9 +42,9 @@ pub enum ErrorKind {
     Other,
 }
 
-impl Error {
+impl ServiceError {
     pub fn new(kind: ErrorKind) -> Self {
-        Error { kind, source: None }
+        Self { kind, source: None }
     }
 
     /// Set this error's underlying `source`.
@@ -61,7 +61,7 @@ impl Error {
     /// Convert a [`BoxError`] into this error type. If the underlying [`Error`](std::error::Error)
     /// is not this error type, a new [`Error`] is created with [`ErrorKind::Other`].
     pub fn from_boxed(error: BoxError) -> Self {
-        match error.downcast::<Error>() {
+        match error.downcast::<Self>() {
             Ok(e) => *e,
             Err(e) => Self::new(ErrorKind::Other).with_source(e),
         }
@@ -80,7 +80,7 @@ impl Error {
         let mut source = self.source();
 
         while let Some(e) = source {
-            match e.downcast_ref::<Error>() {
+            match e.downcast_ref::<Self>() {
                 Some(ref found) if found.kind == kind => return true,
                 _ => source = e.source(),
             }
@@ -104,7 +104,7 @@ impl Error {
     }
 }
 
-impl fmt::Display for Error {
+impl fmt::Display for ServiceError {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         if let Some(ref source) = self.source {
             write!(f, "{}: {}", self.kind, source)
@@ -114,7 +114,7 @@ impl fmt::Display for Error {
     }
 }
 
-impl StdError for Error {
+impl StdError for ServiceError {
     fn source(&self) -> Option<&(dyn StdError + 'static)> {
         self.source
             .as_ref()
@@ -122,7 +122,7 @@ impl StdError for Error {
     }
 }
 
-impl<T, I> From<tokio_tower::Error<T, I>> for Error
+impl<T, I> From<tokio_tower::Error<T, I>> for ServiceError
 where
     T: Sink<I> + TryStream,
     BoxError: From<<T as Sink<I>>::Error> + From<<T as TryStream>::Error>,

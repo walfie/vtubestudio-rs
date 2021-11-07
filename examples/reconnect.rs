@@ -1,7 +1,7 @@
 use tower::reconnect::Reconnect;
 use tower::ServiceBuilder;
 use vtubestudio::data::*;
-use vtubestudio::error::{Error, ErrorKind};
+use vtubestudio::error::{ErrorKind, ServiceError};
 use vtubestudio::service::TungsteniteApiService;
 use vtubestudio::{Client, MakeApiService};
 
@@ -14,7 +14,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
 
     let service = ServiceBuilder::new()
         .retry(RetryOnDisconnect::once())
-        .map_err(Error::from_boxed)
+        .map_err(ServiceError::from_boxed)
         .buffer(10)
         .service(service);
 
@@ -48,13 +48,13 @@ impl RetryOnDisconnect {
     }
 }
 
-impl Policy<RequestEnvelope, ResponseEnvelope, Error> for RetryOnDisconnect {
+impl Policy<RequestEnvelope, ResponseEnvelope, ServiceError> for RetryOnDisconnect {
     type Future = future::Ready<Self>;
 
     fn retry(
         &self,
         _req: &RequestEnvelope,
-        result: Result<&ResponseEnvelope, &Error>,
+        result: Result<&ResponseEnvelope, &ServiceError>,
     ) -> Option<Self::Future> {
         let e = result.err()?;
 

@@ -1,5 +1,5 @@
 use crate::data::{Request, RequestEnvelope, Response, ResponseData, ResponseEnvelope};
-use crate::error::{ClientError, Error};
+use crate::error::{ClientError, ServiceError};
 use crate::service::{ApiService, TungsteniteApiService};
 use crate::transport::ApiTransport;
 
@@ -29,7 +29,7 @@ impl TungsteniteClient {
 impl<S> Client<S>
 where
     S: Service<RequestEnvelope, Response = ResponseEnvelope>,
-    Error: From<S::Error>,
+    ServiceError: From<S::Error>,
 {
     pub fn new(service: S) -> Self {
         Self { inner: service }
@@ -46,10 +46,10 @@ where
             .inner
             .ready()
             .await
-            .map_err(Error::from)?
+            .map_err(ServiceError::from)?
             .call(msg)
             .await
-            .map_err(Error::from)?;
+            .map_err(ServiceError::from)?;
 
         match Req::Response::try_from(resp.data) {
             Ok(data) => Ok(data),
