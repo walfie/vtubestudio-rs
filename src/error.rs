@@ -6,8 +6,10 @@ use std::fmt;
 
 pub type BoxError = Box<dyn StdError + Send + Sync>;
 
+pub type Result<T, E = Error> = std::result::Result<T, E>;
+
 #[derive(thiserror::Error, Debug)]
-pub enum ClientError {
+pub enum Error {
     #[error("service error: {0}")]
     Service(#[from] ServiceError),
     #[error("received APIError {}: {}", .0.error_id, .0.message)]

@@ -1,5 +1,5 @@
 use crate::data::{Request, RequestEnvelope, Response, ResponseData, ResponseEnvelope};
-use crate::error::{ClientError, ServiceError};
+use crate::error::{Error, ServiceError};
 use crate::service::{ApiService, TungsteniteApiService};
 use crate::transport::ApiTransport;
 
@@ -39,7 +39,7 @@ where
         self.inner
     }
 
-    pub async fn send<Req: Request>(&mut self, data: Req) -> Result<Req::Response, ClientError> {
+    pub async fn send<Req: Request>(&mut self, data: Req) -> Result<Req::Response, Error> {
         let msg = RequestEnvelope::new(data.into());
 
         let resp = self
@@ -53,8 +53,8 @@ where
 
         match Req::Response::try_from(resp.data) {
             Ok(data) => Ok(data),
-            Err(ResponseData::ApiError(e)) => Err(ClientError::Api(e)),
-            Err(e) => Err(ClientError::UnexpectedResponse {
+            Err(ResponseData::ApiError(e)) => Err(Error::Api(e)),
+            Err(e) => Err(Error::UnexpectedResponse {
                 expected: Req::Response::MESSAGE_TYPE,
                 received: e,
             }),

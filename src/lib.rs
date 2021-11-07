@@ -7,7 +7,7 @@ mod transport;
 
 pub use crate::client::Client;
 pub use crate::codec::MessageCodec;
-pub use crate::error::{ClientError, ErrorKind, ServiceError};
+pub use crate::error::{Error, ErrorKind, ServiceError};
 pub use crate::service::api::ApiService;
 pub use crate::service::maker::MakeApiService;
 pub use crate::transport::api::ApiTransport;

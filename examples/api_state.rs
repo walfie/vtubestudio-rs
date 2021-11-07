@@ -1,5 +1,5 @@
 use vtubestudio::data::*;
-use vtubestudio::{Client, ClientError};
+use vtubestudio::{Client, Error};
 
 #[tokio::main(flavor = "current_thread")]
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
@@ -22,7 +22,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let resp = client.send(AvailableModelsRequest {}).await;
     match resp {
         Ok(_) => panic!("Expected auth error"),
-        Err(ClientError::Api(e)) => {
+        Err(Error::Api(e)) => {
             assert!(e.is_auth_error());
             println!("Got expected error: {:#?}", e);
         }
