@@ -1,7 +1,7 @@
 use tower::reconnect::Reconnect;
 use tower::ServiceBuilder;
 use vtubestudio::data::*;
-use vtubestudio::error::{ErrorKind, ServiceError};
+use vtubestudio::error::{ServiceError, ServiceErrorKind};
 use vtubestudio::service::TungsteniteApiService;
 use vtubestudio::{Client, MakeApiService};
 
@@ -58,7 +58,7 @@ impl Policy<RequestEnvelope, ResponseEnvelope, ServiceError> for RetryOnDisconne
     ) -> Option<Self::Future> {
         let e = result.err()?;
 
-        if self.attempts_left > 0 && e.has_kind(ErrorKind::ConnectionDropped) {
+        if self.attempts_left > 0 && e.has_kind(ServiceErrorKind::ConnectionDropped) {
             eprintln!("Connection was dropped! Attempting to reconnect...");
             Some(future::ready(Self {
                 attempts_left: self.attempts_left - 1,

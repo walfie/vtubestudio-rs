@@ -23,13 +23,13 @@ pub enum Error {
 
 #[derive(Debug)]
 pub struct ServiceError {
-    kind: ErrorKind,
+    kind: ServiceErrorKind,
     source: Option<BoxError>,
 }
 
 #[derive(thiserror::Error, Debug, PartialEq)]
 #[non_exhaustive]
-pub enum ErrorKind {
+pub enum ServiceErrorKind {
     #[error("no more in-flight requests allowed")]
     TransportFull,
     #[error("connection was dropped")]
@@ -45,7 +45,7 @@ pub enum ErrorKind {
 }
 
 impl ServiceError {
-    pub fn new(kind: ErrorKind) -> Self {
+    pub fn new(kind: ServiceErrorKind) -> Self {
         Self { kind, source: None }
     }
 
@@ -61,20 +61,20 @@ impl ServiceError {
     }
 
     /// Convert a [`BoxError`] into this error type. If the underlying [`Error`](std::error::Error)
-    /// is not this error type, a new [`Error`] is created with [`ErrorKind::Other`].
+    /// is not this error type, a new [`Error`] is created with [`ServiceErrorKind::Other`].
     pub fn from_boxed(error: BoxError) -> Self {
         match error.downcast::<Self>() {
             Ok(e) => *e,
-            Err(e) => Self::new(ErrorKind::Other).with_source(e),
+            Err(e) => Self::new(ServiceErrorKind::Other).with_source(e),
         }
     }
 
-    pub fn kind(&self) -> &ErrorKind {
+    pub fn kind(&self) -> &ServiceErrorKind {
         &self.kind
     }
 
-    /// Check if any error in this error's `source` chain match the given [`ErrorKind`].
-    pub fn has_kind(&self, kind: ErrorKind) -> bool {
+    /// Check if any error in this error's `source` chain match the given [`ServiceErrorKind`].
+    pub fn has_kind(&self, kind: ServiceErrorKind) -> bool {
         if self.kind == kind {
             return true;
         }
@@ -133,11 +133,13 @@ where
         use tokio_tower::Error::*;
 
         match error {
-            BrokenTransportSend(e) => Self::new(ErrorKind::Write).with_source(e),
-            BrokenTransportRecv(Some(e)) => Self::new(ErrorKind::Read).with_source(e),
-            BrokenTransportRecv(None) | ClientDropped => Self::new(ErrorKind::ConnectionDropped),
-            TransportFull => Self::new(ErrorKind::TransportFull),
-            Desynchronized => Self::new(ErrorKind::Desynchronized),
+            BrokenTransportSend(e) => Self::new(ServiceErrorKind::Write).with_source(e),
+            BrokenTransportRecv(Some(e)) => Self::new(ServiceErrorKind::Read).with_source(e),
+            BrokenTransportRecv(None) | ClientDropped => {
+                Self::new(ServiceErrorKind::ConnectionDropped)
+            }
+            TransportFull => Self::new(ServiceErrorKind::TransportFull),
+            Desynchronized => Self::new(ServiceErrorKind::Desynchronized),
         }
     }
 }
