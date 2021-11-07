@@ -19,8 +19,8 @@ pub enum Error {
         expected: &'static str,
         received: String,
     },
-    #[error("JSON deserialization error")]
-    Deserialize(#[from] serde_json::Error),
+    #[error("JSON error")]
+    Json(#[from] serde_json::Error),
 }
 
 #[derive(Debug)]
