@@ -190,8 +190,8 @@ define_request_response_pairs!(
     {
         rust_name = AuthenticationToken,
         req = {
-            pub plugin_name: String,
-            pub plugin_developer: String,
+            pub plugin_name: Cow<'static, str>,
+            pub plugin_developer: Cow<'static, str>,
             pub plugin_icon: Option<String>,
         },
         resp = {
@@ -202,8 +202,8 @@ define_request_response_pairs!(
     {
         rust_name = Authentication,
         req = {
-            pub plugin_name: String,
-            pub plugin_developer: String,
+            pub plugin_name: Cow<'static, str>,
+            pub plugin_developer: Cow<'static, str>,
             pub authentication_token: String,
         },
         resp = {

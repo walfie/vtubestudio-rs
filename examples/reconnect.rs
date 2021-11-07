@@ -19,13 +19,18 @@ async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
         .service(service);
 
     let mut client = Client::new(service);
+    client.with_auth_request(AuthenticationTokenRequest {
+        plugin_name: "vtubestudio-rs example".into(),
+        plugin_developer: "Walfie".into(),
+        plugin_icon: None,
+    });
 
     let mut line = String::new();
     loop {
         println!("Press Enter to send a request");
         std::io::stdin().read_line(&mut line)?;
 
-        let resp = client.send(&ApiStateRequest {}).await;
+        let resp = client.send(&StatisticsRequest {}).await;
 
         match resp {
             Ok(resp) => println!("Received response:\n{:#?}\n", resp),
