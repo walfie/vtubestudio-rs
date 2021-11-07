@@ -1,4 +1,5 @@
 use crate::data::{RequestEnvelope, ResponseEnvelope};
+use crate::error::BoxError;
 use crate::service::api::ApiService;
 use crate::transport::connector::TungsteniteConnector;
 
@@ -42,8 +43,8 @@ where
     M: MakeTransport<R, RequestEnvelope, Item = ResponseEnvelope> + Send,
     M::Future: Send + 'static,
     M::Transport: Send + 'static,
-    M::Error: Send,
-    M::SinkError: Send,
+    BoxError: From<M::Error>,
+    BoxError: From<M::SinkError>,
 {
     type Response = ApiService<M::Transport>;
     type Error = M::MakeError;

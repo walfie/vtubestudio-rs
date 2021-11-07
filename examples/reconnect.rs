@@ -1,7 +1,7 @@
 use tower::reconnect::Reconnect;
-use tower::{BoxError, ServiceBuilder};
+use tower::ServiceBuilder;
 use vtubestudio::data::*;
-use vtubestudio::error::TungsteniteTransportError;
+use vtubestudio::error::{ServiceError, ServiceErrorKind};
 use vtubestudio::service::TungsteniteApiService;
 use vtubestudio::{Client, MakeApiService};
 
@@ -14,6 +14,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
 
     let service = ServiceBuilder::new()
         .retry(RetryOnDisconnect::once())
+        .map_err(ServiceError::from_boxed)
         .buffer(10)
         .service(service);
 
@@ -26,7 +27,10 @@ async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
 
         let resp = client.send(ApiStateRequest {}).await;
 
-        println!("Received response: {:#?}\n", resp);
+        match resp {
+            Ok(resp) => println!("Received response:\n{:#?}\n", resp),
+            Err(e) => println!("Received error:\n{}\n{:#?}", e, e),
+        }
     }
 }
 
@@ -44,31 +48,23 @@ impl RetryOnDisconnect {
     }
 }
 
-impl Policy<RequestEnvelope, ResponseEnvelope, BoxError> for RetryOnDisconnect {
+impl Policy<RequestEnvelope, ResponseEnvelope, ServiceError> for RetryOnDisconnect {
     type Future = future::Ready<Self>;
 
     fn retry(
         &self,
         _req: &RequestEnvelope,
-        result: Result<&ResponseEnvelope, &BoxError>,
+        result: Result<&ResponseEnvelope, &ServiceError>,
     ) -> Option<Self::Future> {
-        match result {
-            Err(e) if self.attempts_left > 0 => {
-                let is_dropped = matches!(
-                    e.downcast_ref::<TungsteniteTransportError>(),
-                    Some(TungsteniteTransportError::ConnectionDropped)
-                );
+        let e = result.err()?;
 
-                if is_dropped {
-                    eprintln!("Connection was dropped! Attempting to reconnect...");
-                    Some(future::ready(Self {
-                        attempts_left: self.attempts_left - 1,
-                    }))
-                } else {
-                    None
-                }
-            }
-            _ => None,
+        if self.attempts_left > 0 && e.has_kind(ServiceErrorKind::ConnectionDropped) {
+            eprintln!("Connection was dropped! Attempting to reconnect...");
+            Some(future::ready(Self {
+                attempts_left: self.attempts_left - 1,
+            }))
+        } else {
+            None
         }
     }
 
