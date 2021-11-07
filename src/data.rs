@@ -20,25 +20,30 @@ pub struct RequestEnvelope {
     pub data: Value,
 }
 
-impl RequestEnvelope {
-    pub fn new<Req: Request>(data: &Req) -> Result<Self, serde_json::Error> {
-        Ok(Self::new_value(
-            Req::MESSAGE_TYPE,
-            serde_json::to_value(&data)?,
-        ))
-    }
-
-    pub fn new_value<M>(message_type: M, data: Value) -> Self
-    where
-        M: Into<Cow<'static, str>>,
-    {
+impl Default for RequestEnvelope {
+    fn default() -> Self {
         Self {
             api_name: Cow::Borrowed(API_NAME),
             api_version: Cow::Borrowed(API_VERSION),
-            message_type: message_type.into(),
+            message_type: Cow::Borrowed(""),
             request_id: None,
-            data,
+            data: Value::Null,
         }
+    }
+}
+
+impl RequestEnvelope {
+    pub fn new<Req: Request>(data: &Req) -> Result<Self, serde_json::Error> {
+        let mut value = Self::default();
+        value.set_data(data)?;
+        Ok(value)
+    }
+
+    pub fn set_data<Req: Request>(&mut self, data: &Req) -> Result<(), serde_json::Error> {
+        let data = serde_json::to_value(&data)?;
+        self.message_type = Req::MESSAGE_TYPE.into();
+        self.data = data;
+        Ok(())
     }
 }
 
@@ -54,25 +59,37 @@ pub struct ResponseEnvelope {
     pub data: Value,
 }
 
+impl Default for ResponseEnvelope {
+    fn default() -> Self {
+        Self {
+            api_name: API_NAME.to_owned(),
+            api_version: API_VERSION.to_owned(),
+            message_type: "".to_owned(),
+            timestamp: 0,
+            request_id: "".to_owned(),
+            data: Value::Null,
+        }
+    }
+}
+
 impl ResponseEnvelope {
-    #[cfg(test)]
-    pub fn new<Resp: Response + Serialize>(data: &Resp) -> Result<Self, serde_json::Error> {
-        Ok(Self::new_value(
-            Resp::MESSAGE_TYPE.to_string(),
-            serde_json::to_value(&data)?,
-        ))
+    pub fn new<Resp>(data: &Resp) -> Result<Self, serde_json::Error>
+    where
+        Resp: Response + Serialize,
+    {
+        let mut value = Self::default();
+        value.set_data(data)?;
+        Ok(value)
     }
 
-    #[cfg(test)]
-    pub fn new_value(message_type: String, data: Value) -> Self {
-        Self {
-            api_name: API_NAME.to_string(),
-            api_version: API_VERSION.to_string(),
-            timestamp: 0,
-            message_type,
-            request_id: "".into(),
-            data,
-        }
+    pub fn set_data<Resp>(&mut self, data: &Resp) -> Result<(), serde_json::Error>
+    where
+        Resp: Response + Serialize,
+    {
+        let data = serde_json::to_value(&data)?;
+        self.message_type = Resp::MESSAGE_TYPE.into();
+        self.data = data;
+        Ok(())
     }
 
     pub fn parse<Resp: Response>(&self) -> Result<Resp, Error> {
