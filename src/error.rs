@@ -42,8 +42,8 @@ pub enum ErrorKind {
     Read,
     #[error("underlying transport failed to send a request")]
     Write,
-    #[error("custom error")]
-    Custom,
+    #[error("other error")]
+    Other,
 }
 
 impl Error {
@@ -51,7 +51,12 @@ impl Error {
         Error { kind, source: None }
     }
 
-    pub fn with_source<E: Into<BoxError>>(mut self, source: E) -> Self {
+    /// Consumes the error, returning its source.
+    pub fn into_source(self) -> Option<Box<dyn StdError + Send + Sync>> {
+        self.source
+    }
+
+    fn with_source<E: Into<BoxError>>(mut self, source: E) -> Self {
         self.source = Some(source.into());
         self
     }
@@ -72,8 +77,15 @@ impl Error {
         Self::new(ErrorKind::Write).with_source(source)
     }
 
-    pub fn new_custom<E: Into<BoxError>>(source: E) -> Self {
-        Self::new(ErrorKind::Custom).with_source(source)
+    pub fn new_other<E: Into<BoxError>>(source: E) -> Self {
+        Self::new(ErrorKind::Other).with_source(source)
+    }
+
+    pub fn from_boxed(error: BoxError) -> Self {
+        match error.downcast::<Error>() {
+            Ok(e) => *e,
+            Err(e) => Self::new_other(e),
+        }
     }
 
     pub fn kind(&self) -> &ErrorKind {

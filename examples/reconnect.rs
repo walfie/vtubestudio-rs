@@ -14,7 +14,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
 
     let service = ServiceBuilder::new()
         .retry(RetryOnDisconnect::once())
-        .map_err(Error::new_custom)
+        .map_err(Error::from_boxed)
         .buffer(10)
         .service(service);
 
