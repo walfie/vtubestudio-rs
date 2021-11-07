@@ -1,8 +1,10 @@
+use crate::error::Error;
+
 use paste::paste;
 use serde::de::DeserializeOwned;
 use serde::{Deserialize, Serialize};
+use serde_json::Value;
 use std::borrow::Cow;
-use std::convert::TryFrom;
 
 pub const API_NAME: &'static str = "VTubeStudioPublicAPI";
 pub const API_VERSION: &'static str = "1.0";
@@ -14,18 +16,34 @@ pub struct RequestEnvelope {
     pub api_version: Cow<'static, str>,
     #[serde(rename = "requestID")]
     pub request_id: Option<String>,
-    #[serde(flatten)]
-    pub data: RequestData,
+    pub message_type: Cow<'static, str>,
+    pub data: Value,
 }
 
-impl RequestEnvelope {
-    pub fn new(data: RequestData) -> Self {
+impl Default for RequestEnvelope {
+    fn default() -> Self {
         Self {
             api_name: Cow::Borrowed(API_NAME),
             api_version: Cow::Borrowed(API_VERSION),
+            message_type: Cow::Borrowed(""),
             request_id: None,
-            data,
+            data: Value::Null,
         }
+    }
+}
+
+impl RequestEnvelope {
+    pub fn new<Req: Request>(data: &Req) -> Result<Self, serde_json::Error> {
+        let mut value = Self::default();
+        value.set_data(data)?;
+        Ok(value)
+    }
+
+    pub fn set_data<Req: Request>(&mut self, data: &Req) -> Result<(), serde_json::Error> {
+        let data = serde_json::to_value(&data)?;
+        self.message_type = Req::MESSAGE_TYPE.into();
+        self.data = data;
+        Ok(())
     }
 }
 
@@ -37,18 +55,63 @@ pub struct ResponseEnvelope {
     pub timestamp: i64,
     #[serde(rename = "requestID")]
     pub request_id: String,
-    #[serde(flatten)]
-    pub data: ResponseData,
+    pub message_type: String,
+    pub data: Value,
 }
 
-pub trait Request: Into<RequestData> {
+impl Default for ResponseEnvelope {
+    fn default() -> Self {
+        Self {
+            api_name: API_NAME.to_owned(),
+            api_version: API_VERSION.to_owned(),
+            message_type: "".to_owned(),
+            timestamp: 0,
+            request_id: "".to_owned(),
+            data: Value::Null,
+        }
+    }
+}
+
+impl ResponseEnvelope {
+    pub fn new<Resp>(data: &Resp) -> Result<Self, serde_json::Error>
+    where
+        Resp: Response + Serialize,
+    {
+        let mut value = Self::default();
+        value.set_data(data)?;
+        Ok(value)
+    }
+
+    pub fn set_data<Resp>(&mut self, data: &Resp) -> Result<(), serde_json::Error>
+    where
+        Resp: Response + Serialize,
+    {
+        let data = serde_json::to_value(&data)?;
+        self.message_type = Resp::MESSAGE_TYPE.into();
+        self.data = data;
+        Ok(())
+    }
+
+    pub fn parse<Resp: Response>(&self) -> Result<Resp, Error> {
+        if self.message_type == Resp::MESSAGE_TYPE {
+            Ok(Resp::deserialize(&self.data)?)
+        } else if self.message_type == ApiError::MESSAGE_TYPE {
+            Err(Error::Api(ApiError::deserialize(&self.data)?))
+        } else {
+            Err(Error::UnexpectedResponse {
+                expected: Resp::MESSAGE_TYPE,
+                received: self.message_type.clone(),
+            })
+        }
+    }
+}
+
+pub trait Request: Serialize {
     const MESSAGE_TYPE: &'static str;
     type Response: Response;
 }
 
-pub trait Response:
-    DeserializeOwned + Into<ResponseData> + TryFrom<ResponseData, Error = ResponseData> + Send + 'static
-{
+pub trait Response: DeserializeOwned + Send + 'static {
     const MESSAGE_TYPE: &'static str;
 }
 
@@ -58,40 +121,6 @@ macro_rules! first_expr {
     };
     ($value:expr, $_:expr) => {
         $value
-    };
-}
-
-macro_rules! impl_enum {
-    ($enum:ident, $variant:ident) => {
-        impl From<$variant> for $enum {
-            fn from(value: $variant) -> Self {
-                $enum::$variant(value)
-            }
-        }
-
-        impl std::convert::TryFrom<$enum> for $variant {
-            type Error = $enum;
-
-            fn try_from(value: $enum) -> Result<Self, Self::Error> {
-                if let $enum::$variant(inner) = value {
-                    Ok(inner)
-                } else {
-                    Err(value)
-                }
-            }
-        }
-
-        impl<'a> std::convert::TryFrom<&'a $enum> for &'a $variant {
-            type Error = ();
-
-            fn try_from(value: &'a $enum) -> Result<Self, Self::Error> {
-                if let $enum::$variant(inner) = value {
-                    Ok(inner)
-                } else {
-                    Err(())
-                }
-            }
-        }
     };
 }
 
@@ -112,12 +141,10 @@ macro_rules! define_request_response_pairs {
                 impl Request for [<$rust_name Request>] {
                     type Response = [<$rust_name Response>];
                     const MESSAGE_TYPE: &'static str = first_expr![
-                        $($resp_name,)?
+                        $($req_name,)?
                         concat!(stringify!($rust_name), "Request")
                     ];
                 }
-
-                impl_enum!(RequestData, [<$rust_name Request>]);
 
                 #[derive(Default, Debug, Clone, PartialEq, Serialize, Deserialize)]
                 #[serde(rename_all = "camelCase")]
@@ -125,12 +152,10 @@ macro_rules! define_request_response_pairs {
 
                 impl Response for [<$rust_name Response>] {
                     const MESSAGE_TYPE: &'static str = first_expr![
-                        $($req_name,)?
+                        $($resp_name,)?
                         concat!(stringify!($rust_name), "Response")
                     ];
                 }
-
-                impl_enum!(ResponseData, [<$rust_name Response>]);
             }
         )*
 
@@ -141,19 +166,6 @@ macro_rules! define_request_response_pairs {
                 $(
                     $(#[serde(rename = $req_name)])?
                     [<$rust_name Request>]( [<$rust_name Request>] ),
-                )*
-            }
-
-            #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
-            #[serde(tag = "messageType", content = "data")]
-            pub enum ResponseData {
-                #[serde(rename = "APIError")]
-                ApiError(ApiError),
-                #[serde(rename = "VTubeStudioAPIStateBroadcast")]
-                VTubeStudioApiStateBroadcast(VTubeStudioApiStateBroadcast),
-                $(
-                    $(#[serde(rename = $resp_name)])?
-                    [<$rust_name Response>]( [<$rust_name Response>] ),
                 )*
             }
 
@@ -450,7 +462,7 @@ pub struct ApiError {
 }
 
 impl Response for ApiError {
-    const MESSAGE_TYPE: &'static str = "ApiError";
+    const MESSAGE_TYPE: &'static str = "APIError";
 }
 
 impl ApiError {
@@ -458,8 +470,6 @@ impl ApiError {
         self.error_id == 8
     }
 }
-
-impl_enum!(ResponseData, ApiError);
 
 #[derive(Default, Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
@@ -474,8 +484,6 @@ pub struct VTubeStudioApiStateBroadcast {
 impl Response for VTubeStudioApiStateBroadcast {
     const MESSAGE_TYPE: &'static str = "VTubeStudioAPIStateBroadcast";
 }
-
-impl_enum!(ResponseData, VTubeStudioApiStateBroadcast);
 
 #[derive(Default, Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
@@ -570,13 +578,11 @@ mod tests {
 
     #[test]
     fn request() -> Result {
+        let mut req = RequestEnvelope::new(&ApiStateRequest {})?;
+        req.request_id = Some("MyIDWithLessThan64Characters".into());
+
         assert_eq!(
-            serde_json::to_value(&RequestEnvelope {
-                api_name: "VTubeStudioPublicAPI".into(),
-                api_version: "1.0".into(),
-                request_id: Some("MyIDWithLessThan64Characters".into()),
-                data: ApiStateRequest {}.into(),
-            })?,
+            serde_json::to_value(&req)?,
             json!({
                 "apiName": "VTubeStudioPublicAPI",
                 "apiVersion": "1.0",
@@ -609,12 +615,12 @@ mod tests {
                 api_version: "1.0".into(),
                 request_id: "MyIDWithLessThan64Characters".into(),
                 timestamp: 1625405710728,
-                data: ApiStateResponse {
+                message_type: ApiStateResponse::MESSAGE_TYPE.into(),
+                data: serde_json::to_value(ApiStateResponse {
                     active: true,
                     vtubestudio_version: "1.9.0".into(),
                     current_session_authenticated: false,
-                }
-                .into(),
+                })?,
             }
         );
 
@@ -644,15 +650,15 @@ mod tests {
                 api_version: "1.0".into(),
                 request_id: "SomeID".into(),
                 timestamp: 1625405710728,
-                data: ParameterValueResponse(Parameter {
+                message_type: ParameterValueResponse::MESSAGE_TYPE.into(),
+                data: serde_json::to_value(ParameterValueResponse(Parameter {
                     name: "MyCustomParamName1".into(),
                     added_by: "My Plugin Name".into(),
                     value: 12.4,
                     min: -30.0,
                     max: 30.0,
                     default_value: 0.0
-                })
-                .into(),
+                }))?,
             }
         );
 
@@ -660,21 +666,18 @@ mod tests {
     }
 
     #[test]
-    fn request_response_pairs() -> Result {
-        use std::convert::TryFrom;
-
-        let resp = ApiStateResponse {
+    fn parse_response() -> Result {
+        let data = ApiStateResponse {
             active: true,
             vtubestudio_version: "1.9.0".into(),
             current_session_authenticated: false,
         };
 
-        let resp_enum = ResponseData::from(resp.clone());
+        let resp = ResponseEnvelope::new(&data)?;
 
-        assert_eq!(
-            <ApiStateRequest as Request>::Response::try_from(resp_enum).unwrap(),
-            resp
-        );
+        let parsed = resp.parse::<ApiStateResponse>()?;
+
+        assert_eq!(parsed, data);
 
         Ok(())
     }
