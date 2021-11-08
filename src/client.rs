@@ -13,7 +13,7 @@ use tower::{Service, ServiceExt};
 pub struct Client<S> {
     service: S,
     token: Option<String>,
-    auth_request: Option<AuthenticationTokenRequest>,
+    token_request: Option<AuthenticationTokenRequest>,
 }
 
 impl<S> fmt::Debug for Client<S>
@@ -26,7 +26,7 @@ where
 
         f.debug_struct("Client")
             .field("token", &token)
-            .field("auth_request", &self.auth_request)
+            .field("token_request", &self.token_request)
             .field("service", &self.service)
             .finish()
     }
@@ -74,7 +74,7 @@ where
         Self {
             service,
             token: None,
-            auth_request: None,
+            token_request: None,
         }
     }
 
@@ -86,11 +86,11 @@ where
         self
     }
 
-    pub fn with_auth_request<A>(mut self, auth_request: A) -> Self
+    pub fn with_token_request<A>(mut self, token_request: A) -> Self
     where
         A: Into<Option<AuthenticationTokenRequest>>,
     {
-        self.auth_request = auth_request.into();
+        self.token_request = token_request.into();
         self
     }
 
@@ -99,43 +99,54 @@ where
     }
 
     pub async fn send<Req: Request>(&mut self, data: &Req) -> Result<Req::Response, Error> {
-        let auth_error = match send_request(&mut self.service, data).await {
+        let original_err = match send_request(&mut self.service, data).await {
             Ok(resp) => return Ok(resp),
             Err(e) if !e.is_auth_error() => return Err(e),
             Err(other) => other,
         };
 
-        let auth_token_req = match &self.auth_request {
+        let token_req = match &self.token_request {
             Some(req) => req,
-            None => return Err(auth_error),
+            None => return Err(original_err),
+        };
+
+        let (authentication_token, mut retry_on_fail) = match self.token {
+            Some(ref stored_token) => (stored_token.clone(), true),
+            None => {
+                let new_token = send_request(&mut self.service, token_req)
+                    .await?
+                    .authentication_token;
+                self.token = Some(new_token.clone());
+                (new_token, false)
+            }
         };
 
         let mut auth_req = AuthenticationRequest {
-            plugin_name: auth_token_req.plugin_name.clone(),
-            plugin_developer: auth_token_req.plugin_developer.clone(),
-            authentication_token: "".into(),
+            plugin_name: token_req.plugin_name.clone(),
+            plugin_developer: token_req.plugin_developer.clone(),
+            authentication_token,
         };
 
-        // Attempt to authenticate with the existing token, if it exists
-        if let Some(ref token) = self.token {
-            auth_req.authentication_token = token.clone();
-            if let Ok(_) = send_request(&mut self.service, &auth_req).await {
+        loop {
+            let is_authenticated = send_request(&mut self.service, &auth_req)
+                .await?
+                .authenticated;
+
+            if is_authenticated {
+                // Resend the original request
                 return send_request(&mut self.service, data).await;
-            } else {
-                return Err(auth_error);
             }
-        }
 
-        if let Ok(resp) = send_request(&mut self.service, auth_token_req).await {
-            let new_token = resp.authentication_token;
-            auth_req.authentication_token = new_token.clone();
-            self.token = Some(new_token);
-        }
-
-        if let Ok(_) = send_request(&mut self.service, &auth_req).await {
-            return send_request(&mut self.service, data).await;
-        } else {
-            return Err(auth_error);
+            if retry_on_fail {
+                let new_token = send_request(&mut self.service, token_req)
+                    .await?
+                    .authentication_token;
+                self.token = Some(new_token.clone());
+                auth_req.authentication_token = new_token;
+                retry_on_fail = false;
+            } else {
+                return Err(original_err);
+            }
         }
     }
 }

@@ -24,7 +24,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
         plugin_icon: None,
     };
 
-    let mut client = Client::new(service).with_auth_request(auth_req);
+    let mut client = Client::new(service).with_token_request(auth_req);
 
     let mut line = String::new();
     loop {
