@@ -39,6 +39,11 @@ impl RequestEnvelope {
         Ok(value)
     }
 
+    pub fn with_id<S: Into<Option<String>>>(mut self, id: S) -> Self {
+        self.request_id = id.into();
+        self
+    }
+
     pub fn set_data<Req: Request>(&mut self, data: &Req) -> Result<(), serde_json::Error> {
         let data = serde_json::to_value(&data)?;
         self.message_type = Req::MESSAGE_TYPE.into();
@@ -73,6 +78,23 @@ impl Default for ResponseEnvelope {
 }
 
 impl ResponseEnvelope {
+    pub fn is_api_error(&self) -> bool {
+        self.message_type == ApiError::MESSAGE_TYPE
+    }
+
+    pub fn with_id(mut self, id: String) -> Self {
+        self.request_id = id;
+        self
+    }
+
+    pub fn is_auth_error(&self) -> bool {
+        // TODO: Don't hardcode 8
+        self.is_api_error()
+            && matches!(self.data.get("errorID"), Some(id) if id.as_i64() == Some(8))
+    }
+}
+
+impl ResponseEnvelope {
     pub fn new<Resp>(data: &Resp) -> Result<Self, serde_json::Error>
     where
         Resp: Response + Serialize,
@@ -95,7 +117,7 @@ impl ResponseEnvelope {
     pub fn parse<Resp: Response>(&self) -> Result<Resp, Error> {
         if self.message_type == Resp::MESSAGE_TYPE {
             Ok(Resp::deserialize(&self.data)?)
-        } else if self.message_type == ApiError::MESSAGE_TYPE {
+        } else if self.is_api_error() {
             Err(Error::Api(ApiError::deserialize(&self.data)?))
         } else {
             Err(Error::UnexpectedResponse {
@@ -190,8 +212,8 @@ define_request_response_pairs!(
     {
         rust_name = AuthenticationToken,
         req = {
-            pub plugin_name: String,
-            pub plugin_developer: String,
+            pub plugin_name: Cow<'static, str>,
+            pub plugin_developer: Cow<'static, str>,
             pub plugin_icon: Option<String>,
         },
         resp = {
@@ -202,8 +224,8 @@ define_request_response_pairs!(
     {
         rust_name = Authentication,
         req = {
-            pub plugin_name: String,
-            pub plugin_developer: String,
+            pub plugin_name: Cow<'static, str>,
+            pub plugin_developer: Cow<'static, str>,
             pub authentication_token: String,
         },
         resp = {
@@ -467,7 +489,7 @@ impl Response for ApiError {
 
 impl ApiError {
     pub fn is_auth_error(&self) -> bool {
-        self.error_id == 8
+        self.error_id == 8 // TODO: Don't hardcode
     }
 }
 

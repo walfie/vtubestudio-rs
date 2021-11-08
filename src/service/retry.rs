@@ -6,23 +6,40 @@ use tower::retry::{Policy, Retry};
 use tower::Layer;
 
 #[derive(Debug, Clone)]
-pub struct RetryOnDisconnectPolicy {
-    attempts_left: usize,
+pub struct RetryPolicy {
+    retry_on_disconnect: bool,
+    retry_on_auth_error: bool,
 }
 
-impl RetryOnDisconnectPolicy {
-    pub fn new(max_attempts: usize) -> Self {
-        RetryOnDisconnectPolicy {
-            attempts_left: max_attempts,
+impl RetryPolicy {
+    pub fn new() -> Self {
+        RetryPolicy {
+            retry_on_disconnect: false,
+            retry_on_auth_error: false,
         }
     }
 
-    pub fn once() -> Self {
-        Self::new(1)
+    pub fn on_disconnect(mut self, value: bool) -> Self {
+        self.retry_on_disconnect = value;
+        self
+    }
+
+    pub fn on_auth_error(mut self, value: bool) -> Self {
+        self.retry_on_auth_error = value;
+        self
     }
 }
 
-impl Policy<RequestEnvelope, ResponseEnvelope, ServiceError> for RetryOnDisconnectPolicy {
+impl<S> Layer<S> for RetryPolicy {
+    type Service = Retry<Self, S>;
+
+    fn layer(&self, service: S) -> Self::Service {
+        let policy = self.clone();
+        Retry::new(policy, service)
+    }
+}
+
+impl Policy<RequestEnvelope, ResponseEnvelope, ServiceError> for RetryPolicy {
     type Future = future::Ready<Self>;
 
     fn retry(
@@ -30,44 +47,21 @@ impl Policy<RequestEnvelope, ResponseEnvelope, ServiceError> for RetryOnDisconne
         _req: &RequestEnvelope,
         result: Result<&ResponseEnvelope, &ServiceError>,
     ) -> Option<Self::Future> {
-        let e = result.err()?;
+        Some(future::ready(match result {
+            Ok(resp) if resp.is_auth_error() && self.retry_on_auth_error => {
+                self.clone().on_auth_error(false)
+            }
 
-        if self.attempts_left > 0 && e.has_kind(ServiceErrorKind::ConnectionDropped) {
-            Some(future::ready(Self {
-                attempts_left: self.attempts_left - 1,
-            }))
-        } else {
-            None
-        }
+            Err(e)
+                if self.retry_on_disconnect && e.has_kind(ServiceErrorKind::ConnectionDropped) =>
+            {
+                self.clone().on_disconnect(false)
+            }
+            _ => return None,
+        }))
     }
 
     fn clone_request(&self, req: &RequestEnvelope) -> Option<RequestEnvelope> {
         Some(req.clone())
-    }
-}
-
-#[derive(Debug, Clone)]
-pub struct RetryOnDisconnectLayer {
-    policy: RetryOnDisconnectPolicy,
-}
-
-impl RetryOnDisconnectLayer {
-    pub fn new(max_attempts: usize) -> Self {
-        RetryOnDisconnectLayer {
-            policy: RetryOnDisconnectPolicy::new(max_attempts),
-        }
-    }
-
-    pub fn once() -> Self {
-        Self::new(1)
-    }
-}
-
-impl<S> Layer<S> for RetryOnDisconnectLayer {
-    type Service = Retry<RetryOnDisconnectPolicy, S>;
-
-    fn layer(&self, service: S) -> Self::Service {
-        let policy = self.policy.clone();
-        Retry::new(policy, service)
     }
 }

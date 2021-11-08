@@ -1,15 +1,14 @@
 use crate::data::{Request, RequestEnvelope, ResponseEnvelope};
 use crate::error::{Error, ServiceError};
-use crate::service::{ApiService, TungsteniteApiService};
-use crate::transport::ApiTransport;
+use crate::service::TungsteniteApiService;
 
 use tokio_tungstenite::tungstenite;
 use tokio_tungstenite::tungstenite::client::IntoClientRequest;
 use tower::{Service, ServiceExt};
 
-#[derive(Debug, Clone)]
+#[derive(Clone, Debug)]
 pub struct Client<S> {
-    inner: S,
+    service: S,
 }
 
 pub type TungsteniteClient = Client<TungsteniteApiService>;
@@ -18,11 +17,31 @@ impl TungsteniteClient {
     where
         R: IntoClientRequest + Send + Unpin,
     {
-        let (ws, _) = tokio_tungstenite::connect_async(request).await?;
-        let transport = ApiTransport::new_tungstenite(ws);
-        let service = ApiService::new(transport);
-        Ok(Self::new(service))
+        Ok(Self::new(
+            TungsteniteApiService::new_tungstenite(request).await?,
+        ))
     }
+}
+
+pub async fn send_request<S, Req: Request>(
+    service: &mut S,
+    data: &Req,
+) -> Result<Req::Response, Error>
+where
+    S: Service<RequestEnvelope, Response = ResponseEnvelope>,
+    ServiceError: From<S::Error>,
+{
+    let msg = RequestEnvelope::new(data)?;
+
+    let resp = service
+        .ready()
+        .await
+        .map_err(ServiceError::from)?
+        .call(msg)
+        .await
+        .map_err(ServiceError::from)?;
+
+    resp.parse::<Req::Response>()
 }
 
 impl<S> Client<S>
@@ -31,25 +50,14 @@ where
     ServiceError: From<S::Error>,
 {
     pub fn new(service: S) -> Self {
-        Self { inner: service }
+        Self { service }
     }
 
     pub fn into_inner(self) -> S {
-        self.inner
+        self.service
     }
 
-    pub async fn send<Req: Request>(&mut self, data: Req) -> Result<Req::Response, Error> {
-        let msg = RequestEnvelope::new(&data)?;
-
-        let resp = self
-            .inner
-            .ready()
-            .await
-            .map_err(ServiceError::from)?
-            .call(msg)
-            .await
-            .map_err(ServiceError::from)?;
-
-        resp.parse::<Req::Response>()
+    pub async fn send<Req: Request>(&mut self, data: &Req) -> Result<Req::Response, Error> {
+        send_request(&mut self.service, data).await
     }
 }

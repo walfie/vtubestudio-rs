@@ -23,6 +23,12 @@ pub enum Error {
     Json(#[from] serde_json::Error),
 }
 
+impl Error {
+    pub fn is_auth_error(&self) -> bool {
+        matches!(self, Self::Api(e) if e.is_auth_error())
+    }
+}
+
 #[derive(Debug)]
 pub struct ServiceError {
     kind: ServiceErrorKind,
@@ -42,6 +48,8 @@ pub enum ServiceErrorKind {
     Read,
     #[error("underlying transport failed to send a request")]
     Write,
+    #[error("authentication failed")]
+    Authentication,
     #[error("other error")]
     Other,
 }
