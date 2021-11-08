@@ -2,7 +2,7 @@ use crate::client::send_request;
 use crate::data::{
     AuthenticationRequest, AuthenticationTokenRequest, RequestEnvelope, ResponseEnvelope,
 };
-use crate::error::{Error, ServiceError, ServiceErrorKind};
+use crate::error::{ServiceError, ServiceErrorKind};
 
 use futures_util::TryFutureExt;
 use std::fmt;
@@ -116,7 +116,7 @@ pub async fn authenticate<S>(
     service: &mut S,
     stored_token: Option<String>,
     token_request: &AuthenticationTokenRequest,
-) -> Result<Option<String>, Error>
+) -> Result<Option<String>, ServiceError>
 where
     S: Service<RequestEnvelope, Response = ResponseEnvelope>,
     ServiceError: From<S::Error>,
@@ -159,7 +159,7 @@ where
     S: Service<RequestEnvelope, Response = ResponseEnvelope>,
     ServiceError: From<S::Error>,
 {
-    async fn authenticate(&mut self) -> Result<Option<String>, Error> {
+    async fn authenticate(&mut self) -> Result<Option<String>, ServiceError> {
         let stored_token = (*self.token.lock().unwrap()).clone();
 
         let new_token =

@@ -6,28 +6,7 @@ use std::fmt;
 pub use crate::data::ApiError;
 pub type BoxError = Box<dyn StdError + Send + Sync>;
 
-pub type Result<T, E = Error> = std::result::Result<T, E>;
-
-#[derive(thiserror::Error, Debug)]
-pub enum Error {
-    #[error("service error: {0}")]
-    Service(#[from] ServiceError),
-    #[error("{0}")]
-    Api(#[from] ApiError),
-    #[error("received unexpected response (expected {expected}, received {received})")]
-    UnexpectedResponse {
-        expected: &'static str,
-        received: String,
-    },
-    #[error("JSON error")]
-    Json(#[from] serde_json::Error),
-}
-
-impl Error {
-    pub fn is_auth_error(&self) -> bool {
-        matches!(self, Self::Api(e) if e.is_auth_error())
-    }
-}
+pub type Result<T, E = ServiceError> = std::result::Result<T, E>;
 
 #[derive(Debug)]
 pub struct ServiceError {
@@ -38,14 +17,20 @@ pub struct ServiceError {
 #[derive(thiserror::Error, Debug, PartialEq)]
 #[non_exhaustive]
 pub enum ServiceErrorKind {
+    #[error("received APIError from server")]
+    Api,
     #[error("no more in-flight requests allowed")]
     TransportFull,
     #[error("failed to establish connection")]
     ConnectionRefused,
     #[error("connection was dropped")]
     ConnectionDropped,
+    #[error("received unexpected response from server")]
+    UnexpectedResponse,
     #[error("received server response with unexpected request ID")]
     Desynchronized,
+    #[error("JSON error")]
+    Json,
     #[error("underlying transport failed while attempting to receive a response")]
     Read,
     #[error("underlying transport failed to send a request")]
@@ -54,6 +39,31 @@ pub enum ServiceErrorKind {
     Authentication,
     #[error("other error")]
     Other,
+}
+
+#[derive(thiserror::Error, Debug)]
+#[error("received unexpected response (expected {expected}, received {received})")]
+pub struct UnexpectedResponseError {
+    pub expected: &'static str,
+    pub received: String,
+}
+
+impl From<serde_json::Error> for ServiceError {
+    fn from(error: serde_json::Error) -> Self {
+        Self::new(ServiceErrorKind::Json).with_source(error)
+    }
+}
+
+impl From<ApiError> for ServiceError {
+    fn from(error: ApiError) -> Self {
+        Self::new(ServiceErrorKind::Api).with_source(error)
+    }
+}
+
+impl From<UnexpectedResponseError> for ServiceError {
+    fn from(error: UnexpectedResponseError) -> Self {
+        Self::new(ServiceErrorKind::UnexpectedResponse).with_source(error)
+    }
 }
 
 impl ServiceError {
@@ -70,6 +80,18 @@ impl ServiceError {
     /// Consumes the error, returning its source.
     pub fn into_source(self) -> Option<Box<dyn StdError + Send + Sync>> {
         self.source
+    }
+
+    pub fn as_api_error(&self) -> Option<&ApiError> {
+        self.find_source::<ApiError>()
+    }
+
+    pub fn is_api_error(&self) -> bool {
+        self.as_api_error().is_some()
+    }
+
+    pub fn is_auth_error(&self) -> bool {
+        matches!(self.as_api_error(), Some(e) if e.is_auth_error())
     }
 
     /// Convert a [`BoxError`] into this error type. If the underlying [`Error`](std::error::Error)

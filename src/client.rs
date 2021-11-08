@@ -1,5 +1,5 @@
 use crate::data::{Request, RequestEnvelope, ResponseEnvelope};
-use crate::error::{Error, ServiceError};
+use crate::error::ServiceError;
 use crate::service::TungsteniteApiService;
 
 use tokio_tungstenite::tungstenite;
@@ -26,7 +26,7 @@ impl TungsteniteClient {
 pub async fn send_request<S, Req: Request>(
     service: &mut S,
     data: &Req,
-) -> Result<Req::Response, Error>
+) -> Result<Req::Response, ServiceError>
 where
     S: Service<RequestEnvelope, Response = ResponseEnvelope>,
     ServiceError: From<S::Error>,
@@ -57,7 +57,7 @@ where
         self.service
     }
 
-    pub async fn send<Req: Request>(&mut self, data: &Req) -> Result<Req::Response, Error> {
+    pub async fn send<Req: Request>(&mut self, data: &Req) -> Result<Req::Response, ServiceError> {
         send_request(&mut self.service, data).await
     }
 }
