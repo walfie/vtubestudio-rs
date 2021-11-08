@@ -73,12 +73,14 @@ impl Default for ResponseEnvelope {
 }
 
 impl ResponseEnvelope {
-    pub fn is_auth_error(&self) -> bool {
-        if self.message_type != ApiError::MESSAGE_TYPE {
-            return false;
-        }
+    pub fn is_api_error(&self) -> bool {
+        self.message_type == ApiError::MESSAGE_TYPE
+    }
 
-        matches!(self.data.get("errorID"), Some(id) if id.as_i64() == Some(8))
+    pub fn is_auth_error(&self) -> bool {
+        // TODO: Don't hardcode 8
+        self.is_api_error()
+            && matches!(self.data.get("errorID"), Some(id) if id.as_i64() == Some(8))
     }
 }
 
@@ -105,7 +107,7 @@ impl ResponseEnvelope {
     pub fn parse<Resp: Response>(&self) -> Result<Resp, Error> {
         if self.message_type == Resp::MESSAGE_TYPE {
             Ok(Resp::deserialize(&self.data)?)
-        } else if self.message_type == ApiError::MESSAGE_TYPE {
+        } else if self.is_api_error() {
             Err(Error::Api(ApiError::deserialize(&self.data)?))
         } else {
             Err(Error::UnexpectedResponse {
@@ -477,7 +479,7 @@ impl Response for ApiError {
 
 impl ApiError {
     pub fn is_auth_error(&self) -> bool {
-        self.error_id == 8
+        self.error_id == 8 // TODO: Don't hardcode
     }
 }
 

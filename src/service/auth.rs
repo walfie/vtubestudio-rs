@@ -102,6 +102,48 @@ impl ResponseWithToken {
     }
 }
 
+pub async fn authenticate<S>(
+    service: &mut S,
+    stored_token: Option<String>,
+    token_request: &AuthenticationTokenRequest,
+) -> Result<Option<String>, Error>
+where
+    S: Service<RequestEnvelope, Response = ResponseEnvelope>,
+    ServiceError: From<S::Error>,
+{
+    let (authentication_token, mut retry_on_fail) = match stored_token {
+        Some(token) => (token, true),
+        None => {
+            let new_token = send_request(service, token_request)
+                .await?
+                .authentication_token;
+            (new_token, false)
+        }
+    };
+
+    let mut auth_req = AuthenticationRequest {
+        plugin_name: token_request.plugin_name.clone(),
+        plugin_developer: token_request.plugin_developer.clone(),
+        authentication_token,
+    };
+
+    loop {
+        let is_authenticated = send_request(service, &auth_req).await?.authenticated;
+
+        if is_authenticated {
+            return Ok(Some(auth_req.authentication_token.clone()));
+        } else if retry_on_fail {
+            let new_token = send_request(service, token_request)
+                .await?
+                .authentication_token;
+            auth_req.authentication_token = new_token;
+            retry_on_fail = false;
+        } else {
+            return Ok(None);
+        }
+    }
+}
+
 impl<S> Authentication<S>
 where
     S: Service<RequestEnvelope, Response = ResponseEnvelope>,
@@ -110,40 +152,14 @@ where
     async fn authenticate(&mut self) -> Result<Option<String>, Error> {
         let stored_token = (*self.token.lock().unwrap()).clone();
 
-        let (authentication_token, mut retry_on_fail) = match stored_token {
-            Some(token) => (token, true),
-            None => {
-                let new_token = send_request(&mut self.service, self.token_request.as_ref())
-                    .await?
-                    .authentication_token;
-                (new_token, false)
-            }
-        };
+        let new_token =
+            authenticate(&mut self.service, stored_token, self.token_request.as_ref()).await?;
 
-        let mut auth_req = AuthenticationRequest {
-            plugin_name: self.token_request.plugin_name.clone(),
-            plugin_developer: self.token_request.plugin_developer.clone(),
-            authentication_token,
-        };
-
-        loop {
-            let is_authenticated = send_request(&mut self.service, &auth_req)
-                .await?
-                .authenticated;
-
-            if is_authenticated {
-                *self.token.lock().unwrap() = Some(auth_req.authentication_token.clone());
-                return Ok(Some(auth_req.authentication_token.clone()));
-            } else if retry_on_fail {
-                let new_token = send_request(&mut self.service, self.token_request.as_ref())
-                    .await?
-                    .authentication_token;
-                auth_req.authentication_token = new_token;
-                retry_on_fail = false;
-            } else {
-                return Ok(None);
-            }
+        if let Some(ref token) = new_token {
+            *self.token.lock().unwrap() = Some(token.clone());
         }
+
+        Ok(new_token)
     }
 }
 
