@@ -1,14 +1,14 @@
 use futures_core::TryStream;
 use futures_sink::Sink;
 use std::error::Error as StdError;
-use std::fmt;
 
 pub use crate::data::ApiError;
 pub type BoxError = Box<dyn StdError + Send + Sync>;
 
 pub type Result<T, E = Error> = std::result::Result<T, E>;
 
-#[derive(Debug)]
+#[derive(thiserror::Error, Debug)]
+#[error("{}", .kind)]
 pub struct Error {
     kind: ErrorKind,
     source: Option<BoxError>,
@@ -135,24 +135,6 @@ impl Error {
         }
 
         None
-    }
-}
-
-impl fmt::Display for Error {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        if let Some(ref source) = self.source {
-            write!(f, "{}: {}", self.kind, source)
-        } else {
-            write!(f, "{}", self.kind)
-        }
-    }
-}
-
-impl StdError for Error {
-    fn source(&self) -> Option<&(dyn StdError + 'static)> {
-        self.source
-            .as_ref()
-            .map(|cause| &**cause as &(dyn StdError + 'static))
     }
 }
 
