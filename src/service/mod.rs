@@ -1,4 +1,5 @@
 pub(crate) mod api;
+pub(crate) mod auth;
 pub(crate) mod maker;
 pub(crate) mod retry;
 

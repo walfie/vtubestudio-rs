@@ -48,6 +48,8 @@ pub enum ServiceErrorKind {
     Read,
     #[error("underlying transport failed to send a request")]
     Write,
+    #[error("authentication failed")]
+    Authentication,
     #[error("other error")]
     Other,
 }

@@ -73,6 +73,16 @@ impl Default for ResponseEnvelope {
 }
 
 impl ResponseEnvelope {
+    pub fn is_auth_error(&self) -> bool {
+        if self.message_type != ApiError::MESSAGE_TYPE {
+            return false;
+        }
+
+        matches!(self.data.get("errorID"), Some(id) if id.as_i64() == Some(8))
+    }
+}
+
+impl ResponseEnvelope {
     pub fn new<Resp>(data: &Resp) -> Result<Self, serde_json::Error>
     where
         Resp: Response + Serialize,
