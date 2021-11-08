@@ -1,9 +1,9 @@
-use crate::data::ApiError;
 use futures_core::TryStream;
 use futures_sink::Sink;
 use std::error::Error as StdError;
 use std::fmt;
 
+pub use crate::data::ApiError;
 pub type BoxError = Box<dyn StdError + Send + Sync>;
 
 pub type Result<T, E = Error> = std::result::Result<T, E>;
@@ -12,8 +12,8 @@ pub type Result<T, E = Error> = std::result::Result<T, E>;
 pub enum Error {
     #[error("service error: {0}")]
     Service(#[from] ServiceError),
-    #[error("received APIError {}: {}", .0.error_id, .0.message)]
-    Api(ApiError),
+    #[error("{0}")]
+    Api(#[from] ApiError),
     #[error("received unexpected response (expected {expected}, received {received})")]
     UnexpectedResponse {
         expected: &'static str,

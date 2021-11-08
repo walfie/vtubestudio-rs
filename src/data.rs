@@ -5,6 +5,8 @@ use serde::de::DeserializeOwned;
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 use std::borrow::Cow;
+use std::error::Error as StdError;
+use std::fmt;
 
 pub const API_NAME: &'static str = "VTubeStudioPublicAPI";
 pub const API_VERSION: &'static str = "1.0";
@@ -481,6 +483,14 @@ pub struct ApiError {
     #[serde(rename = "errorID")]
     pub error_id: i32,
     pub message: String,
+}
+
+impl StdError for ApiError {}
+
+impl fmt::Display for ApiError {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(f, "APIError {}: {}", self.error_id, self.message)
+    }
 }
 
 impl Response for ApiError {
