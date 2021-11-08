@@ -35,8 +35,6 @@ pub enum ErrorKind {
     Read,
     #[error("underlying transport failed to send a request")]
     Write,
-    #[error("authentication failed")]
-    Authentication,
     #[error("other error")]
     Other,
 }

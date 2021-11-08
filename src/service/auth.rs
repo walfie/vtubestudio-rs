@@ -2,7 +2,7 @@ use crate::client::send_request;
 use crate::data::{
     AuthenticationRequest, AuthenticationTokenRequest, RequestEnvelope, ResponseEnvelope,
 };
-use crate::error::{Error, ErrorKind};
+use crate::error::Error;
 
 use futures_util::TryFutureExt;
 use std::fmt;
@@ -121,12 +121,14 @@ where
     S: Service<RequestEnvelope, Response = ResponseEnvelope>,
     Error: From<S::Error>,
 {
+    let mut is_new_token = false;
     let (authentication_token, mut retry_on_fail) = match stored_token {
         Some(token) => (token, true),
         None => {
             let new_token = send_request(service, token_request)
                 .await?
                 .authentication_token;
+            is_new_token = true;
             (new_token, false)
         }
     };
@@ -141,11 +143,12 @@ where
         let is_authenticated = send_request(service, &auth_req).await?.authenticated;
 
         if is_authenticated {
-            return Ok(Some(auth_req.authentication_token.clone()));
+            return Ok(is_new_token.then(|| auth_req.authentication_token.clone()));
         } else if retry_on_fail {
             let new_token = send_request(service, token_request)
                 .await?
                 .authentication_token;
+            is_new_token = true;
             auth_req.authentication_token = new_token;
             retry_on_fail = false;
         } else {
@@ -205,10 +208,7 @@ where
                 return Ok(ResponseWithToken::new(resp));
             }
 
-            let new_token = this
-                .authenticate()
-                .map_err(|e| Error::new(ErrorKind::Authentication).with_source(e))
-                .await?;
+            let new_token = this.authenticate().await?;
 
             Ok(ResponseWithToken {
                 response: resp,
