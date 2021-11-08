@@ -1,5 +1,5 @@
 use crate::data::{RequestEnvelope, ResponseEnvelope};
-use crate::error::{ServiceError, ServiceErrorKind};
+use crate::error::{Error, ErrorKind};
 
 use futures_util::future;
 use tower::retry::{Policy, Retry};
@@ -39,22 +39,20 @@ impl<S> Layer<S> for RetryPolicy {
     }
 }
 
-impl Policy<RequestEnvelope, ResponseEnvelope, ServiceError> for RetryPolicy {
+impl Policy<RequestEnvelope, ResponseEnvelope, Error> for RetryPolicy {
     type Future = future::Ready<Self>;
 
     fn retry(
         &self,
         _req: &RequestEnvelope,
-        result: Result<&ResponseEnvelope, &ServiceError>,
+        result: Result<&ResponseEnvelope, &Error>,
     ) -> Option<Self::Future> {
         Some(future::ready(match result {
             Ok(resp) if resp.is_auth_error() && self.retry_on_auth_error => {
                 self.clone().on_auth_error(false)
             }
 
-            Err(e)
-                if self.retry_on_disconnect && e.has_kind(ServiceErrorKind::ConnectionDropped) =>
-            {
+            Err(e) if self.retry_on_disconnect && e.has_kind(ErrorKind::ConnectionDropped) => {
                 self.clone().on_disconnect(false)
             }
             _ => return None,

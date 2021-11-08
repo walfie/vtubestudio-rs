@@ -1,4 +1,4 @@
-use crate::error::{ServiceError, UnexpectedResponseError};
+use crate::error::{Error, UnexpectedResponseError};
 
 use paste::paste;
 use serde::de::DeserializeOwned;
@@ -116,7 +116,7 @@ impl ResponseEnvelope {
         Ok(())
     }
 
-    pub fn parse<Resp: Response>(&self) -> Result<Resp, ServiceError> {
+    pub fn parse<Resp: Response>(&self) -> Result<Resp, Error> {
         if self.message_type == Resp::MESSAGE_TYPE {
             Ok(Resp::deserialize(&self.data)?)
         } else if self.is_api_error() {

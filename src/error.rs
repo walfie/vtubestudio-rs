@@ -6,17 +6,17 @@ use std::fmt;
 pub use crate::data::ApiError;
 pub type BoxError = Box<dyn StdError + Send + Sync>;
 
-pub type Result<T, E = ServiceError> = std::result::Result<T, E>;
+pub type Result<T, E = Error> = std::result::Result<T, E>;
 
 #[derive(Debug)]
-pub struct ServiceError {
-    kind: ServiceErrorKind,
+pub struct Error {
+    kind: ErrorKind,
     source: Option<BoxError>,
 }
 
 #[derive(thiserror::Error, Debug, PartialEq)]
 #[non_exhaustive]
-pub enum ServiceErrorKind {
+pub enum ErrorKind {
     #[error("received APIError from server")]
     Api,
     #[error("no more in-flight requests allowed")]
@@ -48,26 +48,26 @@ pub struct UnexpectedResponseError {
     pub received: String,
 }
 
-impl From<serde_json::Error> for ServiceError {
+impl From<serde_json::Error> for Error {
     fn from(error: serde_json::Error) -> Self {
-        Self::new(ServiceErrorKind::Json).with_source(error)
+        Self::new(ErrorKind::Json).with_source(error)
     }
 }
 
-impl From<ApiError> for ServiceError {
+impl From<ApiError> for Error {
     fn from(error: ApiError) -> Self {
-        Self::new(ServiceErrorKind::Api).with_source(error)
+        Self::new(ErrorKind::Api).with_source(error)
     }
 }
 
-impl From<UnexpectedResponseError> for ServiceError {
+impl From<UnexpectedResponseError> for Error {
     fn from(error: UnexpectedResponseError) -> Self {
-        Self::new(ServiceErrorKind::UnexpectedResponse).with_source(error)
+        Self::new(ErrorKind::UnexpectedResponse).with_source(error)
     }
 }
 
-impl ServiceError {
-    pub fn new(kind: ServiceErrorKind) -> Self {
+impl Error {
+    pub fn new(kind: ErrorKind) -> Self {
         Self { kind, source: None }
     }
 
@@ -95,20 +95,20 @@ impl ServiceError {
     }
 
     /// Convert a [`BoxError`] into this error type. If the underlying [`Error`](std::error::Error)
-    /// is not this error type, a new [`Error`] is created with [`ServiceErrorKind::Other`].
+    /// is not this error type, a new [`Error`] is created with [`ErrorKind::Other`].
     pub fn from_boxed(error: BoxError) -> Self {
         match error.downcast::<Self>() {
             Ok(e) => *e,
-            Err(e) => Self::new(ServiceErrorKind::Other).with_source(e),
+            Err(e) => Self::new(ErrorKind::Other).with_source(e),
         }
     }
 
-    pub fn kind(&self) -> &ServiceErrorKind {
+    pub fn kind(&self) -> &ErrorKind {
         &self.kind
     }
 
-    /// Check if any error in this error's `source` chain match the given [`ServiceErrorKind`].
-    pub fn has_kind(&self, kind: ServiceErrorKind) -> bool {
+    /// Check if any error in this error's `source` chain match the given [`ErrorKind`].
+    pub fn has_kind(&self, kind: ErrorKind) -> bool {
         if self.kind == kind {
             return true;
         }
@@ -140,7 +140,7 @@ impl ServiceError {
     }
 }
 
-impl fmt::Display for ServiceError {
+impl fmt::Display for Error {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         if let Some(ref source) = self.source {
             write!(f, "{}: {}", self.kind, source)
@@ -150,7 +150,7 @@ impl fmt::Display for ServiceError {
     }
 }
 
-impl StdError for ServiceError {
+impl StdError for Error {
     fn source(&self) -> Option<&(dyn StdError + 'static)> {
         self.source
             .as_ref()
@@ -158,7 +158,7 @@ impl StdError for ServiceError {
     }
 }
 
-impl<T, I> From<tokio_tower::Error<T, I>> for ServiceError
+impl<T, I> From<tokio_tower::Error<T, I>> for Error
 where
     T: Sink<I> + TryStream,
     BoxError: From<<T as Sink<I>>::Error> + From<<T as TryStream>::Error>,
@@ -167,13 +167,11 @@ where
         use tokio_tower::Error::*;
 
         match error {
-            BrokenTransportSend(e) => Self::new(ServiceErrorKind::Write).with_source(e),
-            BrokenTransportRecv(Some(e)) => Self::new(ServiceErrorKind::Read).with_source(e),
-            BrokenTransportRecv(None) | ClientDropped => {
-                Self::new(ServiceErrorKind::ConnectionDropped)
-            }
-            TransportFull => Self::new(ServiceErrorKind::TransportFull),
-            Desynchronized => Self::new(ServiceErrorKind::Desynchronized),
+            BrokenTransportSend(e) => Self::new(ErrorKind::Write).with_source(e),
+            BrokenTransportRecv(Some(e)) => Self::new(ErrorKind::Read).with_source(e),
+            BrokenTransportRecv(None) | ClientDropped => Self::new(ErrorKind::ConnectionDropped),
+            TransportFull => Self::new(ErrorKind::TransportFull),
+            Desynchronized => Self::new(ErrorKind::Desynchronized),
         }
     }
 }
