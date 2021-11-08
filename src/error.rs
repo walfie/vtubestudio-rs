@@ -40,6 +40,8 @@ pub struct ServiceError {
 pub enum ServiceErrorKind {
     #[error("no more in-flight requests allowed")]
     TransportFull,
+    #[error("failed to establish connection")]
+    ConnectionRefused,
     #[error("connection was dropped")]
     ConnectionDropped,
     #[error("received server response with unexpected request ID")]
