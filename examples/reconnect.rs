@@ -21,7 +21,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
     };
 
     let service = ServiceBuilder::new()
-        .retry(RetryPolicy::once())
+        .retry(RetryPolicy::new().on_disconnect(true).on_auth_error(true))
         .map_response(|resp: ResponseWithToken| resp.response)
         .layer(AuthenticationLayer::new(auth_req))
         .map_err(ServiceError::from_boxed)

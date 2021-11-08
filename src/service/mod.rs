@@ -6,4 +6,4 @@ pub(crate) mod retry;
 pub use crate::service::api::{ApiService, TungsteniteApiService};
 pub use crate::service::auth::{Authentication, AuthenticationLayer, ResponseWithToken};
 pub use crate::service::maker::MakeApiService;
-pub use crate::service::retry::{RetryLayer, RetryPolicy};
+pub use crate::service::retry::RetryPolicy;
