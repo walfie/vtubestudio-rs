@@ -3,7 +3,7 @@ use tower::ServiceBuilder;
 use vtubestudio::data::*;
 use vtubestudio::error::ServiceError;
 use vtubestudio::service::{
-    AuthenticationLayer, ResponseWithToken, RetryOnDisconnectPolicy, TungsteniteApiService,
+    AuthenticationLayer, ResponseWithToken, RetryPolicy, TungsteniteApiService,
 };
 use vtubestudio::{Client, MakeApiService};
 
@@ -21,7 +21,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
     };
 
     let service = ServiceBuilder::new()
-        .retry(RetryOnDisconnectPolicy::once())
+        .retry(RetryPolicy::once())
         .map_response(|resp: ResponseWithToken| resp.response)
         .layer(AuthenticationLayer::new(auth_req))
         .map_err(ServiceError::from_boxed)

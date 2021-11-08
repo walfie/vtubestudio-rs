@@ -6,13 +6,13 @@ use tower::retry::{Policy, Retry};
 use tower::Layer;
 
 #[derive(Debug, Clone)]
-pub struct RetryOnDisconnectPolicy {
+pub struct RetryPolicy {
     attempts_left: usize,
 }
 
-impl RetryOnDisconnectPolicy {
+impl RetryPolicy {
     pub fn new(max_attempts: usize) -> Self {
-        RetryOnDisconnectPolicy {
+        RetryPolicy {
             attempts_left: max_attempts,
         }
     }
@@ -22,7 +22,7 @@ impl RetryOnDisconnectPolicy {
     }
 }
 
-impl Policy<RequestEnvelope, ResponseEnvelope, ServiceError> for RetryOnDisconnectPolicy {
+impl Policy<RequestEnvelope, ResponseEnvelope, ServiceError> for RetryPolicy {
     type Future = future::Ready<Self>;
 
     fn retry(
@@ -47,14 +47,14 @@ impl Policy<RequestEnvelope, ResponseEnvelope, ServiceError> for RetryOnDisconne
 }
 
 #[derive(Debug, Clone)]
-pub struct RetryOnDisconnectLayer {
-    policy: RetryOnDisconnectPolicy,
+pub struct RetryLayer {
+    policy: RetryPolicy,
 }
 
-impl RetryOnDisconnectLayer {
+impl RetryLayer {
     pub fn new(max_attempts: usize) -> Self {
-        RetryOnDisconnectLayer {
-            policy: RetryOnDisconnectPolicy::new(max_attempts),
+        RetryLayer {
+            policy: RetryPolicy::new(max_attempts),
         }
     }
 
@@ -63,8 +63,8 @@ impl RetryOnDisconnectLayer {
     }
 }
 
-impl<S> Layer<S> for RetryOnDisconnectLayer {
-    type Service = Retry<RetryOnDisconnectPolicy, S>;
+impl<S> Layer<S> for RetryLayer {
+    type Service = Retry<RetryPolicy, S>;
 
     fn layer(&self, service: S) -> Self::Service {
         let policy = self.policy.clone();
