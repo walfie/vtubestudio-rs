@@ -2,7 +2,7 @@ use crate::client::send_request;
 use crate::data::{
     AuthenticationRequest, AuthenticationTokenRequest, RequestEnvelope, ResponseEnvelope,
 };
-use crate::error::{BoxError, Error, ServiceError, ServiceErrorKind};
+use crate::error::{Error, ServiceError, ServiceErrorKind};
 
 use futures_util::TryFutureExt;
 use std::fmt;
