@@ -39,6 +39,11 @@ impl RequestEnvelope {
         Ok(value)
     }
 
+    pub fn with_id<S: Into<Option<String>>>(mut self, id: S) -> Self {
+        self.request_id = id.into();
+        self
+    }
+
     pub fn set_data<Req: Request>(&mut self, data: &Req) -> Result<(), serde_json::Error> {
         let data = serde_json::to_value(&data)?;
         self.message_type = Req::MESSAGE_TYPE.into();
@@ -75,6 +80,11 @@ impl Default for ResponseEnvelope {
 impl ResponseEnvelope {
     pub fn is_api_error(&self) -> bool {
         self.message_type == ApiError::MESSAGE_TYPE
+    }
+
+    pub fn with_id(mut self, id: String) -> Self {
+        self.request_id = id;
+        self
     }
 
     pub fn is_auth_error(&self) -> bool {
