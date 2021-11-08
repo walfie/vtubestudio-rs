@@ -18,6 +18,16 @@ pub struct AuthenticationLayer {
     token_request: Arc<AuthenticationTokenRequest>,
 }
 
+impl fmt::Debug for AuthenticationLayer {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        // Avoid printing the token
+        f.debug_struct("AuthenticationLayer")
+            .field("token", &self.token.is_some().then(|| "..."))
+            .field("token_request", &self.token_request)
+            .finish()
+    }
+}
+
 impl AuthenticationLayer {
     pub fn new(token_request: AuthenticationTokenRequest) -> Self {
         Self {
