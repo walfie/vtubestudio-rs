@@ -22,7 +22,14 @@ async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
 
     let service = ServiceBuilder::new()
         .retry(RetryPolicy::new().on_disconnect(true).on_auth_error(true))
-        .map_response(|resp: ResponseWithToken| resp.response)
+        .map_response(|resp: ResponseWithToken| {
+            // Handle the new token (save it somewhere, etc)
+            if let Some(token) = resp.new_token {
+                println!("Got new auth token: {}", token);
+            }
+
+            resp.response
+        })
         .layer(AuthenticationLayer::new(auth_req))
         .map_err(ServiceError::from_boxed)
         .buffer(10)
