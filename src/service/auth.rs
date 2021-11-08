@@ -2,7 +2,7 @@ use crate::client::send_request;
 use crate::data::{
     AuthenticationRequest, AuthenticationTokenRequest, RequestEnvelope, ResponseEnvelope,
 };
-use crate::error::{BoxError, ServiceError, ServiceErrorKind};
+use crate::error::{BoxError, Error, ServiceError, ServiceErrorKind};
 
 use futures_util::TryFutureExt;
 use std::fmt;
@@ -10,13 +10,67 @@ use std::future::Future;
 use std::pin::Pin;
 use std::sync::{Arc, Mutex};
 use std::task::{Context, Poll};
-use tower::Service;
+use tower::{Layer, Service, ServiceExt};
+
+#[derive(Clone)]
+pub struct AuthenticationLayer {
+    token: Option<String>,
+    token_request: Arc<AuthenticationTokenRequest>,
+}
+
+impl AuthenticationLayer {
+    pub fn new(token_request: AuthenticationTokenRequest) -> Self {
+        Self {
+            token_request: Arc::new(token_request),
+            token: None,
+        }
+    }
+
+    pub fn with_token<S: Into<Option<String>>>(mut self, token: S) -> Self {
+        self.token = token.into();
+        self
+    }
+}
+
+impl<S> Layer<S> for AuthenticationLayer
+where
+    S: Service<RequestEnvelope, Response = ResponseEnvelope> + Clone + Send + 'static,
+    S::Future: Send,
+    S::Error: Send,
+    ServiceError: From<S::Error>,
+{
+    type Service = Authentication<S>;
+
+    fn layer(&self, service: S) -> Self::Service {
+        Authentication::new(service, self.token_request.clone(), self.token.clone())
+    }
+}
 
 #[derive(Clone)]
 pub struct Authentication<S> {
     service: S,
     token: Arc<Mutex<Option<String>>>,
     token_request: Arc<AuthenticationTokenRequest>,
+}
+
+impl<S> Authentication<S>
+where
+    S: Service<RequestEnvelope, Response = ResponseEnvelope> + Clone + Send + 'static,
+    S::Future: Send,
+    S::Error: Send,
+    ServiceError: From<S::Error>,
+{
+    pub fn new(
+        service: S,
+        token_request: Arc<AuthenticationTokenRequest>,
+        token: Option<String>,
+    ) -> Self {
+        Self {
+            service,
+            token_request,
+            token: Arc::new(Mutex::new(token)),
+        }
+    }
 }
 
 impl<S> fmt::Debug for Authentication<S>
@@ -35,8 +89,8 @@ where
 
 #[derive(Debug, Clone)]
 pub struct ResponseWithToken {
-    response: ResponseEnvelope,
-    new_token: Option<String>,
+    pub response: ResponseEnvelope,
+    pub new_token: Option<String>,
 }
 
 impl ResponseWithToken {
@@ -53,7 +107,7 @@ where
     S: Service<RequestEnvelope, Response = ResponseEnvelope>,
     ServiceError: From<S::Error>,
 {
-    async fn authenticate(&mut self) -> Result<Option<String>, BoxError> {
+    async fn authenticate(&mut self) -> Result<Option<String>, Error> {
         let stored_token = (*self.token.lock().unwrap()).clone();
 
         let (authentication_token, mut retry_on_fail) = match stored_token {
@@ -112,7 +166,15 @@ where
         let mut this = self.clone();
 
         let f = async move {
-            let resp = this.service.call(req).map_err(ServiceError::from).await?;
+            let resp = this
+                .service
+                .ready()
+                .await
+                .map_err(ServiceError::from)?
+                .call(req)
+                .map_err(ServiceError::from)
+                .await?;
+
             if !resp.is_auth_error() {
                 return Ok(ResponseWithToken::new(resp));
             }

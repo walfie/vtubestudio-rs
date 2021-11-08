@@ -2,7 +2,9 @@ use tower::reconnect::Reconnect;
 use tower::ServiceBuilder;
 use vtubestudio::data::*;
 use vtubestudio::error::ServiceError;
-use vtubestudio::service::{RetryOnDisconnectPolicy, TungsteniteApiService};
+use vtubestudio::service::{
+    AuthenticationLayer, ResponseWithToken, RetryOnDisconnectPolicy, TungsteniteApiService,
+};
 use vtubestudio::{Client, MakeApiService};
 
 #[tokio::main(flavor = "current_thread")]
@@ -12,19 +14,21 @@ async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
     let service =
         Reconnect::new::<TungsteniteApiService, &str>(MakeApiService::new_tungstenite(), url);
 
-    let service = ServiceBuilder::new()
-        .retry(RetryOnDisconnectPolicy::once())
-        .map_err(ServiceError::from_boxed)
-        .buffer(10)
-        .service(service);
-
     let auth_req = AuthenticationTokenRequest {
         plugin_name: "vtubestudio-rs example".into(),
         plugin_developer: "Walfie".into(),
         plugin_icon: None,
     };
 
-    let mut client = Client::new(service).with_token_request(auth_req);
+    let service = ServiceBuilder::new()
+        .map_response(|resp: ResponseWithToken| resp.response)
+        .layer(AuthenticationLayer::new(auth_req))
+        .retry(RetryOnDisconnectPolicy::once())
+        .map_err(ServiceError::from_boxed)
+        .buffer(10)
+        .service(service);
+
+    let mut client = Client::new(service);
 
     let mut line = String::new();
     loop {

@@ -99,6 +99,9 @@ where
     }
 
     pub async fn send<Req: Request>(&mut self, data: &Req) -> Result<Req::Response, Error> {
+        send_request(&mut self.service, data).await
+
+        /*
         let original_err = match send_request(&mut self.service, data).await {
             Ok(resp) => return Ok(resp),
             Err(e) if !e.is_auth_error() => return Err(e),
@@ -148,5 +151,6 @@ where
                 return Err(original_err);
             }
         }
+            */
     }
 }
