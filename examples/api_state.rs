@@ -23,7 +23,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     match resp {
         Ok(_) => panic!("Expected auth error"),
         Err(error) => {
-            if let Some(e) = error.as_api_error() {
+            if let Some(e) = error.to_api_error() {
                 assert!(e.is_auth_error());
                 println!("Got expected error: {:#?}", e);
             } else {
