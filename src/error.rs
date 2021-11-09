@@ -14,28 +14,28 @@ pub struct Error {
     source: Option<BoxError>,
 }
 
-#[derive(thiserror::Error, Debug, PartialEq)]
+#[derive(thiserror::Error, displaydoc::Display, Debug, PartialEq)]
 #[non_exhaustive]
 pub enum ErrorKind {
-    #[error("received APIError from server")]
+    /// received APIError from server
     Api,
-    #[error("no more in-flight requests allowed")]
+    /// no more in-flight requests allowed
     TransportFull,
-    #[error("failed to establish connection")]
+    /// failed to establish connection
     ConnectionRefused,
-    #[error("connection was dropped")]
+    /// connection was dropped
     ConnectionDropped,
-    #[error("received unexpected response from server")]
+    /// received unexpected response from server
     UnexpectedResponse,
-    #[error("received server response with unexpected request ID")]
+    /// received server response with unexpected request ID
     Desynchronized,
-    #[error("JSON error")]
+    /// JSON error
     Json,
-    #[error("underlying transport failed while attempting to receive a response")]
+    /// underlying transport failed while attempting to receive a response
     Read,
-    #[error("underlying transport failed to send a request")]
+    /// underlying transport failed to send a request
     Write,
-    #[error("other error")]
+    /// other error
     Other,
 }
 
