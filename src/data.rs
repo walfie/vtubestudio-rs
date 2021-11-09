@@ -1,4 +1,4 @@
-use crate::error::Error;
+use crate::error::{Error, UnexpectedResponseError};
 
 use paste::paste;
 use serde::de::DeserializeOwned;
@@ -118,12 +118,13 @@ impl ResponseEnvelope {
         if self.message_type == Resp::MESSAGE_TYPE {
             Ok(Resp::deserialize(&self.data)?)
         } else if self.is_api_error() {
-            Err(Error::Api(ApiError::deserialize(&self.data)?))
+            Err(ApiError::deserialize(&self.data)?.into())
         } else {
-            Err(Error::UnexpectedResponse {
+            Err(UnexpectedResponseError {
                 expected: Resp::MESSAGE_TYPE,
                 received: self.message_type.clone(),
-            })
+            }
+            .into())
         }
     }
 }
@@ -473,8 +474,9 @@ define_request_response_pairs!(
 
 );
 
-#[derive(Default, Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[derive(thiserror::Error, Default, Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
+#[error("APIError {error_id}: {message}")]
 pub struct ApiError {
     // TODO: ErrorId enum
     // https://github.com/DenchiSoft/VTubeStudio/blob/master/Files/ErrorID.cs

@@ -2,7 +2,7 @@ use crate::client::send_request;
 use crate::data::{
     AuthenticationRequest, AuthenticationTokenRequest, RequestEnvelope, ResponseEnvelope,
 };
-use crate::error::{Error, ServiceError, ServiceErrorKind};
+use crate::error::Error;
 
 use futures_util::TryFutureExt;
 use std::fmt;
@@ -47,7 +47,7 @@ where
     S: Service<RequestEnvelope, Response = ResponseEnvelope> + Clone + Send + 'static,
     S::Future: Send,
     S::Error: Send,
-    ServiceError: From<S::Error>,
+    Error: From<S::Error>,
 {
     type Service = Authentication<S>;
 
@@ -68,7 +68,7 @@ where
     S: Service<RequestEnvelope, Response = ResponseEnvelope> + Clone + Send + 'static,
     S::Future: Send,
     S::Error: Send,
-    ServiceError: From<S::Error>,
+    Error: From<S::Error>,
 {
     pub fn new(
         service: S,
@@ -119,14 +119,16 @@ pub async fn authenticate<S>(
 ) -> Result<Option<String>, Error>
 where
     S: Service<RequestEnvelope, Response = ResponseEnvelope>,
-    ServiceError: From<S::Error>,
+    Error: From<S::Error>,
 {
+    let mut is_new_token = false;
     let (authentication_token, mut retry_on_fail) = match stored_token {
         Some(token) => (token, true),
         None => {
             let new_token = send_request(service, token_request)
                 .await?
                 .authentication_token;
+            is_new_token = true;
             (new_token, false)
         }
     };
@@ -141,11 +143,12 @@ where
         let is_authenticated = send_request(service, &auth_req).await?.authenticated;
 
         if is_authenticated {
-            return Ok(Some(auth_req.authentication_token.clone()));
+            return Ok(is_new_token.then(|| auth_req.authentication_token.clone()));
         } else if retry_on_fail {
             let new_token = send_request(service, token_request)
                 .await?
                 .authentication_token;
+            is_new_token = true;
             auth_req.authentication_token = new_token;
             retry_on_fail = false;
         } else {
@@ -157,7 +160,7 @@ where
 impl<S> Authentication<S>
 where
     S: Service<RequestEnvelope, Response = ResponseEnvelope>,
-    ServiceError: From<S::Error>,
+    Error: From<S::Error>,
 {
     async fn authenticate(&mut self) -> Result<Option<String>, Error> {
         let stored_token = (*self.token.lock().unwrap()).clone();
@@ -178,14 +181,14 @@ where
     S: Service<RequestEnvelope, Response = ResponseEnvelope> + Clone + Send + 'static,
     S::Future: Send,
     S::Error: Send,
-    ServiceError: From<S::Error>,
+    Error: From<S::Error>,
 {
     type Response = ResponseWithToken;
-    type Error = ServiceError;
+    type Error = Error;
     type Future = Pin<Box<dyn Future<Output = Result<Self::Response, Self::Error>> + Send>>;
 
     fn poll_ready(&mut self, cx: &mut Context<'_>) -> Poll<Result<(), Self::Error>> {
-        self.service.poll_ready(cx).map_err(ServiceError::from)
+        self.service.poll_ready(cx).map_err(Error::from)
     }
 
     fn call(&mut self, req: RequestEnvelope) -> Self::Future {
@@ -196,19 +199,16 @@ where
                 .service
                 .ready()
                 .await
-                .map_err(ServiceError::from)?
+                .map_err(Error::from)?
                 .call(req)
-                .map_err(ServiceError::from)
+                .map_err(Error::from)
                 .await?;
 
             if !resp.is_auth_error() {
                 return Ok(ResponseWithToken::new(resp));
             }
 
-            let new_token = this
-                .authenticate()
-                .map_err(|e| ServiceError::new(ServiceErrorKind::Authentication).with_source(e))
-                .await?;
+            let new_token = this.authenticate().await?;
 
             Ok(ResponseWithToken {
                 response: resp,

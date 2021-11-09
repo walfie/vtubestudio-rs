@@ -1,7 +1,7 @@
 use tower::reconnect::Reconnect;
 use tower::ServiceBuilder;
 use vtubestudio::data::*;
-use vtubestudio::error::ServiceError;
+use vtubestudio::error::Error;
 use vtubestudio::service::{
     AuthenticationLayer, ResponseWithToken, RetryPolicy, TungsteniteApiService,
 };
@@ -31,7 +31,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
             resp.response
         })
         .layer(AuthenticationLayer::new(auth_req))
-        .map_err(ServiceError::from_boxed)
+        .map_err(Error::from_boxed)
         .buffer(10)
         .service(service);
 

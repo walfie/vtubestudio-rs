@@ -4,6 +4,7 @@ version = "0.1.0-alpha.0"
 edition = "2018"
 
 [dependencies]
+displaydoc = "0.2"
 futures-core = "0.3.17"
 futures-sink = "0.3.17"
 futures-util = "0.3.17"

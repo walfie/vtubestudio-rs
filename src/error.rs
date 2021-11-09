@@ -1,63 +1,77 @@
-use crate::data::ApiError;
 use futures_core::TryStream;
 use futures_sink::Sink;
 use std::error::Error as StdError;
-use std::fmt;
 
+pub use crate::data::ApiError;
 pub type BoxError = Box<dyn StdError + Send + Sync>;
 
 pub type Result<T, E = Error> = std::result::Result<T, E>;
 
 #[derive(thiserror::Error, Debug)]
-pub enum Error {
-    #[error("service error: {0}")]
-    Service(#[from] ServiceError),
-    #[error("received APIError {}: {}", .0.error_id, .0.message)]
-    Api(ApiError),
-    #[error("received unexpected response (expected {expected}, received {received})")]
-    UnexpectedResponse {
-        expected: &'static str,
-        received: String,
-    },
-    #[error("JSON error")]
-    Json(#[from] serde_json::Error),
-}
-
-impl Error {
-    pub fn is_auth_error(&self) -> bool {
-        matches!(self, Self::Api(e) if e.is_auth_error())
-    }
-}
-
-#[derive(Debug)]
-pub struct ServiceError {
-    kind: ServiceErrorKind,
+#[error("{kind}")]
+pub struct Error {
+    kind: ErrorKind,
     source: Option<BoxError>,
 }
 
-#[derive(thiserror::Error, Debug, PartialEq)]
+#[derive(thiserror::Error, displaydoc::Display, Debug, PartialEq)]
 #[non_exhaustive]
-pub enum ServiceErrorKind {
-    #[error("no more in-flight requests allowed")]
+pub enum ErrorKind {
+    /// received APIError from server
+    Api,
+    /// no more in-flight requests allowed
     TransportFull,
-    #[error("failed to establish connection")]
+    /// failed to establish connection
     ConnectionRefused,
-    #[error("connection was dropped")]
+    /// connection was dropped
     ConnectionDropped,
-    #[error("received server response with unexpected request ID")]
+    /// received unexpected response from server
+    UnexpectedResponse,
+    /// received server response with unexpected request ID
     Desynchronized,
-    #[error("underlying transport failed while attempting to receive a response")]
+    /// JSON error
+    Json,
+    /// underlying transport failed while attempting to receive a response
     Read,
-    #[error("underlying transport failed to send a request")]
+    /// underlying transport failed to send a request
     Write,
-    #[error("authentication failed")]
-    Authentication,
-    #[error("other error")]
+    /// other error
     Other,
 }
 
-impl ServiceError {
-    pub fn new(kind: ServiceErrorKind) -> Self {
+#[derive(thiserror::Error, Debug)]
+#[error("received unexpected response (expected {expected}, received {received})")]
+pub struct UnexpectedResponseError {
+    pub expected: &'static str,
+    pub received: String,
+}
+
+impl From<serde_json::Error> for Error {
+    fn from(error: serde_json::Error) -> Self {
+        Self::new(ErrorKind::Json).with_source(error)
+    }
+}
+
+impl From<ApiError> for Error {
+    fn from(error: ApiError) -> Self {
+        Self::new(ErrorKind::Api).with_source(error)
+    }
+}
+
+impl From<UnexpectedResponseError> for Error {
+    fn from(error: UnexpectedResponseError) -> Self {
+        Self::new(ErrorKind::UnexpectedResponse).with_source(error)
+    }
+}
+
+impl From<ErrorKind> for Error {
+    fn from(kind: ErrorKind) -> Self {
+        Self::new(kind)
+    }
+}
+
+impl Error {
+    pub fn new(kind: ErrorKind) -> Self {
         Self { kind, source: None }
     }
 
@@ -72,21 +86,37 @@ impl ServiceError {
         self.source
     }
 
+    /// Return the underlying [`ApiError`], if any.
+    pub fn to_api_error(&self) -> Option<&ApiError> {
+        self.find_source::<ApiError>()
+    }
+
+    /// Returns `true` if this error has an underlying [`ApiError`].
+    pub fn is_api_error(&self) -> bool {
+        self.to_api_error().is_some()
+    }
+
+    /// Returns `true` if this error's underlying [`ApiError`] is an authentication error.
+    pub fn is_auth_error(&self) -> bool {
+        matches!(self.to_api_error(), Some(e) if e.is_auth_error())
+    }
+
     /// Convert a [`BoxError`] into this error type. If the underlying [`Error`](std::error::Error)
-    /// is not this error type, a new [`Error`] is created with [`ServiceErrorKind::Other`].
+    /// is not this error type, a new [`Error`] is created with [`ErrorKind::Other`].
     pub fn from_boxed(error: BoxError) -> Self {
         match error.downcast::<Self>() {
             Ok(e) => *e,
-            Err(e) => Self::new(ServiceErrorKind::Other).with_source(e),
+            Err(e) => Self::new(ErrorKind::Other).with_source(e),
         }
     }
 
-    pub fn kind(&self) -> &ServiceErrorKind {
+    /// Returns the [`ErrorKind`] of this error.
+    pub fn kind(&self) -> &ErrorKind {
         &self.kind
     }
 
-    /// Check if any error in this error's `source` chain match the given [`ServiceErrorKind`].
-    pub fn has_kind(&self, kind: ServiceErrorKind) -> bool {
+    /// Check if any error in this error's `source` chain match the given [`ErrorKind`].
+    pub fn has_kind(&self, kind: ErrorKind) -> bool {
         if self.kind == kind {
             return true;
         }
@@ -118,25 +148,8 @@ impl ServiceError {
     }
 }
 
-impl fmt::Display for ServiceError {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        if let Some(ref source) = self.source {
-            write!(f, "{}: {}", self.kind, source)
-        } else {
-            write!(f, "{}", self.kind)
-        }
-    }
-}
-
-impl StdError for ServiceError {
-    fn source(&self) -> Option<&(dyn StdError + 'static)> {
-        self.source
-            .as_ref()
-            .map(|cause| &**cause as &(dyn StdError + 'static))
-    }
-}
-
-impl<T, I> From<tokio_tower::Error<T, I>> for ServiceError
+#[doc(hidden)]
+impl<T, I> From<tokio_tower::Error<T, I>> for Error
 where
     T: Sink<I> + TryStream,
     BoxError: From<<T as Sink<I>>::Error> + From<<T as TryStream>::Error>,
@@ -145,13 +158,11 @@ where
         use tokio_tower::Error::*;
 
         match error {
-            BrokenTransportSend(e) => Self::new(ServiceErrorKind::Write).with_source(e),
-            BrokenTransportRecv(Some(e)) => Self::new(ServiceErrorKind::Read).with_source(e),
-            BrokenTransportRecv(None) | ClientDropped => {
-                Self::new(ServiceErrorKind::ConnectionDropped)
-            }
-            TransportFull => Self::new(ServiceErrorKind::TransportFull),
-            Desynchronized => Self::new(ServiceErrorKind::Desynchronized),
+            BrokenTransportSend(e) => Self::new(ErrorKind::Write).with_source(e),
+            BrokenTransportRecv(Some(e)) => Self::new(ErrorKind::Read).with_source(e),
+            BrokenTransportRecv(None) | ClientDropped => Self::new(ErrorKind::ConnectionDropped),
+            TransportFull => Self::new(ErrorKind::TransportFull),
+            Desynchronized => Self::new(ErrorKind::Desynchronized),
         }
     }
 }
