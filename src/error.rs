@@ -64,6 +64,12 @@ impl From<UnexpectedResponseError> for Error {
     }
 }
 
+impl From<ErrorKind> for Error {
+    fn from(kind: ErrorKind) -> Self {
+        Self::new(kind)
+    }
+}
+
 impl Error {
     pub fn new(kind: ErrorKind) -> Self {
         Self { kind, source: None }
@@ -80,14 +86,17 @@ impl Error {
         self.source
     }
 
+    /// Return the underlying [`ApiError`], if any.
     pub fn as_api_error(&self) -> Option<&ApiError> {
         self.find_source::<ApiError>()
     }
 
+    /// Returns `true` if this error has an underlying [`ApiError`].
     pub fn is_api_error(&self) -> bool {
         self.as_api_error().is_some()
     }
 
+    /// Returns `true` if this error's underlying [`ApiError`] is an authentication error.
     pub fn is_auth_error(&self) -> bool {
         matches!(self.as_api_error(), Some(e) if e.is_auth_error())
     }
@@ -101,6 +110,7 @@ impl Error {
         }
     }
 
+    /// Returns the [`ErrorKind`] of this error.
     pub fn kind(&self) -> &ErrorKind {
         &self.kind
     }
