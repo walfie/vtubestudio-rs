@@ -148,6 +148,7 @@ impl Error {
     }
 }
 
+#[doc(hidden)]
 impl<T, I> From<tokio_tower::Error<T, I>> for Error
 where
     T: Sink<I> + TryStream,
