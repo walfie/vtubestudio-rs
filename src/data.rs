@@ -5,8 +5,6 @@ use serde::de::DeserializeOwned;
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 use std::borrow::Cow;
-use std::error::Error as StdError;
-use std::fmt;
 
 pub const API_NAME: &'static str = "VTubeStudioPublicAPI";
 pub const API_VERSION: &'static str = "1.0";

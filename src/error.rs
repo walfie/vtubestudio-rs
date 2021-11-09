@@ -8,7 +8,7 @@ pub type BoxError = Box<dyn StdError + Send + Sync>;
 pub type Result<T, E = Error> = std::result::Result<T, E>;
 
 #[derive(thiserror::Error, Debug)]
-#[error("{}", .kind)]
+#[error("{kind}")]
 pub struct Error {
     kind: ErrorKind,
     source: Option<BoxError>,
