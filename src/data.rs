@@ -476,22 +476,15 @@ define_request_response_pairs!(
 
 );
 
-#[derive(Default, Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[derive(thiserror::Error, Default, Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
+#[error("APIError {error_id}: {message}")]
 pub struct ApiError {
     // TODO: ErrorId enum
     // https://github.com/DenchiSoft/VTubeStudio/blob/master/Files/ErrorID.cs
     #[serde(rename = "errorID")]
     pub error_id: i32,
     pub message: String,
-}
-
-impl StdError for ApiError {}
-
-impl fmt::Display for ApiError {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write!(f, "APIError {}: {}", self.error_id, self.message)
-    }
 }
 
 impl Response for ApiError {
