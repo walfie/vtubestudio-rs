@@ -6,6 +6,7 @@ use crate::service::{
 use crate::CloneBoxService;
 
 use std::borrow::Cow;
+use tokio::sync::mpsc;
 use tokio_tungstenite::tungstenite;
 use tokio_tungstenite::tungstenite::client::IntoClientRequest;
 use tower::reconnect::Reconnect;
@@ -95,9 +96,9 @@ pub struct ClientBuilder {
     retry_on_disconnect: bool,
     retry_on_reauthentication: bool,
     request_buffer_size: usize,
+    token_stream_buffer_size: usize,
     auth_token: Option<String>,
     token_request: Option<AuthenticationTokenRequest>,
-    // TODO: function to be called on new token
 }
 
 impl Default for ClientBuilder {
@@ -106,9 +107,25 @@ impl Default for ClientBuilder {
             retry_on_disconnect: true,
             retry_on_reauthentication: true,
             request_buffer_size: 256,
+            token_stream_buffer_size: 32,
             auth_token: None,
             token_request: None,
         }
+    }
+}
+
+#[derive(Debug)]
+pub struct TokenReceiver {
+    receiver: mpsc::Receiver<String>,
+}
+
+impl TokenReceiver {
+    pub fn into_inner(self) -> mpsc::Receiver<String> {
+        self.receiver
+    }
+
+    pub async fn next(&mut self) -> Option<String> {
+        self.receiver.recv().await
     }
 }
 
@@ -137,6 +154,11 @@ impl ClientBuilder {
         self
     }
 
+    pub fn token_stream_buffer_size(mut self, size: usize) -> Self {
+        self.token_stream_buffer_size = size;
+        self
+    }
+
     pub fn authentication<S1, S2, S3>(mut self, name: S1, developer: S2, icon: S3) -> Self
     where
         S1: Into<Cow<'static, str>>,
@@ -151,16 +173,15 @@ impl ClientBuilder {
         self
     }
 
-    pub fn build_tungstenite<R>(
-        self,
-        request: R,
-    ) -> Client<CloneBoxService<RequestEnvelope, ResponseEnvelope, Error>>
+    pub fn build_tungstenite<R>(self, request: R) -> (Client, TokenReceiver)
     where
         R: IntoClientRequest + Clone + Send + Unpin + 'static,
     {
         let policy = RetryPolicy::new()
             .on_disconnect(self.retry_on_disconnect)
             .on_auth_error(self.retry_on_reauthentication);
+
+        let (token_tx, token_rx) = mpsc::channel(self.token_stream_buffer_size);
 
         let service =
             Reconnect::new::<TungsteniteApiService, R>(MakeApiService::new_tungstenite(), request);
@@ -169,8 +190,15 @@ impl ClientBuilder {
             CloneBoxService::new(
                 ServiceBuilder::new()
                     .retry(policy)
-                    .map_response(|resp: ResponseWithToken| resp.response)
-                    .layer(AuthenticationLayer::new(token_req))
+                    .and_then(|resp: ResponseWithToken| async move {
+                        if let Some(token) = resp.new_token {
+                            // Ignore send errors (the consumer probably isn't reading the new
+                            // token stream)
+                            let _ = token_tx.send(token).await;
+                        }
+                        Ok(resp.response)
+                    })
+                    .layer(AuthenticationLayer::new(token_req).with_token(self.auth_token))
                     .map_err(Error::from_boxed)
                     .buffer(self.request_buffer_size)
                     .service(service),
@@ -185,6 +213,8 @@ impl ClientBuilder {
             )
         };
 
-        return Client::new(service);
+        let token_receiver = TokenReceiver { receiver: token_rx };
+
+        return (Client::new(service), token_receiver);
     }
 }
