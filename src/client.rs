@@ -113,26 +113,6 @@ impl ClientBuilder {
         Self::default()
     }
 
-    pub fn retry_on_disconnect(mut self, retry: bool) -> Self {
-        self.retry_on_disconnect = retry;
-        self
-    }
-
-    pub fn request_buffer_size(mut self, size: usize) -> Self {
-        self.request_buffer_size = size;
-        self
-    }
-
-    pub fn auth_token<T: Into<Option<String>>>(mut self, token: T) -> Self {
-        self.auth_token = token.into();
-        self
-    }
-
-    pub fn token_stream_buffer_size(mut self, size: usize) -> Self {
-        self.token_stream_buffer_size = size;
-        self
-    }
-
     pub fn authentication<S1, S2, S3>(mut self, name: S1, developer: S2, icon: S3) -> Self
     where
         S1: Into<Cow<'static, str>>,
@@ -144,6 +124,26 @@ impl ClientBuilder {
             plugin_developer: developer.into(),
             plugin_icon: icon.into(),
         });
+        self
+    }
+
+    pub fn auth_token<T: Into<Option<String>>>(mut self, token: T) -> Self {
+        self.auth_token = token.into();
+        self
+    }
+
+    pub fn retry_on_disconnect(mut self, retry: bool) -> Self {
+        self.retry_on_disconnect = retry;
+        self
+    }
+
+    pub fn request_buffer_size(mut self, size: usize) -> Self {
+        self.request_buffer_size = size;
+        self
+    }
+
+    pub fn token_stream_buffer_size(mut self, size: usize) -> Self {
+        self.token_stream_buffer_size = size;
         self
     }
 
