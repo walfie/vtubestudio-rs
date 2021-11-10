@@ -6,7 +6,7 @@ pub mod error;
 pub mod service;
 mod transport;
 
-pub use crate::client::{Client, ClientBuilder};
+pub use crate::client::{Client, ClientBuilder, TokenReceiver};
 pub use crate::clone_boxed::CloneBoxService;
 pub use crate::codec::MessageCodec;
 pub use crate::error::{Error, ErrorKind, Result};

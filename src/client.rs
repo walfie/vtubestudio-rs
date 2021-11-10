@@ -1,7 +1,8 @@
 use crate::data::{AuthenticationTokenRequest, Request, RequestEnvelope, ResponseEnvelope};
 use crate::error::Error;
 use crate::service::{
-    AuthenticationLayer, MakeApiService, ResponseWithToken, RetryPolicy, TungsteniteApiService,
+    send_request, AuthenticationLayer, MakeApiService, ResponseWithToken, RetryPolicy,
+    TungsteniteApiService,
 };
 use crate::CloneBoxService;
 
@@ -10,13 +11,14 @@ use tokio::sync::mpsc;
 use tokio_tungstenite::tungstenite;
 use tokio_tungstenite::tungstenite::client::IntoClientRequest;
 use tower::reconnect::Reconnect;
-use tower::{Service, ServiceBuilder, ServiceExt};
+use tower::{Service, ServiceBuilder};
 
 #[derive(Clone, Debug)]
 pub struct Client<S = CloneBoxApiService> {
     service: S,
 }
 
+/// A [`Clone`]able [`tower::Service`] that is compatible with [`Client`].
 pub type CloneBoxApiService = CloneBoxService<RequestEnvelope, ResponseEnvelope, Error>;
 
 /// Trait alias for a [`tower::Service`] that is compatible with [`Client`].
@@ -34,37 +36,10 @@ where
 {
 }
 
-pub type TungsteniteClient = Client<TungsteniteApiService>;
-impl TungsteniteClient {
-    pub async fn new_tungstenite<R>(request: R) -> Result<Self, tungstenite::Error>
-    where
-        R: IntoClientRequest + Send + Unpin,
-    {
-        Ok(Self::new(
-            TungsteniteApiService::new_tungstenite(request).await?,
-        ))
+impl Client<CloneBoxApiService> {
+    pub fn builder() -> ClientBuilder {
+        ClientBuilder::new()
     }
-}
-
-pub async fn send_request<S, Req: Request>(
-    service: &mut S,
-    data: &Req,
-) -> Result<Req::Response, Error>
-where
-    S: Service<RequestEnvelope, Response = ResponseEnvelope>,
-    Error: From<S::Error>,
-{
-    let msg = RequestEnvelope::new(data)?;
-
-    let resp = service
-        .ready()
-        .await
-        .map_err(Error::from)?
-        .call(msg)
-        .await
-        .map_err(Error::from)?;
-
-    resp.parse::<Req::Response>()
 }
 
 impl<S> Client<S>
@@ -85,9 +60,15 @@ where
     }
 }
 
-impl Client<CloneBoxApiService> {
-    pub fn builder() -> ClientBuilder {
-        ClientBuilder::new()
+pub type TungsteniteClient = Client<TungsteniteApiService>;
+impl TungsteniteClient {
+    pub async fn new_tungstenite<R>(request: R) -> Result<Self, tungstenite::Error>
+    where
+        R: IntoClientRequest + Send + Unpin,
+    {
+        Ok(Self::new(
+            TungsteniteApiService::new_tungstenite(request).await?,
+        ))
     }
 }
 

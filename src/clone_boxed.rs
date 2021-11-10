@@ -38,7 +38,7 @@ use tower::{Service, ServiceExt};
 /// [`CloneBoxService`] turns a service into a trait object, allowing the
 /// response future type to be dynamic, and allowing the service to be cloned.
 ///
-/// This is similar to [`BoxService`](super::BoxService) except the resulting
+/// This is similar to [`BoxService`](tower::util::BoxService) except the resulting
 /// service implements [`Clone`].
 ///
 /// # Example
@@ -102,7 +102,7 @@ impl<T, U, E> CloneBoxService<T, U, E> {
     /// Returns a [`Layer`] for wrapping a [`Service`] in a [`CloneBoxService`]
     /// middleware.
     ///
-    /// [`Layer`]: crate::Layer
+    /// [`Layer`]: tower::Layer
     pub fn layer<S>() -> LayerFn<fn(S) -> Self>
     where
         S: Service<T, Response = U, Error = E> + Clone + Send + 'static,
