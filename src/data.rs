@@ -215,7 +215,7 @@ define_request_response_pairs!(
         req = {
             pub plugin_name: Cow<'static, str>,
             pub plugin_developer: Cow<'static, str>,
-            pub plugin_icon: Option<String>,
+            pub plugin_icon: Option<Cow<'static, str>>,
         },
         resp = {
             pub authentication_token: String,

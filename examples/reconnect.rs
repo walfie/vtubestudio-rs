@@ -1,41 +1,15 @@
-use tower::reconnect::Reconnect;
-use tower::ServiceBuilder;
 use vtubestudio::data::*;
-use vtubestudio::error::Error;
-use vtubestudio::service::{
-    AuthenticationLayer, ResponseWithToken, RetryPolicy, TungsteniteApiService,
-};
-use vtubestudio::{Client, MakeApiService};
+use vtubestudio::Client;
 
 #[tokio::main(flavor = "current_thread")]
 async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
     let url = "ws://localhost:8001";
 
-    let service =
-        Reconnect::new::<TungsteniteApiService, &str>(MakeApiService::new_tungstenite(), url);
-
-    let auth_req = AuthenticationTokenRequest {
-        plugin_name: "vtubestudio-rs example".into(),
-        plugin_developer: "Walfie".into(),
-        plugin_icon: None,
-    };
-
-    let service = ServiceBuilder::new()
-        .retry(RetryPolicy::new().on_disconnect(true).on_auth_error(true))
-        .map_response(|resp: ResponseWithToken| {
-            // Handle the new token (save it somewhere, etc)
-            if let Some(token) = resp.new_token {
-                println!("Got new auth token: {}", token);
-            }
-
-            resp.response
-        })
-        .layer(AuthenticationLayer::new(auth_req))
-        .map_err(Error::from_boxed)
-        .buffer(10)
-        .service(service);
-
-    let mut client = Client::new(service);
+    // TODO: function for handling new token
+    // Handle the new token (save it somewhere, etc)
+    let mut client = Client::builder()
+        .authentication("vtubestudio-rs example", "Walfie", None)
+        .build_tungstenite(url);
 
     let mut line = String::new();
     loop {
