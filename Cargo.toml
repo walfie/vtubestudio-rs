@@ -16,8 +16,7 @@ thiserror = "1.0.30"
 tokio = { version = "1.13.0" }
 tokio-tower = "0.6.0"
 tokio-tungstenite = "0.15.0"
-tower = { version = "0.4.10", features = ["util", "retry"] }
+tower = { version = "0.4.10", features = ["util", "retry", "reconnect", "buffer"] }
 
 [dev-dependencies]
 tokio = { version = "1.13.0", features = ["macros"] }
-tower = { version = "0.4.10", features = ["reconnect", "retry", "buffer"] }
