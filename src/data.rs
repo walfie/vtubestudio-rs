@@ -319,10 +319,10 @@ define_request_response_pairs!(
         req = {
             pub time_in_seconds: f64,
             pub values_are_relative_to_model: bool,
-            pub position_x: f64,
-            pub position_y: f64,
-            pub rotation: f64,
-            pub size: f64,
+            pub position_x: Option<f64>,
+            pub position_y: Option<f64>,
+            pub rotation: Option<f64>,
+            pub size: Option<f64>,
         },
         resp = {},
     },
@@ -542,7 +542,7 @@ pub struct Hotkey {
     pub hotkey_id: String,
 }
 
-#[derive(Default, Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct ColorTint {
     pub color_r: u8,
@@ -552,6 +552,19 @@ pub struct ColorTint {
     pub mix_with_scene_lighting_color: Option<f64>,
     #[serde(rename = "jeb_")]
     pub jeb: bool,
+}
+
+impl Default for ColorTint {
+    fn default() -> Self {
+        Self {
+            color_r: 0,
+            color_g: 0,
+            color_b: 0,
+            color_a: 255,
+            mix_with_scene_lighting_color: None,
+            jeb: false,
+        }
+    }
 }
 
 #[derive(Default, Debug, Clone, PartialEq, Serialize, Deserialize)]
