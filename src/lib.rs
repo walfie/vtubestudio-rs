@@ -1,11 +1,13 @@
 pub mod client;
+mod clone_boxed;
 pub mod codec;
 pub mod data;
 pub mod error;
 pub mod service;
 mod transport;
 
-pub use crate::client::Client;
+pub use crate::client::{Client, ClientBuilder, TokenReceiver};
+pub use crate::clone_boxed::CloneBoxService;
 pub use crate::codec::MessageCodec;
 pub use crate::error::{Error, ErrorKind, Result};
 pub use crate::service::api::ApiService;

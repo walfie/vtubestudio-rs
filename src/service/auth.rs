@@ -1,8 +1,8 @@
-use crate::client::send_request;
 use crate::data::{
     AuthenticationRequest, AuthenticationTokenRequest, RequestEnvelope, ResponseEnvelope,
 };
 use crate::error::Error;
+use crate::service::send_request;
 
 use futures_util::TryFutureExt;
 use std::fmt;

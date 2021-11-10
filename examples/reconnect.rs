@@ -1,41 +1,27 @@
-use tower::reconnect::Reconnect;
-use tower::ServiceBuilder;
 use vtubestudio::data::*;
-use vtubestudio::error::Error;
-use vtubestudio::service::{
-    AuthenticationLayer, ResponseWithToken, RetryPolicy, TungsteniteApiService,
-};
-use vtubestudio::{Client, MakeApiService};
+use vtubestudio::Client;
 
 #[tokio::main(flavor = "current_thread")]
 async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
-    let url = "ws://localhost:8001";
+    let url = std::env::var("VTS_URL").unwrap_or_else(|_| "ws://localhost:8001".to_string());
 
-    let service =
-        Reconnect::new::<TungsteniteApiService, &str>(MakeApiService::new_tungstenite(), url);
+    let stored_token = std::env::var("VTS_AUTH_TOKEN").ok();
+    if stored_token.is_some() {
+        println!("Attempting to use stored auth token");
+    }
 
-    let auth_req = AuthenticationTokenRequest {
-        plugin_name: "vtubestudio-rs example".into(),
-        plugin_developer: "Walfie".into(),
-        plugin_icon: None,
-    };
+    let (mut client, mut new_tokens) = Client::builder()
+        .auth_token(stored_token)
+        .authentication("vtubestudio-rs example", "Walfie", None)
+        .build_tungstenite(url);
 
-    let service = ServiceBuilder::new()
-        .retry(RetryPolicy::new().on_disconnect(true).on_auth_error(true))
-        .map_response(|resp: ResponseWithToken| {
-            // Handle the new token (save it somewhere, etc)
-            if let Some(token) = resp.new_token {
-                println!("Got new auth token: {}", token);
-            }
-
-            resp.response
-        })
-        .layer(AuthenticationLayer::new(auth_req))
-        .map_err(Error::from_boxed)
-        .buffer(10)
-        .service(service);
-
-    let mut client = Client::new(service);
+    tokio::spawn(async move {
+        // This returns whenever the authentication middleware receives a new auth token.
+        // We can handle it by saving it somewhere, etc.
+        while let Some(token) = new_tokens.next().await {
+            println!("Received new token: {}", token);
+        }
+    });
 
     let mut line = String::new();
     loop {
