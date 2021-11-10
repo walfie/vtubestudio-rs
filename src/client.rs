@@ -75,7 +75,6 @@ impl TungsteniteClient {
 #[derive(Debug, Clone)]
 pub struct ClientBuilder {
     retry_on_disconnect: bool,
-    retry_on_reauthentication: bool,
     request_buffer_size: usize,
     token_stream_buffer_size: usize,
     auth_token: Option<String>,
@@ -86,7 +85,6 @@ impl Default for ClientBuilder {
     fn default() -> Self {
         Self {
             retry_on_disconnect: true,
-            retry_on_reauthentication: true,
             request_buffer_size: 256,
             token_stream_buffer_size: 32,
             auth_token: None,
@@ -113,11 +111,6 @@ impl TokenReceiver {
 impl ClientBuilder {
     pub fn new() -> Self {
         Self::default()
-    }
-
-    pub fn retry_on_reauthentication(mut self, retry: bool) -> Self {
-        self.retry_on_reauthentication = retry;
-        self
     }
 
     pub fn retry_on_disconnect(mut self, retry: bool) -> Self {
@@ -160,7 +153,7 @@ impl ClientBuilder {
     {
         let policy = RetryPolicy::new()
             .on_disconnect(self.retry_on_disconnect)
-            .on_auth_error(self.retry_on_reauthentication);
+            .on_auth_error(self.token_request.is_some());
 
         let (token_tx, token_rx) = mpsc::channel(self.token_stream_buffer_size);
 
