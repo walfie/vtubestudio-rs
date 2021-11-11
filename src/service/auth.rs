@@ -42,8 +42,8 @@ impl AuthenticationLayer {
     ///
     /// On auth errors, the [`Authentication`] service will attempt to use this token first before
     /// trying to request a new one.
-    pub fn with_token<S: Into<Option<String>>>(mut self, token: S) -> Self {
-        self.token = token.into();
+    pub fn with_token(mut self, token: Option<String>) -> Self {
+        self.token = token;
         self
     }
 }
