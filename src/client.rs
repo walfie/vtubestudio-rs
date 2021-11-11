@@ -90,8 +90,7 @@ where
     }
 }
 
-/// A builder to configure a new [`Client`] with a set of recommended [`tower`] middleware,
-/// including:
+/// A builder to configure a new [`Client`] with a set of recommended [`tower`] middleware.
 ///
 /// * retrying requests on disconnect (using [`Reconnect`] and [`RetryPolicy`])
 /// * if [`authentication`](Self::authentication) is provided, automatially reauthenticate and
@@ -144,12 +143,12 @@ impl Default for ClientBuilder {
     }
 }
 
+/// A wrapper for a [`mpsc::Receiver`] that yields new auth tokens.
 #[derive(Debug)]
 pub struct TokenReceiver {
     receiver: mpsc::Receiver<String>,
 }
 
-/// A wrapper for a [`mpsc::Receiver`] that yields new auth tokens.
 impl TokenReceiver {
     /// Returns new tokens after successful authentication. If `None` is returned, it means the
     /// sender (the underlying [`Client`]) has been dropped.

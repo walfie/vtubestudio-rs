@@ -1,10 +1,21 @@
+/// Utilities for creating [`Client`]s.
 pub mod client;
-mod clone_boxed;
+
+/// Codecs for converting to/from websocket message types.
 pub mod codec;
+
+/// Request/response types for the VTubeStudio API.
 pub mod data;
+
+/// Error handling.
 pub mod error;
+
+/// A collection of [`tower::Service`] middleware used by [`Client`].
 pub mod service;
+
 mod transport;
+
+mod clone_boxed;
 
 pub use crate::client::{Client, ClientBuilder, TokenReceiver};
 pub use crate::clone_boxed::CloneBoxService;
@@ -14,3 +25,4 @@ pub use crate::service::api::ApiService;
 pub use crate::service::maker::MakeApiService;
 pub use crate::transport::api::ApiTransport;
 pub use crate::transport::connector::TungsteniteConnector;
+pub use crate::transport::TungsteniteApiTransport;

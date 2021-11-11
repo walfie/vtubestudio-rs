@@ -10,6 +10,15 @@ use std::task::{Context, Poll};
 use tokio_tungstenite::tungstenite;
 
 pin_project! {
+    /// A type that uses a [`MessageCodec`] to implement:
+    ///
+    /// * [`Sink`] for accepting [`RequestEnvelope`] messages and converting them into websocket
+    ///   text messages
+    /// * [`TryStream`] for receiving websocket messages and converting them to
+    ///   [`ResponseEnvelope`] messages
+    ///
+    /// This is a layer of abstraction to allow this library to be compatible with multiple
+    /// websocket libraries.
     #[derive(Debug, Clone)]
     pub struct ApiTransport<T, C> {
         #[pin]
@@ -32,6 +41,7 @@ impl<T> ApiTransport<T, TungsteniteCodec>
 where
     T: Sink<tungstenite::Message> + TryStream,
 {
+    /// Create a new [`ApiTransport`] for sending/receiving [`tokio_tungstenite`] messages.
     pub fn new_tungstenite(transport: T) -> Self {
         ApiTransport::new(transport, TungsteniteCodec)
     }

@@ -8,6 +8,10 @@ use std::task::{Context, Poll};
 use tokio_tungstenite::tungstenite::client::IntoClientRequest;
 use tower::Service;
 
+/// A [`Service`] for creating new [`TungsteniteApiTransport`]s.
+///
+/// This is used by [`tower::reconnect::Reconnect`] (used in
+/// [`ClientBuilder`](crate::ClientBuilder)) for lazily connecting/reconnecting to websockets.
 #[derive(Debug, Clone)]
 pub struct TungsteniteConnector;
 

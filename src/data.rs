@@ -9,6 +9,7 @@ use std::borrow::Cow;
 pub const API_NAME: &'static str = "VTubeStudioPublicAPI";
 pub const API_VERSION: &'static str = "1.0";
 
+/// A VTubeStudio request.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct RequestEnvelope {
@@ -33,25 +34,29 @@ impl Default for RequestEnvelope {
 }
 
 impl RequestEnvelope {
+    /// Create a request with the underlying typed data.
     pub fn new<Req: Request>(data: &Req) -> Result<Self, serde_json::Error> {
         let mut value = Self::default();
         value.set_data(data)?;
         Ok(value)
     }
 
-    pub fn with_id<S: Into<Option<String>>>(mut self, id: S) -> Self {
-        self.request_id = id.into();
-        self
-    }
-
+    /// Set the `data` field of a request.
     pub fn set_data<Req: Request>(&mut self, data: &Req) -> Result<(), serde_json::Error> {
         let data = serde_json::to_value(&data)?;
         self.message_type = Req::MESSAGE_TYPE.into();
         self.data = data;
         Ok(())
     }
+
+    /// Set the request ID.
+    pub fn with_id<S: Into<Option<String>>>(mut self, id: S) -> Self {
+        self.request_id = id.into();
+        self
+    }
 }
 
+/// A VTubeStudio response.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct ResponseEnvelope {
@@ -78,23 +83,27 @@ impl Default for ResponseEnvelope {
 }
 
 impl ResponseEnvelope {
+    /// Returns `true` if the message type is `APIError`.
     pub fn is_api_error(&self) -> bool {
         self.message_type == ApiError::MESSAGE_TYPE
     }
 
-    pub fn with_id(mut self, id: String) -> Self {
-        self.request_id = id;
-        self
-    }
-
+    /// Returns `true` if the message is an `APIError` that represents an authentication error.
     pub fn is_auth_error(&self) -> bool {
         // TODO: Don't hardcode 8
         self.is_api_error()
             && matches!(self.data.get("errorID"), Some(id) if id.as_i64() == Some(8))
     }
+
+    /// Set the request ID.
+    pub fn with_id(mut self, id: String) -> Self {
+        self.request_id = id;
+        self
+    }
 }
 
 impl ResponseEnvelope {
+    /// Create a new response with the underlying typed data.
     pub fn new<Resp>(data: &Resp) -> Result<Self, serde_json::Error>
     where
         Resp: Response + Serialize,
@@ -104,6 +113,7 @@ impl ResponseEnvelope {
         Ok(value)
     }
 
+    /// Set the `data` field of a response.
     pub fn set_data<Resp>(&mut self, data: &Resp) -> Result<(), serde_json::Error>
     where
         Resp: Response + Serialize,
@@ -114,6 +124,8 @@ impl ResponseEnvelope {
         Ok(())
     }
 
+    /// Attempt to parse the response into a the given [`Response`] type. This can return an error
+    /// if the message type is an [`ApiError`] or isn't the expected type.
     pub fn parse<Resp: Response>(&self) -> Result<Resp, Error> {
         if self.message_type == Resp::MESSAGE_TYPE {
             Ok(Resp::deserialize(&self.data)?)
