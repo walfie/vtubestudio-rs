@@ -677,9 +677,9 @@ mod tests {
                     "name": "MyCustomParamName1",
                     "addedBy": "My Plugin Name",
                     "value": 12.4,
-                    "min": -30,
-                    "max": 30,
-                    "defaultValue": 0
+                    "min": -30.0,
+                    "max": 30.0,
+                    "defaultValue": 0.0
                 }
             }))?,
             ResponseEnvelope {

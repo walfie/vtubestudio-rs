@@ -44,7 +44,8 @@ use tower::{Service, ServiceExt};
 /// # Example
 ///
 /// ```
-/// use tower::{Service, ServiceBuilder, BoxError, util::CloneBoxService};
+/// use tower::{Service, ServiceBuilder, BoxError};
+/// use vtubestudio::CloneBoxService;
 /// use std::time::Duration;
 /// #
 /// # struct Request;
@@ -63,9 +64,6 @@ use tower::{Service, ServiceExt};
 ///         println!("response produced");
 ///         res
 ///     })
-///     .load_shed()
-///     .concurrency_limit(64)
-///     .timeout(Duration::from_secs(10))
 ///     .service_fn(|req: Request| async {
 ///         Ok::<_, BoxError>(Response::new())
 ///     });

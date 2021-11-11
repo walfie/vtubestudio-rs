@@ -37,6 +37,14 @@ where
 }
 
 impl Client<CloneBoxApiService> {
+    /// Create a builder to configure a new client.
+    ///
+    /// ```no_run
+    /// # use vtubestudio::Client;
+    /// let (mut client, mut new_tokens) = Client::builder()
+    ///     .authentication("Plugin name", "Developer name", None)
+    ///     .build_tungstenite();
+    /// ```
     pub fn builder() -> ClientBuilder {
         ClientBuilder::new()
     }
@@ -47,14 +55,29 @@ where
     S: Service<RequestEnvelope, Response = ResponseEnvelope>,
     Error: From<S::Error>,
 {
-    pub fn new(service: S) -> Self {
+    /// Create a new client from a [`Service`](tower::Service).
+    pub fn new_from_service(service: S) -> Self {
         Self { service }
     }
 
-    pub fn into_inner(self) -> S {
+    /// Consumes this client and returns the underlying [`Service`](tower::Service).
+    pub fn into_service(self) -> S {
         self.service
     }
 
+    /// Send a request.
+    ///
+    /// ```no_run
+    /// # async fn run() -> Result<(), vtubestudio::error::BoxError> {
+    /// # use vtubestudio::Client;
+    /// use vtubestudio::data::StatisticsRequest;
+    ///
+    /// # let (mut client, _) = Client::builder().build_tungstenite();
+    /// let resp = client.send(&StatisticsRequest {}).await?;
+    /// println!("VTubeStudio has been running for {}ms", resp.uptime);
+    /// # Ok(())
+    /// # }
+    /// ```
     pub async fn send<Req: Request>(&mut self, data: &Req) -> Result<Req::Response, Error> {
         send_request(&mut self.service, data).await
     }
@@ -66,7 +89,7 @@ impl TungsteniteClient {
     where
         R: IntoClientRequest + Send + Unpin,
     {
-        Ok(Self::new(
+        Ok(Self::new_from_service(
             TungsteniteApiService::new_tungstenite(request).await?,
         ))
     }
@@ -74,6 +97,7 @@ impl TungsteniteClient {
 
 #[derive(Debug, Clone)]
 pub struct ClientBuilder {
+    url: String,
     retry_on_disconnect: bool,
     request_buffer_size: usize,
     token_stream_buffer_size: usize,
@@ -84,6 +108,7 @@ pub struct ClientBuilder {
 impl Default for ClientBuilder {
     fn default() -> Self {
         Self {
+            url: "ws://localhost:8001".to_string(),
             retry_on_disconnect: true,
             request_buffer_size: 256,
             token_stream_buffer_size: 32,
@@ -127,6 +152,11 @@ impl ClientBuilder {
         self
     }
 
+    pub fn url<S: Into<String>>(mut self, url: S) -> Self {
+        self.url = url.into();
+        self
+    }
+
     pub fn auth_token<T: Into<Option<String>>>(mut self, token: T) -> Self {
         self.auth_token = token.into();
         self
@@ -147,18 +177,17 @@ impl ClientBuilder {
         self
     }
 
-    pub fn build_tungstenite<R>(self, request: R) -> (Client, TokenReceiver)
-    where
-        R: IntoClientRequest + Clone + Send + Unpin + 'static,
-    {
+    pub fn build_tungstenite(self) -> (Client, TokenReceiver) {
         let policy = RetryPolicy::new()
             .on_disconnect(self.retry_on_disconnect)
             .on_auth_error(self.token_request.is_some());
 
         let (token_tx, token_rx) = mpsc::channel(self.token_stream_buffer_size);
 
-        let service =
-            Reconnect::new::<TungsteniteApiService, R>(MakeApiService::new_tungstenite(), request);
+        let service = Reconnect::new::<TungsteniteApiService, String>(
+            MakeApiService::new_tungstenite(),
+            self.url,
+        );
 
         let service = if let Some(token_req) = self.token_request {
             CloneBoxService::new(
@@ -189,6 +218,6 @@ impl ClientBuilder {
 
         let token_receiver = TokenReceiver { receiver: token_rx };
 
-        return (Client::new(service), token_receiver);
+        return (Client::new_from_service(service), token_receiver);
     }
 }

@@ -1,4 +1,3 @@
-use crate::client::Client;
 use crate::data::{RequestEnvelope, ResponseEnvelope};
 use crate::error::{BoxError, Error};
 use crate::transport::{ApiTransport, TungsteniteApiTransport};
@@ -73,10 +72,6 @@ where
         let client = MultiplexClient::with_error_handler(multiplex_transport, on_service_error);
 
         Self { client }
-    }
-
-    pub fn to_client(self) -> Client<Self> {
-        Client::new(self)
     }
 }
 
