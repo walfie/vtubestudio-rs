@@ -11,15 +11,19 @@ use tokio::sync::mpsc;
 use tower::reconnect::Reconnect;
 use tower::{Service, ServiceBuilder};
 
+/// A client for interacting with the VTubeStudio API.
+///
+/// This is a wrapper on top of [`tower::Service`] that provides a convenient interface for
+/// [`send`](Self::send)ing API requests and receiving structured data.
 #[derive(Clone, Debug)]
 pub struct Client<S = CloneBoxApiService> {
     service: S,
 }
 
-/// A [`Clone`]able [`tower::Service`] that is compatible with [`Client`].
+/// A [`Clone`]able [`Service`] that is compatible with [`Client`].
 pub type CloneBoxApiService = CloneBoxService<RequestEnvelope, ResponseEnvelope, Error>;
 
-/// Trait alias for a [`tower::Service`] that is compatible with [`Client`].
+/// Trait alias for a [`Service`] that is compatible with [`Client`].
 pub trait ClientService:
     Service<RequestEnvelope, Response = ResponseEnvelope> + Send + Sync
 where
@@ -37,6 +41,8 @@ where
 impl Client<CloneBoxApiService> {
     /// Create a builder to configure a new client.
     ///
+    /// # Example
+    ///
     /// ```no_run
     /// # use vtubestudio::Client;
     /// let (mut client, mut new_tokens) = Client::builder()
@@ -53,19 +59,20 @@ where
     S: Service<RequestEnvelope, Response = ResponseEnvelope>,
     Error: From<S::Error>,
 {
-    /// Create a new client from a [`Service`](tower::Service), if you want to provide your own
-    /// custom middleware or transport. Most users will probably want to use the
-    /// [`builder`](Client::builder) helper.
+    /// Create a new client from a [`Service`], if you want to provide your own custom middleware
+    /// or transport. Most users will probably want to use the [`builder`](Client::builder) helper.
     pub fn new_from_service(service: S) -> Self {
         Self { service }
     }
 
-    /// Consumes this client and returns the underlying [`Service`](tower::Service).
+    /// Consumes this client and returns the underlying [`Service`].
     pub fn into_service(self) -> S {
         self.service
     }
 
     /// Send a VTubeStudio API request.
+    ///
+    /// # Example
     ///
     /// ```no_run
     /// # async fn run() -> Result<(), vtubestudio::error::BoxError> {
@@ -144,6 +151,11 @@ pub struct TokenReceiver {
 
 /// A wrapper for a [`mpsc::Receiver`] that yields new auth tokens.
 impl TokenReceiver {
+    /// Returns new tokens after successful authentication. If `None` is returned, it means the
+    /// sender (the underlying [`Client`]) has been dropped.
+    ///
+    /// # Example
+    ///
     /// ```no_run
     /// # async fn run() -> Result<(), vtubestudio::error::BoxError> {
     /// # fn do_something_with_new_token(token: String) { unimplemented!(); }

@@ -75,6 +75,11 @@ impl Error {
         Self { kind, source: None }
     }
 
+    /// Return the underlying [`ApiError`], if any.
+    pub fn to_api_error(&self) -> Option<&ApiError> {
+        self.find_source::<ApiError>()
+    }
+
     /// Set this error's underlying `source`.
     pub fn with_source<E: Into<BoxError>>(mut self, source: E) -> Self {
         self.source = Some(source.into());
@@ -84,11 +89,6 @@ impl Error {
     /// Consumes the error, returning its source.
     pub fn into_source(self) -> Option<Box<dyn StdError + Send + Sync>> {
         self.source
-    }
-
-    /// Return the underlying [`ApiError`], if any.
-    pub fn to_api_error(&self) -> Option<&ApiError> {
-        self.find_source::<ApiError>()
     }
 
     /// Returns `true` if this error has an underlying [`ApiError`].
