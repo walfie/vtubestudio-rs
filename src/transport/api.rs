@@ -32,6 +32,7 @@ where
     T: Sink<C::Message> + TryStream,
     C: MessageCodec,
 {
+    /// Creates a new [`ApiTransport`].
     pub fn new(transport: T, codec: C) -> Self {
         Self { transport, codec }
     }
@@ -41,7 +42,7 @@ impl<T> ApiTransport<T, TungsteniteCodec>
 where
     T: Sink<tungstenite::Message> + TryStream,
 {
-    /// Create a new [`ApiTransport`] for sending/receiving [`tokio_tungstenite`] messages.
+    /// Creates a new [`ApiTransport`] for sending/receiving [`tokio_tungstenite`] messages.
     pub fn new_tungstenite(transport: T) -> Self {
         ApiTransport::new(transport, TungsteniteCodec)
     }

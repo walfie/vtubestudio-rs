@@ -39,7 +39,7 @@ where
 }
 
 impl Client<CloneBoxApiService> {
-    /// Create a builder to configure a new client.
+    /// Creates a builder to configure a new client.
     ///
     /// # Example
     ///
@@ -59,7 +59,7 @@ where
     S: Service<RequestEnvelope, Response = ResponseEnvelope>,
     Error: From<S::Error>,
 {
-    /// Create a new client from a [`Service`], if you want to provide your own custom middleware
+    /// Creates a new client from a [`Service`], if you want to provide your own custom middleware
     /// or transport. Most users will probably want to use the [`builder`](Client::builder) helper.
     pub fn new_from_service(service: S) -> Self {
         Self { service }
@@ -70,7 +70,7 @@ where
         self.service
     }
 
-    /// Send a VTube Studio API request.
+    /// Sends a VTube Studio API request.
     ///
     /// # Example
     ///
@@ -183,7 +183,7 @@ impl TokenReceiver {
 }
 
 impl ClientBuilder {
-    /// Create new builder with default values.
+    /// Creates new builder with default values.
     pub fn new() -> Self {
         Self::default()
     }
@@ -236,8 +236,8 @@ impl ClientBuilder {
         self
     }
 
-    /// Initialize a [`Client`] and [`TokenReceiver`] using [`tokio_tungstenite`] as the underlying
-    /// websocket transport library.
+    /// Initializes a [`Client`] and [`TokenReceiver`] using [`tokio_tungstenite`] as the
+    /// underlying websocket transport library.
     pub fn build_tungstenite(self) -> (Client, TokenReceiver) {
         let policy = RetryPolicy::new()
             .on_disconnect(self.retry_on_disconnect)

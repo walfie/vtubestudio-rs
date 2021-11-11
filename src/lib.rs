@@ -1,5 +1,20 @@
+#![deny(missing_docs)]
+#![deny(
+    broken_intra_doc_links,
+    private_intra_doc_links,
+    missing_debug_implementations
+)]
+// TODO: More thorough crate-level docs.
+
+//! A library for interacting with the [VTube Studio API].
+//!
+//! [VTube Studio API]: https://github.com/DenchiSoft/VTubeStudio
+
 /// Utilities for creating [`Client`]s.
 pub mod client;
+
+/// A collection of [`tower::Service`] middleware used by [`Client`].
+pub mod service;
 
 /// Codecs for converting to/from websocket message types.
 pub mod codec;
@@ -9,9 +24,6 @@ pub mod data;
 
 /// Error handling.
 pub mod error;
-
-/// A collection of [`tower::Service`] middleware used by [`Client`].
-pub mod service;
 
 mod transport;
 

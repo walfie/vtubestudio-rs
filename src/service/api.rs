@@ -1,6 +1,6 @@
 use crate::data::{RequestEnvelope, ResponseEnvelope};
 use crate::error::{BoxError, Error};
-use crate::transport::{ApiTransport, TungsteniteApiTransport};
+use crate::transport::TungsteniteApiTransport;
 
 use futures_core::TryStream;
 use futures_sink::Sink;
@@ -8,8 +8,6 @@ use std::future::Future;
 use std::pin::Pin;
 use std::task::{Context, Poll};
 use tokio_tower::multiplex::{Client as MultiplexClient, MultiplexTransport, TagStore};
-use tokio_tungstenite::tungstenite;
-use tokio_tungstenite::tungstenite::client::IntoClientRequest;
 use tower::Service;
 
 /// Struct describing how to tag [`RequestEnvelope`]s and extract tags from [`ResponseEnvelope`]s.
@@ -45,19 +43,8 @@ where
     service: ServiceInner<T>,
 }
 
-// TODO: Is this still needed? We rarely want one-shot connection and prefer to use the reconnect
-// helpers.
+/// Type alias for an [`ApiService`] wrapping a [`TungsteniteApiTransport`].
 pub type TungsteniteApiService = ApiService<TungsteniteApiTransport>;
-impl TungsteniteApiService {
-    pub async fn new_tungstenite<R>(request: R) -> Result<Self, tungstenite::Error>
-    where
-        R: IntoClientRequest + Send + Unpin,
-    {
-        let (ws, _) = tokio_tungstenite::connect_async(request).await?;
-        let transport = ApiTransport::new_tungstenite(ws);
-        Ok(ApiService::new(transport))
-    }
-}
 
 impl<T> ApiService<T>
 where

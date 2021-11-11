@@ -26,6 +26,7 @@ impl<M, R> MakeApiService<M, R>
 where
     M: MakeTransport<R, RequestEnvelope, Item = ResponseEnvelope>,
 {
+    /// Creates a new [`MakeApiService`].
     pub fn new(maker: M) -> Self {
         Self {
             maker,
@@ -38,6 +39,7 @@ impl<R> MakeApiService<TungsteniteConnector, R>
 where
     R: Send + IntoClientRequest + Unpin + 'static,
 {
+    /// Creates a new [`MakeApiService`] using [`tokio_tungstenite`] as the underlying transport.
     pub fn new_tungstenite() -> Self {
         MakeApiService::new(TungsteniteConnector)
     }

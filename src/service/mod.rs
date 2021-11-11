@@ -12,6 +12,9 @@ pub use crate::service::auth::{Authentication, AuthenticationLayer, ResponseWith
 pub use crate::service::maker::MakeApiService;
 pub use crate::service::retry::RetryPolicy;
 
+/// Submit a request to the underlying service and parse the response.
+///
+/// This is the same as [`Client::send`](crate::Client::send) but as a standalone function.
 pub async fn send_request<S, Req: Request>(
     service: &mut S,
     data: &Req,
