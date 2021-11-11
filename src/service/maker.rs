@@ -11,6 +11,11 @@ use tokio_tower::MakeTransport;
 use tokio_tungstenite::tungstenite::client::IntoClientRequest;
 use tower::Service;
 
+/// A [`Service`] that yields new [`ApiService`]s.
+///
+/// This wraps a [`MakeTransport`] (such as [`TungsteniteConnector`]), describing how to connect to
+/// a websocket sink/stream. This is used for as the inner service for the
+/// [`Reconnect`](tower::reconnect::Reconnect) middleware.
 #[derive(Clone, Debug)]
 pub struct MakeApiService<M, R> {
     maker: M,

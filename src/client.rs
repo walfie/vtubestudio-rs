@@ -93,7 +93,7 @@ where
 /// A builder to configure a new [`Client`] with a set of recommended [`tower`] middleware.
 ///
 /// * retrying requests on disconnect (using [`Reconnect`] and [`RetryPolicy`])
-/// * if [`authentication`](Self::authentication) is provided, automatially reauthenticate and
+/// * if [`authentication`](Self::authentication) is provided, automatically reauthenticate and
 ///   retry when it encounters an auth error (using [`AuthenticationLayer`]).
 ///
 /// # Example
