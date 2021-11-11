@@ -38,7 +38,8 @@ pub trait MessageCodec {
     /// The underlying message type. E.g., [`tungstenite::Message`].
     type Message;
 
-    /// Decode a websocket text message. `None` values are ignored (e.g., ignoring ping messages).
+    /// Decode a websocket text message. `None` values are ignored (E.g., for disregarding ping
+    /// messages).
     fn decode(msg: Self::Message) -> Option<String>;
 
     /// Convert a string into a websocket text message.

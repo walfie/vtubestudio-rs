@@ -9,7 +9,7 @@ use std::borrow::Cow;
 pub const API_NAME: &'static str = "VTubeStudioPublicAPI";
 pub const API_VERSION: &'static str = "1.0";
 
-/// A VTubeStudio request.
+/// A VTubeStudio API request.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct RequestEnvelope {
@@ -56,7 +56,7 @@ impl RequestEnvelope {
     }
 }
 
-/// A VTubeStudio response.
+/// A VTubeStudio API response.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct ResponseEnvelope {

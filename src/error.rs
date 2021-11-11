@@ -115,7 +115,7 @@ impl Error {
         &self.kind
     }
 
-    /// Check if any error in this error's `source` chain match the given [`ErrorKind`].
+    /// Check if any error in this error's `source` chain matches the given [`ErrorKind`].
     pub fn has_kind(&self, kind: ErrorKind) -> bool {
         if self.kind == kind {
             return true;
