@@ -11,7 +11,7 @@ use tokio::sync::mpsc;
 use tower::reconnect::Reconnect;
 use tower::{Service, ServiceBuilder};
 
-/// A client for interacting with the VTubeStudio API.
+/// A client for interacting with the VTube Studio API.
 ///
 /// This is a wrapper on top of [`tower::Service`] that provides a convenient interface for
 /// [`send`](Self::send)ing API requests and receiving structured data.
@@ -70,7 +70,7 @@ where
         self.service
     }
 
-    /// Send a VTubeStudio API request.
+    /// Send a VTube Studio API request.
     ///
     /// # Example
     ///
@@ -81,7 +81,7 @@ where
     ///
     /// # let (mut client, _) = Client::builder().build_tungstenite();
     /// let resp = client.send(&StatisticsRequest {}).await?;
-    /// println!("VTubeStudio has been running for {}ms", resp.uptime);
+    /// println!("VTube Studio has been running for {}ms", resp.uptime);
     /// # Ok(())
     /// # }
     /// ```

@@ -2,6 +2,14 @@
 name = "vtubestudio"
 version = "0.1.0-alpha.0"
 edition = "2018"
+authors = ["Walfie <walfington@gmail.com"]
+license = "MIT"
+readme = "README.md"
+keywords = ["vtubestudio"]
+categories = ["api-bindings"]
+homepage = "https://github.com/walfie/vtubestudio-rs"
+repository = "https://github.com/walfie/vtubestudio-rs"
+description = "A library for interacting with the VTube Studio API."
 
 [dependencies]
 displaydoc = "0.2"

@@ -4,7 +4,7 @@ pub mod client;
 /// Codecs for converting to/from websocket message types.
 pub mod codec;
 
-/// Request/response types for the VTubeStudio API.
+/// Request/response types for the VTube Studio API.
 pub mod data;
 
 /// Error handling.
