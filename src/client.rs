@@ -8,8 +8,6 @@ use crate::CloneBoxService;
 
 use std::borrow::Cow;
 use tokio::sync::mpsc;
-use tokio_tungstenite::tungstenite;
-use tokio_tungstenite::tungstenite::client::IntoClientRequest;
 use tower::reconnect::Reconnect;
 use tower::{Service, ServiceBuilder};
 
@@ -55,7 +53,9 @@ where
     S: Service<RequestEnvelope, Response = ResponseEnvelope>,
     Error: From<S::Error>,
 {
-    /// Create a new client from a [`Service`](tower::Service).
+    /// Create a new client from a [`Service`](tower::Service), if you want to provide your own
+    /// custom middleware or transport. Most users will probably want to use the
+    /// [`builder`](Client::builder) helper.
     pub fn new_from_service(service: S) -> Self {
         Self { service }
     }
@@ -65,7 +65,7 @@ where
         self.service
     }
 
-    /// Send a request.
+    /// Send a VTubeStudio API request.
     ///
     /// ```no_run
     /// # async fn run() -> Result<(), vtubestudio::error::BoxError> {
@@ -83,18 +83,37 @@ where
     }
 }
 
-pub type TungsteniteClient = Client<TungsteniteApiService>;
-impl TungsteniteClient {
-    pub async fn new_tungstenite<R>(request: R) -> Result<Self, tungstenite::Error>
-    where
-        R: IntoClientRequest + Send + Unpin,
-    {
-        Ok(Self::new_from_service(
-            TungsteniteApiService::new_tungstenite(request).await?,
-        ))
-    }
-}
-
+/// A builder to configure a new [`Client`] with a set of recommended [`tower`] middleware,
+/// including:
+///
+/// * retrying requests on disconnect (using [`Reconnect`] and [`RetryPolicy`])
+/// * if [`authentication`](Self::authentication) is provided, automatially reauthenticate and
+///   retry when it encounters an auth error (using [`AuthenticationLayer`]).
+///
+/// # Example
+///
+/// ```no_run
+/// # async fn run() -> Result<(), vtubestudio::error::BoxError> {
+/// # fn do_something_with_new_token(token: String) { unimplemented!(); }
+/// # use vtubestudio::Client;
+/// // An auth token from a previous successful authentication request
+/// let stored_token = Some("...".to_string());
+///
+/// let (mut client, mut new_tokens) = Client::builder()
+///     .authentication("Plugin name", "Developer name", None)
+///     .auth_token(stored_token)
+///     .build_tungstenite();
+///
+/// tokio::spawn(async move {
+///     // This returns whenever the authentication middleware receives a new auth token.
+///     // We can handle it by saving it somewhere, etc.
+///     while let Some(token) = new_tokens.next().await {
+///         do_something_with_new_token(token);
+///     }
+/// });
+/// # Ok(())
+/// # }
+/// ```
 #[derive(Debug, Clone)]
 pub struct ClientBuilder {
     url: String,
@@ -123,21 +142,43 @@ pub struct TokenReceiver {
     receiver: mpsc::Receiver<String>,
 }
 
+/// A wrapper for a [`mpsc::Receiver`] that yields new auth tokens.
 impl TokenReceiver {
-    pub fn into_inner(self) -> mpsc::Receiver<String> {
-        self.receiver
-    }
-
+    /// ```no_run
+    /// # async fn run() -> Result<(), vtubestudio::error::BoxError> {
+    /// # fn do_something_with_new_token(token: String) { unimplemented!(); }
+    /// # use vtubestudio::Client;
+    /// let (mut client, mut new_tokens) = Client::builder()
+    ///     .authentication("Plugin name", "Developer name", None)
+    ///     .build_tungstenite();
+    ///
+    /// tokio::spawn(async move {
+    ///     // This returns whenever the authentication middleware receives a new auth token.
+    ///     // We can handle it by saving it somewhere, etc.
+    ///     while let Some(token) = new_tokens.next().await {
+    ///         do_something_with_new_token(token);
+    ///     }
+    /// });
+    /// # Ok(())
+    /// # }
     pub async fn next(&mut self) -> Option<String> {
         self.receiver.recv().await
+    }
+
+    /// Consume this receiver and return the underlying [`mpsc::Receiver`].
+    pub fn into_inner(self) -> mpsc::Receiver<String> {
+        self.receiver
     }
 }
 
 impl ClientBuilder {
+    /// Create new builder with default values.
     pub fn new() -> Self {
         Self::default()
     }
 
+    /// If this is provided, whenever the underlying service encounters an authentication error, it
+    /// will try to obtain a new auth token and retry the request.
     pub fn authentication<S1, S2, S3>(mut self, name: S1, developer: S2, icon: S3) -> Self
     where
         S1: Into<Cow<'static, str>>,
@@ -152,31 +193,40 @@ impl ClientBuilder {
         self
     }
 
+    /// Sets the websocket URL. The default value is `ws://localhost:8001`.
     pub fn url<S: Into<String>>(mut self, url: S) -> Self {
         self.url = url.into();
         self
     }
 
-    pub fn auth_token<T: Into<Option<String>>>(mut self, token: T) -> Self {
-        self.auth_token = token.into();
+    /// Initial token to use for reauthentication (if [`authentication`](Self::authentication) is
+    /// provided). This should be the result of a previous successful authentication attempt.
+    pub fn auth_token(mut self, token: Option<String>) -> Self {
+        self.auth_token = token;
         self
     }
 
+    /// Retry requests on disconnect. The default value is `true`.
     pub fn retry_on_disconnect(mut self, retry: bool) -> Self {
         self.retry_on_disconnect = retry;
         self
     }
 
+    /// The max number of outstanding requests. The default value is `256`.
     pub fn request_buffer_size(mut self, size: usize) -> Self {
         self.request_buffer_size = size;
         self
     }
 
+    /// The max capacity of the [`TokenReceiver`] buffer. This represents the max number of
+    /// unacknowledged new tokens before client stops sending tokens. The default value is `32`.
     pub fn token_stream_buffer_size(mut self, size: usize) -> Self {
         self.token_stream_buffer_size = size;
         self
     }
 
+    /// Initialize a [`Client`] and [`TokenReceiver`] using [`tokio_tungstenite`] as the underlying
+    /// websocket transport library.
     pub fn build_tungstenite(self) -> (Client, TokenReceiver) {
         let policy = RetryPolicy::new()
             .on_disconnect(self.retry_on_disconnect)
