@@ -1,0 +1,47 @@
+name: Test
+on: [pull_request]
+
+jobs:
+
+  test:
+    name: Test ${{ matrix.os }}
+    runs-on: ${{ matrix.os }}
+    strategy:
+      matrix:
+        os: [ubuntu-latest, windows-latest, macos-latest]
+    steps:
+    - uses: actions/checkout@v2
+    - uses: actions-rs/toolchain@v1
+      with:
+        profile: minimal
+        toolchain: 1.56.1
+        override: true
+    - uses: Swatinem/rust-cache@v1.3.0
+    - uses: actions-rs/cargo@v1
+      with:
+        command: test
+        args: --all --verbose
+    - name: Check for uncommitted changes
+      shell: bash
+      run: |
+        if [[ ! -z $(git status --short) ]]; then
+          echo "Found uncommitted changes after running tests." && exit 1
+        fi
+
+  fmt:
+    name: cargo fmt
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v2
+    - uses: actions-rs/toolchain@v1
+      with:
+        profile: minimal
+        toolchain: 1.56.1
+        override: true
+    - run: rustup component add rustfmt
+    - uses: Swatinem/rust-cache@v1.3.0
+    - uses: actions-rs/cargo@v1
+      with:
+        command: fmt
+        args: --all -- --check
+
