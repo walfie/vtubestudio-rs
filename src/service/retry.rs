@@ -5,6 +5,9 @@ use futures_util::future;
 use tower::retry::{Policy, Retry};
 use tower::Layer;
 
+/// Determines whether a request should be retried.
+///
+/// This can be used as either a [`Layer`] or a [`Policy`].
 #[derive(Debug, Clone)]
 pub struct RetryPolicy {
     retry_on_disconnect: bool,
@@ -12,6 +15,7 @@ pub struct RetryPolicy {
 }
 
 impl RetryPolicy {
+    /// Creates a new [`RetryPolicy`] with default values.
     pub fn new() -> Self {
         RetryPolicy {
             retry_on_disconnect: false,
@@ -19,11 +23,13 @@ impl RetryPolicy {
         }
     }
 
+    /// Whether requests should be retried on disconnect. Default `false`.
     pub fn on_disconnect(mut self, value: bool) -> Self {
         self.retry_on_disconnect = value;
         self
     }
 
+    /// Whether requests should be retried on auth error. Default `false`.
     pub fn on_auth_error(mut self, value: bool) -> Self {
         self.retry_on_auth_error = value;
         self

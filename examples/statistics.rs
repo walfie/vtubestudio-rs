@@ -1,10 +1,8 @@
-use vtubestudio::data::*;
+use vtubestudio::data::StatisticsRequest;
 use vtubestudio::Client;
 
 #[tokio::main(flavor = "current_thread")]
-async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
-    let url = std::env::var("VTS_URL").unwrap_or_else(|_| "ws://localhost:8001".to_string());
-
+async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let stored_token = std::env::var("VTS_AUTH_TOKEN").ok();
     if stored_token.is_some() {
         println!("Attempting to use stored auth token");
@@ -13,7 +11,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
     let (mut client, mut new_tokens) = Client::builder()
         .auth_token(stored_token)
         .authentication("vtubestudio-rs example", "Walfie", None)
-        .build_tungstenite(url);
+        .build_tungstenite();
 
     tokio::spawn(async move {
         // This returns whenever the authentication middleware receives a new auth token.

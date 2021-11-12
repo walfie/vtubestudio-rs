@@ -1,7 +1,6 @@
-use crate::client::Client;
 use crate::data::{RequestEnvelope, ResponseEnvelope};
 use crate::error::{BoxError, Error};
-use crate::transport::{ApiTransport, TungsteniteApiTransport};
+use crate::transport::TungsteniteApiTransport;
 
 use futures_core::TryStream;
 use futures_sink::Sink;
@@ -9,10 +8,9 @@ use std::future::Future;
 use std::pin::Pin;
 use std::task::{Context, Poll};
 use tokio_tower::multiplex::{Client as MultiplexClient, MultiplexTransport, TagStore};
-use tokio_tungstenite::tungstenite;
-use tokio_tungstenite::tungstenite::client::IntoClientRequest;
 use tower::Service;
 
+/// Struct describing how to tag [`RequestEnvelope`]s and extract tags from [`ResponseEnvelope`]s.
 #[derive(Debug)]
 pub struct IdTagger(usize);
 
@@ -33,25 +31,20 @@ impl TagStore<RequestEnvelope, ResponseEnvelope> for IdTagger {
 
 type ServiceInner<T> = MultiplexClient<MultiplexTransport<T, IdTagger>, Error, RequestEnvelope>;
 
+/// A [`Service`] that assigns request IDs to [`RequestEnvelope`]s and matches them to incoming
+/// [`ResponseEnvelope`]s.
+///
+/// This uses [`tokio_tower::multiplex`] to wrap an underlying transport.
 #[derive(Debug)]
 pub struct ApiService<T>
 where
     T: Sink<RequestEnvelope> + TryStream,
 {
-    client: ServiceInner<T>,
+    service: ServiceInner<T>,
 }
 
+/// Type alias for an [`ApiService`] wrapping a [`TungsteniteApiTransport`].
 pub type TungsteniteApiService = ApiService<TungsteniteApiTransport>;
-impl TungsteniteApiService {
-    pub async fn new_tungstenite<R>(request: R) -> Result<Self, tungstenite::Error>
-    where
-        R: IntoClientRequest + Send + Unpin,
-    {
-        let (ws, _) = tokio_tungstenite::connect_async(request).await?;
-        let transport = ApiTransport::new_tungstenite(ws);
-        Ok(ApiService::new(transport))
-    }
-}
 
 impl<T> ApiService<T>
 where
@@ -59,10 +52,12 @@ where
     BoxError: From<<T as Sink<RequestEnvelope>>::Error>,
     BoxError: From<<T as TryStream>::Error>,
 {
+    /// Create a new [`ApiService`].
     pub fn new(transport: T) -> Self {
         Self::with_error_handler(transport, |_| ())
     }
 
+    /// Create a new [`ApiService`] with an error handler.
     pub fn with_error_handler<F>(transport: T, on_service_error: F) -> Self
     where
         F: FnOnce(Error) + Send + 'static,
@@ -70,13 +65,9 @@ where
         let tagger = IdTagger(0);
 
         let multiplex_transport = MultiplexTransport::new(transport, tagger);
-        let client = MultiplexClient::with_error_handler(multiplex_transport, on_service_error);
+        let service = MultiplexClient::with_error_handler(multiplex_transport, on_service_error);
 
-        Self { client }
-    }
-
-    pub fn to_client(self) -> Client<Self> {
-        Client::new(self)
+        Self { service }
     }
 }
 
@@ -91,10 +82,10 @@ where
     type Future = Pin<Box<dyn Future<Output = Result<Self::Response, Self::Error>> + Send>>;
 
     fn poll_ready(&mut self, cx: &mut Context<'_>) -> Poll<Result<(), Self::Error>> {
-        self.client.poll_ready(cx)
+        self.service.poll_ready(cx)
     }
 
     fn call(&mut self, req: RequestEnvelope) -> Self::Future {
-        self.client.call(req)
+        self.service.call(req)
     }
 }

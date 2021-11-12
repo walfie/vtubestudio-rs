@@ -3,10 +3,14 @@ use futures_sink::Sink;
 use std::error::Error as StdError;
 
 pub use crate::data::ApiError;
+
+/// Alias for a type-erased error type.
 pub type BoxError = Box<dyn StdError + Send + Sync>;
 
+/// Result type often returned from methods that can have [`vtubestudio::Error`](Error)s.
 pub type Result<T, E = Error> = std::result::Result<T, E>;
 
+/// Represents errors that can occur while communicating with the VTube Studio API.
 #[derive(thiserror::Error, Debug)]
 #[error("{kind}")]
 pub struct Error {
@@ -14,6 +18,7 @@ pub struct Error {
     source: Option<BoxError>,
 }
 
+/// Describes the type of underlying error.
 #[derive(thiserror::Error, displaydoc::Display, Debug, PartialEq)]
 #[non_exhaustive]
 pub enum ErrorKind {
@@ -39,10 +44,13 @@ pub enum ErrorKind {
     Other,
 }
 
+/// The API response type of the did not match the expected type.
 #[derive(thiserror::Error, Debug)]
 #[error("received unexpected response (expected {expected}, received {received})")]
 pub struct UnexpectedResponseError {
+    /// The expected response type.
     pub expected: &'static str,
+    /// The received response type.
     pub received: String,
 }
 
@@ -71,11 +79,17 @@ impl From<ErrorKind> for Error {
 }
 
 impl Error {
+    /// Creates a new [`Error`].
     pub fn new(kind: ErrorKind) -> Self {
         Self { kind, source: None }
     }
 
-    /// Set this error's underlying `source`.
+    /// Returns the underlying [`ApiError`], if any.
+    pub fn to_api_error(&self) -> Option<&ApiError> {
+        self.find_source::<ApiError>()
+    }
+
+    /// Sets this error's underlying `source`.
     pub fn with_source<E: Into<BoxError>>(mut self, source: E) -> Self {
         self.source = Some(source.into());
         self
@@ -84,11 +98,6 @@ impl Error {
     /// Consumes the error, returning its source.
     pub fn into_source(self) -> Option<Box<dyn StdError + Send + Sync>> {
         self.source
-    }
-
-    /// Return the underlying [`ApiError`], if any.
-    pub fn to_api_error(&self) -> Option<&ApiError> {
-        self.find_source::<ApiError>()
     }
 
     /// Returns `true` if this error has an underlying [`ApiError`].
@@ -101,7 +110,7 @@ impl Error {
         matches!(self.to_api_error(), Some(e) if e.is_auth_error())
     }
 
-    /// Convert a [`BoxError`] into this error type. If the underlying [`Error`](std::error::Error)
+    /// Converts a [`BoxError`] into this error type. If the underlying [`Error`](std::error::Error)
     /// is not this error type, a new [`Error`] is created with [`ErrorKind::Other`].
     pub fn from_boxed(error: BoxError) -> Self {
         match error.downcast::<Self>() {
@@ -115,7 +124,7 @@ impl Error {
         &self.kind
     }
 
-    /// Check if any error in this error's `source` chain match the given [`ErrorKind`].
+    /// Checks if any error in this error's `source` chain matches the given [`ErrorKind`].
     pub fn has_kind(&self, kind: ErrorKind) -> bool {
         if self.kind == kind {
             return true;
@@ -133,7 +142,7 @@ impl Error {
         false
     }
 
-    /// Recurse through this error's `source` chain, returning the first matching error type.
+    /// Recurses through this error's `source` chain, returning the first matching error type.
     pub fn find_source<E: StdError + 'static>(&self) -> Option<&E> {
         let mut source = self.source();
 

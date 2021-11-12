@@ -6,9 +6,14 @@ use serde::{Deserialize, Serialize};
 use serde_json::Value;
 use std::borrow::Cow;
 
+/// The default `api_name` value in requests and responses.
 pub const API_NAME: &'static str = "VTubeStudioPublicAPI";
+
+/// The default `api_version` value in requests and responses.
 pub const API_VERSION: &'static str = "1.0";
 
+/// A VTube Studio API request.
+#[allow(missing_docs)]
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct RequestEnvelope {
@@ -33,25 +38,30 @@ impl Default for RequestEnvelope {
 }
 
 impl RequestEnvelope {
+    /// Creates a request with the underlying typed data.
     pub fn new<Req: Request>(data: &Req) -> Result<Self, serde_json::Error> {
         let mut value = Self::default();
         value.set_data(data)?;
         Ok(value)
     }
 
-    pub fn with_id<S: Into<Option<String>>>(mut self, id: S) -> Self {
-        self.request_id = id.into();
-        self
-    }
-
+    /// Sets the `data` field of a request.
     pub fn set_data<Req: Request>(&mut self, data: &Req) -> Result<(), serde_json::Error> {
         let data = serde_json::to_value(&data)?;
         self.message_type = Req::MESSAGE_TYPE.into();
         self.data = data;
         Ok(())
     }
+
+    /// Sets the request ID.
+    pub fn with_id<S: Into<Option<String>>>(mut self, id: S) -> Self {
+        self.request_id = id.into();
+        self
+    }
 }
 
+/// A VTube Studio API response.
+#[allow(missing_docs)]
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct ResponseEnvelope {
@@ -78,23 +88,27 @@ impl Default for ResponseEnvelope {
 }
 
 impl ResponseEnvelope {
+    /// Returns `true` if the message type is `APIError`.
     pub fn is_api_error(&self) -> bool {
         self.message_type == ApiError::MESSAGE_TYPE
     }
 
-    pub fn with_id(mut self, id: String) -> Self {
-        self.request_id = id;
-        self
-    }
-
+    /// Returns `true` if the message is an `APIError` that represents an authentication error.
     pub fn is_auth_error(&self) -> bool {
         // TODO: Don't hardcode 8
         self.is_api_error()
             && matches!(self.data.get("errorID"), Some(id) if id.as_i64() == Some(8))
     }
+
+    /// Sets the request ID.
+    pub fn with_id(mut self, id: String) -> Self {
+        self.request_id = id;
+        self
+    }
 }
 
 impl ResponseEnvelope {
+    /// Creates a new response with the underlying typed data.
     pub fn new<Resp>(data: &Resp) -> Result<Self, serde_json::Error>
     where
         Resp: Response + Serialize,
@@ -104,6 +118,7 @@ impl ResponseEnvelope {
         Ok(value)
     }
 
+    /// Sets the `data` field of a response.
     pub fn set_data<Resp>(&mut self, data: &Resp) -> Result<(), serde_json::Error>
     where
         Resp: Response + Serialize,
@@ -114,6 +129,8 @@ impl ResponseEnvelope {
         Ok(())
     }
 
+    /// Attempts to parse the response into a the given [`Response`] type. This can return an error
+    /// if the message type is an [`ApiError`] or isn't the expected type.
     pub fn parse<Resp: Response>(&self) -> Result<Resp, Error> {
         if self.message_type == Resp::MESSAGE_TYPE {
             Ok(Resp::deserialize(&self.data)?)
@@ -129,12 +146,18 @@ impl ResponseEnvelope {
     }
 }
 
+/// Trait describing a VTube Studio request.
 pub trait Request: Serialize {
+    /// The message type of this request.
     const MESSAGE_TYPE: &'static str;
+
+    /// The expected [`Response`] type for this request.
     type Response: Response;
 }
 
+/// Trait describing a VTube Studio response.
 pub trait Response: DeserializeOwned + Send + 'static {
+    /// The message type of this response.
     const MESSAGE_TYPE: &'static str;
 }
 
@@ -157,6 +180,7 @@ macro_rules! define_request_response_pairs {
     },)*) => {
         $(
             paste! {
+                #[allow(missing_docs)]
                 #[derive(Default, Debug, Clone, PartialEq, Serialize, Deserialize)]
                 #[serde(rename_all = "camelCase")]
                 pub struct [<$rust_name Request>] { $($req)* }
@@ -169,6 +193,7 @@ macro_rules! define_request_response_pairs {
                     ];
                 }
 
+                #[allow(missing_docs)]
                 #[derive(Default, Debug, Clone, PartialEq, Serialize, Deserialize)]
                 #[serde(rename_all = "camelCase")]
                 pub struct [<$rust_name Response>] $(($resp_inner);)? $({ $($resp_fields)* })?
@@ -182,17 +207,6 @@ macro_rules! define_request_response_pairs {
             }
         )*
 
-        paste! {
-            #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
-            #[serde(tag = "messageType", content = "data")]
-            pub enum RequestData {
-                $(
-                    $(#[serde(rename = $req_name)])?
-                    [<$rust_name Request>]( [<$rust_name Request>] ),
-                )*
-            }
-
-        }
     };
 }
 
@@ -474,6 +488,7 @@ define_request_response_pairs!(
 
 );
 
+#[allow(missing_docs)]
 #[derive(thiserror::Error, Default, Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 #[error("APIError {error_id}: {message}")]
@@ -490,11 +505,13 @@ impl Response for ApiError {
 }
 
 impl ApiError {
+    /// Returns `true` if this error is an authentication error.
     pub fn is_auth_error(&self) -> bool {
         self.error_id == 8 // TODO: Don't hardcode
     }
 }
 
+#[allow(missing_docs)]
 #[derive(Default, Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct VTubeStudioApiStateBroadcast {
@@ -509,6 +526,7 @@ impl Response for VTubeStudioApiStateBroadcast {
     const MESSAGE_TYPE: &'static str = "VTubeStudioAPIStateBroadcast";
 }
 
+#[allow(missing_docs)]
 #[derive(Default, Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct ModelPosition {
@@ -518,6 +536,7 @@ pub struct ModelPosition {
     pub size: f64,
 }
 
+#[allow(missing_docs)]
 #[derive(Default, Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct Model {
@@ -529,6 +548,7 @@ pub struct Model {
     pub vts_model_icon_name: String,
 }
 
+#[allow(missing_docs)]
 #[derive(Default, Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct Hotkey {
@@ -542,6 +562,7 @@ pub struct Hotkey {
     pub hotkey_id: String,
 }
 
+#[allow(missing_docs)]
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct ColorTint {
@@ -550,8 +571,7 @@ pub struct ColorTint {
     pub color_b: u8,
     pub color_a: u8,
     pub mix_with_scene_lighting_color: Option<f64>,
-    #[serde(rename = "jeb_")]
-    pub jeb: bool,
+    pub jeb_: bool,
 }
 
 impl Default for ColorTint {
@@ -562,11 +582,12 @@ impl Default for ColorTint {
             color_b: 0,
             color_a: 255,
             mix_with_scene_lighting_color: None,
-            jeb: false,
+            jeb_: false,
         }
     }
 }
 
+#[allow(missing_docs)]
 #[derive(Default, Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct ArtMeshMatcher {
@@ -578,6 +599,7 @@ pub struct ArtMeshMatcher {
     pub tag_contains: Vec<String>,
 }
 
+#[allow(missing_docs)]
 #[derive(Default, Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct CapturePart {
@@ -587,6 +609,7 @@ pub struct CapturePart {
     pub color_b: u8,
 }
 
+#[allow(missing_docs)]
 #[derive(Default, Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct Parameter {
@@ -598,6 +621,7 @@ pub struct Parameter {
     pub default_value: f64,
 }
 
+#[allow(missing_docs)]
 #[derive(Default, Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct ParameterValue {
@@ -677,9 +701,9 @@ mod tests {
                     "name": "MyCustomParamName1",
                     "addedBy": "My Plugin Name",
                     "value": 12.4,
-                    "min": -30,
-                    "max": 30,
-                    "defaultValue": 0
+                    "min": -30.0,
+                    "max": 30.0,
+                    "defaultValue": 0.0
                 }
             }))?,
             ResponseEnvelope {

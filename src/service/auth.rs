@@ -12,6 +12,7 @@ use std::sync::{Arc, Mutex};
 use std::task::{Context, Poll};
 use tower::{Layer, Service, ServiceExt};
 
+/// A [`Layer`] that produces an [`Authentication`] service.
 #[derive(Clone)]
 pub struct AuthenticationLayer {
     token: Option<String>,
@@ -29,6 +30,7 @@ impl fmt::Debug for AuthenticationLayer {
 }
 
 impl AuthenticationLayer {
+    /// Creates a new [`AuthenticationLayer`] with the given developer info.
     pub fn new(token_request: AuthenticationTokenRequest) -> Self {
         Self {
             token_request: Arc::new(token_request),
@@ -36,8 +38,12 @@ impl AuthenticationLayer {
         }
     }
 
-    pub fn with_token<S: Into<Option<String>>>(mut self, token: S) -> Self {
-        self.token = token.into();
+    /// Provides the [`Authentication`] service with an existing auth token.
+    ///
+    /// On auth errors, the [`Authentication`] service will attempt to use this token first before
+    /// trying to request a new one.
+    pub fn with_token(mut self, token: Option<String>) -> Self {
+        self.token = token;
         self
     }
 }
@@ -56,6 +62,7 @@ where
     }
 }
 
+/// A [`Service`] that tries to reauthenticate when receiving an auth error.
 #[derive(Clone)]
 pub struct Authentication<S> {
     service: S,
@@ -70,6 +77,7 @@ where
     S::Error: Send,
     Error: From<S::Error>,
 {
+    /// Creates a new [`Authentication`] service.
     pub fn new(
         service: S,
         token_request: Arc<AuthenticationTokenRequest>,
@@ -97,9 +105,13 @@ where
     }
 }
 
+/// Wrapper struct containing the API response and an optional token, if a new token was obtained
+/// via a successful authentication token request.
 #[derive(Debug, Clone)]
 pub struct ResponseWithToken {
+    /// The underlying API response.
     pub response: ResponseEnvelope,
+    /// New auth token received by the [`Authentication`] middleware, if any.
     pub new_token: Option<String>,
 }
 
@@ -112,6 +124,10 @@ impl ResponseWithToken {
     }
 }
 
+/// Attempt to authenticate using the provided credentials.
+///
+/// Returns `Ok(_)` if the request succeeded, and `Ok(Some(new_token))` if the request succeeded
+/// and a new token was obtained.
 pub async fn authenticate<S>(
     service: &mut S,
     stored_token: Option<String>,
