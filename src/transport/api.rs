@@ -10,7 +10,7 @@ use std::task::{Context, Poll};
 use tokio_tungstenite::tungstenite;
 
 pin_project! {
-    /// A type that uses a [`MessageCodec`] to implement:
+    /// A transport that uses a [`MessageCodec`] to implement:
     ///
     /// * [`Sink`] for accepting [`RequestEnvelope`] messages and converting them into websocket
     ///   text messages

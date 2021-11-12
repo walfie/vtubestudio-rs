@@ -1,10 +1,9 @@
 use crate::data::{AuthenticationTokenRequest, Request, RequestEnvelope, ResponseEnvelope};
 use crate::error::Error;
 use crate::service::{
-    send_request, AuthenticationLayer, MakeApiService, ResponseWithToken, RetryPolicy,
-    TungsteniteApiService,
+    send_request, AuthenticationLayer, CloneBoxService, MakeApiService, ResponseWithToken,
+    RetryPolicy, TungsteniteApiService,
 };
-use crate::CloneBoxService;
 
 use std::borrow::Cow;
 use tokio::sync::mpsc;
