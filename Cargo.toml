@@ -13,18 +13,18 @@ description = "A library for interacting with the VTube Studio API."
 
 [dependencies]
 displaydoc = "0.2"
-futures-core = "0.3.17"
-futures-sink = "0.3.17"
-futures-util = "0.3.17"
-paste = "1.0.5"
-pin-project-lite = "0.2.7"
-serde = { version = "1.0.130", features = ["derive"] }
-serde_json = "1.0.68"
-thiserror = "1.0.30"
-tokio = { version = "1.13.0" }
-tokio-tower = "0.6.0"
-tokio-tungstenite = "0.15.0"
-tower = { version = "0.4.10", features = ["util", "retry", "reconnect", "buffer"] }
+futures-core = "0.3"
+futures-sink = "0.3"
+futures-util = "0.3"
+paste = "1"
+pin-project-lite = "0.2"
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+thiserror = "1"
+tokio = "1"
+tokio-tower = "0.6"
+tokio-tungstenite = "0.15"
+tower = { version = "0.4", features = ["util", "retry", "reconnect", "buffer"] }
 
 [dev-dependencies]
-tokio = { version = "1.13.0", features = ["macros", "rt-multi-thread"] }
+tokio = { version = "1", features = ["macros", "rt-multi-thread"] }
