@@ -21,10 +21,10 @@
 //!
 //! This example creates a [`Client`] using the provided [builder](ClientBuilder), which:
 //!
-//! * connects to `ws://localhost:8001` by default
-//! * attempts to authenticate with an existing token (if present)
-//! * tries to reconnect when disconnected, and retries the failed request on reconnection success
-//! * sends an authentication request on receiving an auth error, and retries the initial failed
+//! * connects to `ws://localhost:8001` using [tokio_tungstenite](https://docs.rs/tokio_tungstenite)
+//! * authenticates with an existing token (if present and valid)
+//! * reconnects when disconnected, and retries the failed request on reconnection success
+//! * requests a new auth token on receiving an auth error, and retries the initial failed
 //!   request on authentication success
 //!
 //! ```no_run
