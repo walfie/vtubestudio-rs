@@ -1,8 +1,8 @@
 #![deny(
     missing_docs,
-    broken_intra_doc_links,
-    private_intra_doc_links,
-    missing_debug_implementations
+    missing_debug_implementations,
+    rustdoc::broken_intra_doc_links,
+    rustdoc::private_intra_doc_links
 )]
 
 //! A library for interacting with the [VTube Studio API].
