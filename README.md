@@ -4,9 +4,9 @@ A library for interacting with the [VTube Studio API].
 
 [VTube Studio API]: https://github.com/DenchiSoft/VTubeStudio
 
-# Basic usage
+## Basic usage
 
-This example creates a [`Client`] using the provided [builder](ClientBuilder), which:
+This example creates a `Client` using the provided builder, which:
 
 * connects to `ws://localhost:8001` by default
 * attempts to authenticate with an existing token (if present)
