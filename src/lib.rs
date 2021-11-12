@@ -65,11 +65,11 @@
 //!
 //! # Project structure
 //!
-//! * [`client`] provides a high level API dealing with [`Request`]/[`Response`] types, which wraps...
-//! * [`service`], a set of [`tower::Service`]s that deal with unstructured
-//!   [`RequestEnvelope`]s/[`ResponseEnvelope`]s, and wraps...
-//! * [`transport`], which describes the underlying websocket connection, using...
-//! * [`codec`] to determine how to encode/decode websocket messages
+//! * [`client`] provides a high level API dealing with typed [`Request`]/[`Response`] types, which wraps a... ⏎
+//!   * [`service`], a stack of [`tower::Service`]s that deal with
+//!     [`RequestEnvelope`]/[`ResponseEnvelope`] pairs, and wraps a... ⏎
+//!     * [`transport`], which describes the underlying websocket connection stream, using a... ⏎
+//!       * [`codec`] to determine how to encode/decode websocket messages
 //!
 //! While the provided [`ClientBuilder`] should be sufficient for most users, each of these layers
 //! can be modified to add custom behavior if needed. E.g.,
