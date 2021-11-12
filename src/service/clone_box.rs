@@ -45,7 +45,7 @@ use tower::{Service, ServiceExt};
 ///
 /// ```
 /// use tower::{Service, ServiceBuilder, BoxError};
-/// use vtubestudio::CloneBoxService;
+/// use vtubestudio::service::CloneBoxService;
 /// use std::time::Duration;
 /// #
 /// # struct Request;

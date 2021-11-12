@@ -6,7 +6,8 @@ use tokio_tungstenite::tungstenite;
 /// # Example
 ///
 /// ```
-/// # use vtubestudio::MessageCodec;
+/// use vtubestudio::codec::MessageCodec;
+///
 /// // Custom websocket message type
 /// pub enum Message {
 ///     Text(String),
