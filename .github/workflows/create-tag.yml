@@ -1,0 +1,43 @@
+# This action is meant to be triggered manually via the GitHub UI
+name: Create Release Tag
+on:
+  workflow_dispatch: {}
+
+jobs:
+  release:
+    name: Run cargo-release
+    runs-on: ubuntu-latest
+    steps:
+    # We can't use the provided `GITHUB_TOKEN` here because it doesn't trigger
+    # other workflows (release.yml). See docs for details:
+    # https://docs.github.com/en/actions/reference/events-that-trigger-workflows#triggering-new-workflows-using-a-personal-access-token
+    #
+    # Generate a token (with "repo" permissions), and add it to the repo settings:
+    # https://github.com/settings/tokens/new?scopes=repo
+    # https://github.com/your-username/your-repo/settings/secrets/actions
+    - uses: actions/checkout@v2
+      with:
+        token: ${{ secrets.PERSONAL_ACCESS_TOKEN }}
+    - uses: actions-rs/toolchain@v1
+      with:
+        profile: minimal
+        toolchain: 1.56.1
+        override: true
+    - uses: Swatinem/rust-cache@v1.3.0
+    - name: Install cargo-release
+      uses: actions-rs/install@v0.1
+      with:
+        crate: cargo-release
+        version: 0.18.4
+    - name: Set git user
+      run: |
+        git config --global user.name 'github-actions[bot]'
+        git config --global user.email 'github-actions[bot]@users.noreply.github.com'
+    - name: Run cargo-release
+      uses: actions-rs/cargo@v1
+      env:
+        CARGO_REGISTRY_TOKEN: ${{ secrets.CARGO_REGISTRY_TOKEN }}
+      with:
+        command: release
+        args: --no-confirm --execute --no-verify
+
