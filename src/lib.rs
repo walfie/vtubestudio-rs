@@ -1,8 +1,8 @@
 #![deny(
     missing_docs,
-    broken_intra_doc_links,
-    private_intra_doc_links,
-    missing_debug_implementations
+    missing_debug_implementations,
+    rustdoc::broken_intra_doc_links,
+    rustdoc::private_intra_doc_links
 )]
 
 //! A library for interacting with the [VTube Studio API].
@@ -21,10 +21,10 @@
 //!
 //! This example creates a [`Client`] using the provided [builder](ClientBuilder), which:
 //!
-//! * connects to `ws://localhost:8001` by default
-//! * attempts to authenticate with an existing token (if present)
-//! * tries to reconnect when disconnected, and retries the failed request on reconnection success
-//! * sends an authentication request on receiving an auth error, and retries the initial failed
+//! * connects to `ws://localhost:8001` using [tokio_tungstenite](https://docs.rs/tokio_tungstenite)
+//! * authenticates with an existing token (if present and valid)
+//! * reconnects when disconnected, and retries the failed request on reconnection success
+//! * requests a new auth token on receiving an auth error, and retries the initial failed
 //!   request on authentication success
 //!
 //! ```no_run
@@ -65,11 +65,11 @@
 //!
 //! # Project structure
 //!
-//! * [`client`] provides a high level API dealing with [`Request`]/[`Response`] types, which wraps...
-//! * [`service`], a set of [`tower::Service`]s that deal with unstructured
-//!   [`RequestEnvelope`]s/[`ResponseEnvelope`]s, and wraps...
-//! * [`transport`], which describes the underlying websocket connection, using...
-//! * [`codec`] to determine how to encode/decode websocket messages
+//! * [`client`] provides a high level API dealing with typed [`Request`]/[`Response`] types, which wraps a... ⏎
+//!   * [`service`], a stack of [`tower::Service`]s that deal with
+//!     [`RequestEnvelope`]/[`ResponseEnvelope`] pairs, and wraps a... ⏎
+//!     * [`transport`], which describes the underlying websocket connection stream, using a... ⏎
+//!       * [`codec`] to determine how to encode/decode websocket messages
 //!
 //! While the provided [`ClientBuilder`] should be sufficient for most users, each of these layers
 //! can be modified to add custom behavior if needed. E.g.,
