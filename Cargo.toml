@@ -1,6 +1,6 @@
 [package]
 name = "vtubestudio"
-version = "0.1.0-alpha.0"
+version = "0.1.0"
 edition = "2018"
 authors = ["Walfie <walfington@gmail.com"]
 license = "MIT"
