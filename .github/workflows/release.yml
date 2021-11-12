@@ -1,0 +1,49 @@
+name: Create GitHub release
+on:
+  push:
+    tags:
+    - 'v[0-9]+\.[0-9]+\.[0-9]+'
+
+jobs:
+  create_release:
+    name: Create GitHub release
+    runs-on: ubuntu-latest
+    outputs:
+      upload_url: ${{ steps.create_release.outputs.upload_url }}
+      release_version: ${{ env.RELEASE_VERSION }}
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v2
+      with:
+        fetch-depth: 0 # Fetch all history
+
+    - name: Get the release version from the tag
+      shell: bash
+      if: env.RELEASE_VERSION == ''
+      run: |
+        echo "RELEASE_VERSION=${GITHUB_REF#refs/tags/}" >> $GITHUB_ENV
+        echo "Release version: $RELEASE_VERSION"
+
+    - name: Generate changelog
+      id: changelog
+      run: |
+        PREVIOUS_TAG=$(git describe --tags --always --abbrev=0 HEAD^)
+        echo "CHANGELOG<<EOF" >> $GITHUB_ENV
+        git log --reverse \
+          --invert-grep --grep="(cargo-release) " \
+          --pretty=tformat:'* %h %s' \
+          $PREVIOUS_TAG..HEAD >> $GITHUB_ENV
+        echo -e "\nEOF" >> $GITHUB_ENV
+
+    - name: Create release
+      id: create_release
+      uses: actions/create-release@v1
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      with:
+        tag_name: ${{ env.RELEASE_VERSION }}
+        release_name: ${{ env.RELEASE_VERSION }}
+        body: ${{ env.CHANGELOG }}
+        draft: false
+        prerelease: false
+
