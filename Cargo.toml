@@ -31,3 +31,9 @@ tower = { version = "0.4", features = ["util", "retry", "reconnect", "buffer"] }
 
 [dev-dependencies]
 tokio = { version = "1", features = ["macros", "rt-multi-thread"] }
+
+[package.metadata.docs.rs]
+# Use `doc_cfg` feature on docs.rs
+# https://stackoverflow.com/a/61417700
+all-features = true # document all features
+rustdoc-args = ["--cfg", "docsrs"] # defines the configuration attribute `docsrs`
