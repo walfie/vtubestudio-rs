@@ -44,7 +44,7 @@ pub enum ErrorKind {
     Other,
 }
 
-/// The API response type of the did not match the expected type.
+/// The API response type did not match the expected type.
 #[derive(thiserror::Error, Debug)]
 #[error("received unexpected response (expected {expected}, received {received})")]
 pub struct UnexpectedResponseError {

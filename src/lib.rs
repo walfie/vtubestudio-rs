@@ -89,10 +89,10 @@
 /// Utilities for creating [`Client`]s.
 pub mod client;
 
-/// A collection of [`Service`](tower::Service) middleware used by [`Client`].
+/// [`Service`](tower::Service) middleware used by [`Client`].
 pub mod service;
 
-/// A collection of transport ([`Sink`]/[`Stream`]) types.
+/// Transport ([`Sink`]/[`Stream`]) types.
 ///
 /// [`Sink`]: futures_sink::Sink
 /// [`Stream`]: futures_util::Stream
