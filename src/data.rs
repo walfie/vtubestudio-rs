@@ -22,7 +22,7 @@ pub struct RequestEnvelope {
     pub api_version: Cow<'static, str>,
     #[serde(rename = "requestID")]
     pub request_id: Option<String>,
-    pub message_type: Cow<'static, str>,
+    pub message_type: RequestType,
     pub data: Value,
 }
 
@@ -31,7 +31,7 @@ impl Default for RequestEnvelope {
         Self {
             api_name: Cow::Borrowed(API_NAME),
             api_version: Cow::Borrowed(API_VERSION),
-            message_type: Cow::Borrowed(""),
+            message_type: RequestType::ApiStateRequest,
             request_id: None,
             data: Value::Null,
         }
@@ -71,7 +71,7 @@ pub struct ResponseEnvelope {
     pub timestamp: i64,
     #[serde(rename = "requestID")]
     pub request_id: String,
-    pub message_type: String,
+    pub message_type: ResponseType,
     pub data: Value,
 }
 
@@ -80,7 +80,7 @@ impl Default for ResponseEnvelope {
         Self {
             api_name: API_NAME.to_owned(),
             api_version: API_VERSION.to_owned(),
-            message_type: "".to_owned(),
+            message_type: ResponseType::Other("UnknownResponse".into()),
             timestamp: 0,
             request_id: "".to_owned(),
             data: Value::Null,
@@ -150,7 +150,7 @@ impl ResponseEnvelope {
 /// Trait describing a VTube Studio request.
 pub trait Request: Serialize {
     /// The message type of this request.
-    const MESSAGE_TYPE: &'static str;
+    const MESSAGE_TYPE: RequestType;
 
     /// The expected [`Response`] type for this request.
     type Response: Response;
@@ -159,7 +159,7 @@ pub trait Request: Serialize {
 /// Trait describing a VTube Studio response.
 pub trait Response: DeserializeOwned + Send + 'static {
     /// The message type of this response.
-    const MESSAGE_TYPE: &'static str;
+    const MESSAGE_TYPE: ResponseType;
 }
 
 macro_rules! first_expr {
@@ -378,10 +378,7 @@ macro_rules! define_request_response_pairs {
 
                 impl Request for [<$rust_name Request>] {
                     type Response = [<$rust_name Response>];
-                    const MESSAGE_TYPE: &'static str = first_expr![
-                        $($req_name,)?
-                        concat!(stringify!($rust_name), "Request")
-                    ];
+                    const MESSAGE_TYPE: RequestType = RequestType::[<$rust_name Request>];
                 }
 
                 #[allow(missing_docs)]
@@ -390,10 +387,7 @@ macro_rules! define_request_response_pairs {
                 pub struct [<$rust_name Response>] $(($resp_inner);)? $({ $($resp_fields)* })?
 
                 impl Response for [<$rust_name Response>] {
-                    const MESSAGE_TYPE: &'static str = first_expr![
-                        $($resp_name,)?
-                        concat!(stringify!($rust_name), "Response")
-                    ];
+                    const MESSAGE_TYPE: ResponseType = ResponseType::[<$rust_name Response>];
                 }
             }
         )*
@@ -692,7 +686,7 @@ pub struct ApiError {
 }
 
 impl Response for ApiError {
-    const MESSAGE_TYPE: &'static str = "APIError";
+    const MESSAGE_TYPE: ResponseType = ResponseType::ApiError;
 }
 
 impl ApiError {
@@ -714,7 +708,7 @@ pub struct VTubeStudioApiStateBroadcast {
 }
 
 impl Response for VTubeStudioApiStateBroadcast {
-    const MESSAGE_TYPE: &'static str = "VTubeStudioAPIStateBroadcast";
+    const MESSAGE_TYPE: ResponseType = ResponseType::VTubeStudioApiStateBroadcast;
 }
 
 #[allow(missing_docs)]
