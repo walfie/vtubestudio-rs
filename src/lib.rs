@@ -106,5 +106,20 @@ pub mod data;
 /// Types related to error handling.
 pub mod error;
 
+macro_rules! cfg_feature {
+    (
+        #![$meta:meta]
+        $($item:item)+
+    ) => {
+        $(
+            #[cfg($meta)]
+            #[cfg_attr(docsrs, doc(cfg($meta)))]
+            $item
+        )*
+    }
+}
+
+pub(crate) use cfg_feature;
+
 pub use crate::client::{Client, ClientBuilder, TokenReceiver};
 pub use crate::error::{Error, ErrorKind, Result};

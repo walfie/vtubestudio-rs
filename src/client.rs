@@ -1,11 +1,12 @@
 use crate::data::{AuthenticationTokenRequest, Request, RequestEnvelope, ResponseEnvelope};
 use crate::error::Error;
 use crate::service::{
-    send_request, AuthenticationLayer, CloneBoxService, MakeApiService, ResponseWithToken,
-    RetryPolicy,
+    send_request, AuthenticationLayer, CloneBoxService, ResponseWithToken, RetryPolicy,
 };
 
+use crate::error::BoxError;
 use std::borrow::Cow;
+use std::error::Error as StdError;
 use tokio::sync::mpsc;
 use tower::reconnect::Reconnect;
 use tower::{Service, ServiceBuilder};
@@ -235,22 +236,28 @@ impl ClientBuilder {
         self
     }
 
-    #[cfg(feature = "tokio-tungstenite")]
-    /// Initializes a [`Client`] and [`TokenReceiver`] using [`tokio_tungstenite`] as the
-    /// underlying websocket transport library.
-    pub fn build_tungstenite(self) -> (Client, TokenReceiver) {
-        use crate::service::TungsteniteApiService;
+    crate::cfg_feature! {
+        #![feature = "tokio-tungstenite"]
+        /// Initializes a [`Client`] and [`TokenReceiver`] using [`tokio_tungstenite`] as the
+        /// underlying websocket transport library.
+        pub fn build_tungstenite(self) -> (Client, TokenReceiver) {
+            use crate::service::MakeApiService;
+            self.build_reconnecting_service(MakeApiService::new_tungstenite())
+        }
+    }
 
+    /// Initializes a [`Client`] and [`TokenReceiver`] using a custom [`Service`].
+    pub fn build_service<S>(self, service: S) -> (Client, TokenReceiver)
+    where
+        S: Service<RequestEnvelope, Response = ResponseEnvelope> + Send + 'static,
+        S::Error: Into<BoxError> + Send + Sync,
+        S::Future: Send,
+    {
         let policy = RetryPolicy::new()
             .on_disconnect(self.retry_on_disconnect)
             .on_auth_error(self.token_request.is_some());
 
         let (token_tx, token_rx) = mpsc::channel(self.token_stream_buffer_size);
-
-        let service = Reconnect::new::<TungsteniteApiService, String>(
-            MakeApiService::new_tungstenite(),
-            self.url,
-        );
 
         let service = if let Some(token_req) = self.token_request {
             CloneBoxService::new(
@@ -282,5 +289,23 @@ impl ClientBuilder {
         let token_receiver = TokenReceiver { receiver: token_rx };
 
         return (Client::new_from_service(service), token_receiver);
+    }
+
+    /// Initializes a [`Client`] and [`TokenReceiver`] with a reconnecting service.
+    ///
+    /// The input service should be a [`MakeService`](tower::MakeService) that satisfies the
+    /// requirements of [`Reconnect`].
+    pub fn build_reconnecting_service<S>(self, service: S) -> (Client, TokenReceiver)
+    where
+        S: Service<String> + Send + 'static,
+        S::Error: StdError + Send + Sync,
+        S::Future: Send + Unpin,
+        S::Response: Service<RequestEnvelope, Response = ResponseEnvelope> + Send + 'static,
+        <S::Response as Service<RequestEnvelope>>::Error: StdError + Send + Sync,
+        <S::Response as Service<RequestEnvelope>>::Future: Send,
+    {
+        let service = Reconnect::new::<S, String>(service, self.url.clone());
+
+        self.build_service(service)
     }
 }

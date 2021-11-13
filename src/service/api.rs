@@ -9,6 +9,14 @@ use std::task::{Context, Poll};
 use tokio_tower::multiplex::{Client as MultiplexClient, MultiplexTransport, TagStore};
 use tower::Service;
 
+crate::cfg_feature! {
+    #![feature = "tokio-tungstenite"]
+    use crate::transport::TungsteniteApiTransport;
+
+    /// Type alias for an [`ApiService`] wrapping a [`TungsteniteApiTransport`].
+    pub type TungsteniteApiService = ApiService<TungsteniteApiTransport>;
+}
+
 /// Struct describing how to tag [`RequestEnvelope`]s and extract tags from [`ResponseEnvelope`]s.
 #[derive(Debug)]
 pub struct IdTagger(usize);
@@ -41,11 +49,6 @@ where
 {
     service: ServiceInner<T>,
 }
-
-#[cfg(feature = "tokio-tungstenite")]
-/// Type alias for an [`ApiService`] wrapping a
-/// [`TungsteniteApiTransport`](crate::transport::TungsteniteApiTransport).
-pub type TungsteniteApiService = ApiService<crate::transport::TungsteniteApiTransport>;
 
 impl<T> ApiService<T>
 where

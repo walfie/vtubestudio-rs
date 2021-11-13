@@ -2,17 +2,27 @@ use crate::codec::MessageCodec;
 use crate::data::{RequestEnvelope, ResponseEnvelope};
 use crate::error::BoxError;
 
-#[cfg(feature = "tokio-tungstenite")]
-use tokio_tungstenite::tungstenite;
-
-#[cfg(feature = "tokio-tungstenite")]
-use crate::codec::TungsteniteCodec;
-
 use futures_core::{Stream, TryStream};
 use futures_sink::Sink;
 use pin_project_lite::pin_project;
 use std::pin::Pin;
 use std::task::{Context, Poll};
+
+crate::cfg_feature! {
+    #![feature = "tokio-tungstenite"]
+    use tokio_tungstenite::tungstenite;
+    use crate::codec::TungsteniteCodec;
+
+    impl<T> ApiTransport<T, TungsteniteCodec>
+    where
+        T: Sink<tungstenite::Message> + TryStream,
+    {
+        /// Creates a new [`ApiTransport`] for sending/receiving [`tokio_tungstenite`] messages.
+        pub fn new_tungstenite(transport: T) -> Self {
+            ApiTransport::new(transport, TungsteniteCodec)
+        }
+    }
+}
 
 pin_project! {
     /// A transport that uses a [`MessageCodec`] to implement:
@@ -40,17 +50,6 @@ where
     /// Creates a new [`ApiTransport`].
     pub fn new(transport: T, codec: C) -> Self {
         Self { transport, codec }
-    }
-}
-
-#[cfg(feature = "tokio-tungstenite")]
-impl<T> ApiTransport<T, TungsteniteCodec>
-where
-    T: Sink<tungstenite::Message> + TryStream,
-{
-    /// Creates a new [`ApiTransport`] for sending/receiving [`tokio_tungstenite`] messages.
-    pub fn new_tungstenite(transport: T) -> Self {
-        ApiTransport::new(transport, TungsteniteCodec)
     }
 }
 
