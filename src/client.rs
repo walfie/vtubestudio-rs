@@ -47,7 +47,7 @@ impl Client<CloneBoxApiService> {
     #[cfg_attr(not(feature = "tokio-tungstenite"), doc = "```ignore")]
     /// # use vtubestudio::Client;
     /// let (mut client, mut new_tokens) = Client::builder()
-    ///     .with_token(Some("...".to_string()))
+    ///     .auth_token(Some("...".to_string()))
     ///     .authentication("Plugin name", "Developer name", None)
     ///     .build_tungstenite();
     /// ```
