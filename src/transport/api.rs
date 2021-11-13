@@ -24,6 +24,21 @@ crate::cfg_feature! {
     }
 }
 
+crate::cfg_feature! {
+    #![feature = "awc"]
+    use crate::codec::AwcCodec;
+
+    impl<T> ApiTransport<T, AwcCodec>
+    where
+        T: Sink<::awc::ws::Message> + TryStream,
+    {
+        /// Creates a new [`ApiTransport`] for sending/receiving [`awc`](::awc) messages.
+        pub fn new_awc(transport: T) -> Self {
+            ApiTransport::new(transport, AwcCodec)
+        }
+    }
+}
+
 pin_project! {
     /// A transport that uses a [`MessageCodec`] to implement:
     ///
@@ -44,7 +59,7 @@ pin_project! {
 
 impl<T, C> ApiTransport<T, C>
 where
-    T: Sink<C::Message> + TryStream,
+    T: Sink<C::WriteMessage> + TryStream,
     C: MessageCodec,
 {
     /// Creates a new [`ApiTransport`].
@@ -55,7 +70,7 @@ where
 
 impl<T, C> Sink<RequestEnvelope> for ApiTransport<T, C>
 where
-    T: Sink<C::Message>,
+    T: Sink<C::WriteMessage>,
     C: MessageCodec,
     BoxError: From<T::Error>,
 {
@@ -97,9 +112,10 @@ where
 
 impl<T, C> Stream for ApiTransport<T, C>
 where
-    T: TryStream<Ok = C::Message>,
+    T: TryStream<Ok = C::ReadMessage>,
+    T::Error: Into<BoxError>,
     C: MessageCodec,
-    BoxError: From<T::Error>,
+    C::Error: Into<BoxError>,
 {
     type Item = Result<ResponseEnvelope, BoxError>;
 
@@ -109,8 +125,8 @@ where
         Poll::Ready(loop {
             match futures_util::ready!(this.transport.as_mut().try_poll_next(cx)) {
                 Some(Ok(msg)) => {
-                    if let Some(s) = C::decode(msg) {
-                        break Some(serde_json::from_str(&s).map_err(|e| Box::new(e) as BoxError));
+                    if let Some(s) = C::decode(msg).map_err(Into::into)? {
+                        break Some(serde_json::from_str(&s).map_err(Into::into));
                     }
                 }
                 Some(Err(e)) => break Some(Err(e.into())),

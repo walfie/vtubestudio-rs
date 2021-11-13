@@ -14,8 +14,11 @@ description = "A library for interacting with the VTube Studio API."
 
 [features]
 default = ["tokio-tungstenite"]
+awc = ["awc-crate", "actix-codec"]
 
 [dependencies]
+actix-codec = { version = "0.3", optional = true }
+awc-crate = { package = "awc", version = "2", optional = true }
 displaydoc = "0.2"
 futures-core = "0.3"
 futures-sink = "0.3"

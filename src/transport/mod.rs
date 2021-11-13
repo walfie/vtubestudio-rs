@@ -17,3 +17,19 @@ crate::cfg_feature! {
     /// Type alias for an [`ApiTransport`] that handles [`tokio_tungstenite`] messages.
     pub type TungsteniteApiTransport = ApiTransport<TungsteniteTransport, TungsteniteCodec>;
 }
+
+crate::cfg_feature! {
+    #![feature = "awc"]
+    //pub use crate::transport::connector::AwcConnector;
+
+    use crate::codec::AwcCodec;
+    use ::awc::BoxedSocket;
+    use ::awc::ws::Codec;
+    use actix_codec::Framed;
+
+    /// Type alias for a default [`awc`](::awc) sink/stream.
+    pub type AwcTransport = Framed<BoxedSocket, Codec>;
+
+    /// Type alias for an [`ApiTransport`] that handles [`awc`](::awc) messages.
+    pub type AwcApiTransport = ApiTransport<AwcTransport, AwcCodec>;
+}

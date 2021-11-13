@@ -121,6 +121,9 @@ macro_rules! cfg_feature {
     }
 }
 
+#[cfg(feature = "awc")]
+extern crate awc_crate as awc;
+
 pub(crate) use cfg_feature;
 
 pub use crate::client::{Client, ClientBuilder, TokenReceiver};
