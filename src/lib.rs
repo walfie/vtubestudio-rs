@@ -28,7 +28,8 @@
 //! * requests a new auth token on receiving an auth error, and retries the initial failed
 //!   request on authentication success
 //!
-//! ```no_run
+#![cfg_attr(feature = "tokio-tungstenite", doc = "```no_run")]
+#![cfg_attr(not(feature = "tokio-tungstenite"), doc = "```ignore")]
 //! use vtubestudio::{Client, Error};
 //! use vtubestudio::data::StatisticsRequest;
 //!
