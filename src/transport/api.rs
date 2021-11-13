@@ -24,21 +24,6 @@ crate::cfg_feature! {
     }
 }
 
-crate::cfg_feature! {
-    #![feature = "awc"]
-    use crate::codec::AwcCodec;
-
-    impl<T> ApiTransport<T, AwcCodec>
-    where
-        T: Sink<::awc::ws::Message> + TryStream,
-    {
-        /// Creates a new [`ApiTransport`] for sending/receiving [`awc`](::awc) messages.
-        pub fn new_awc(transport: T) -> Self {
-            ApiTransport::new(transport, AwcCodec)
-        }
-    }
-}
-
 pin_project! {
     /// A transport that uses a [`MessageCodec`] to implement:
     ///
@@ -59,7 +44,7 @@ pin_project! {
 
 impl<T, C> ApiTransport<T, C>
 where
-    T: Sink<C::WriteMessage> + TryStream,
+    T: Sink<C::Output> + TryStream,
     C: MessageCodec,
 {
     /// Creates a new [`ApiTransport`].
@@ -70,7 +55,7 @@ where
 
 impl<T, C> Sink<RequestEnvelope> for ApiTransport<T, C>
 where
-    T: Sink<C::WriteMessage>,
+    T: Sink<C::Output>,
     C: MessageCodec,
     BoxError: From<T::Error>,
 {
@@ -112,7 +97,7 @@ where
 
 impl<T, C> Stream for ApiTransport<T, C>
 where
-    T: TryStream<Ok = C::ReadMessage>,
+    T: TryStream<Ok = C::Input>,
     T::Error: Into<BoxError>,
     C: MessageCodec,
     C::Error: Into<BoxError>,
