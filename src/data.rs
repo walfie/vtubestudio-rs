@@ -2,7 +2,7 @@ use crate::error::{Error, UnexpectedResponseError};
 
 use paste::paste;
 use serde::de::DeserializeOwned;
-use serde::{Deserialize, Serialize};
+use serde::{Deserialize, Serialize, Serializer};
 use serde_json::Value;
 use std::borrow::Cow;
 use std::fmt;
@@ -177,9 +177,34 @@ impl fmt::Display for MessageType {
     }
 }
 
+impl Serialize for MessageType {
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: Serializer,
+    {
+        serializer.collect_str(self)
+    }
+}
+
 impl From<String> for MessageType {
     fn from(string: String) -> Self {
         Self::from_known_type(string.as_ref()).unwrap_or_else(|| Self::Other(string.into()))
+    }
+}
+
+impl MessageType {
+    fn is_other(&self) -> bool {
+        matches!(self, Self::Other(_))
+    }
+}
+
+impl PartialEq for MessageType {
+    fn eq(&self, rhs: &Self) -> bool {
+        if self.is_other() || rhs.is_other() {
+            self.as_str() == rhs.as_str()
+        } else {
+            std::mem::discriminant(self) == std::mem::discriminant(rhs)
+        }
     }
 }
 
@@ -193,7 +218,8 @@ macro_rules! define_request_response_pairs {
     },)*) => {
         paste! {
             #[allow(missing_docs)]
-            #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+            #[derive(Debug, Clone, Deserialize)]
+            #[serde(from = "String")]
             pub enum MessageType {
                 #[serde(rename = "APIError")]
                 ApiError,
@@ -278,6 +304,7 @@ macro_rules! define_request_response_pairs {
                         _ => return None,
                     })
                 }
+
             }
 
         }
@@ -740,6 +767,66 @@ mod tests {
     use serde_json::json;
 
     type Result<T = ()> = std::result::Result<T, Box<dyn std::error::Error>>;
+
+    #[test]
+    fn message_type_eq() -> Result {
+        assert_eq!(
+            MessageType::VtsFolderInfoRequest,
+            MessageType::VtsFolderInfoRequest,
+        );
+
+        assert_eq!(
+            MessageType::VtsFolderInfoRequest,
+            MessageType::Other("VTSFolderInfoRequest".into()),
+        );
+
+        assert_eq!(
+            MessageType::Other("VTSFolderInfoRequest".into()),
+            MessageType::VtsFolderInfoRequest,
+        );
+
+        assert_eq!(
+            MessageType::Other("VTSFolderInfoRequest".into()),
+            MessageType::Other("VTSFolderInfoRequest".into()),
+        );
+
+        Ok(())
+    }
+
+    #[test]
+    fn message_type_json() -> Result {
+        assert!(matches!(
+            serde_json::from_value::<MessageType>(json!("APIError"))?,
+            MessageType::ApiError,
+        ));
+
+        assert_eq!(
+            serde_json::to_value::<MessageType>(MessageType::ApiError)?,
+            json!("APIError"),
+        );
+
+        assert!(matches!(
+            serde_json::from_value::<MessageType>(json!("ColorTintResponse"))?,
+            MessageType::ColorTintResponse,
+        ));
+
+        assert_eq!(
+            serde_json::to_value::<MessageType>(MessageType::ColorTintResponse)?,
+            json!("ColorTintResponse"),
+        );
+
+        assert!(matches!(
+            serde_json::from_value::<MessageType>(json!("WalfieResponse"))?,
+            MessageType::Other(resp) if resp == "WalfieResponse",
+        ));
+
+        assert_eq!(
+            serde_json::to_value::<MessageType>(MessageType::Other("WalfieResponse".into()))?,
+            json!("WalfieResponse"),
+        );
+
+        Ok(())
+    }
 
     #[test]
     fn request() -> Result {
