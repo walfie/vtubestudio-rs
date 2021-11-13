@@ -24,17 +24,17 @@
 ///
 /// impl MessageCodec for MyCustomMessageCodec {
 ///     type Input = Message;
-///     type Ouput = Message;
+///     type Output = Message;
 ///     type Error = std::convert::Infallible;
 ///
-///     fn decode(msg: Self::Message) -> Result<Option<String>, Self::Error> {
+///     fn decode(msg: Self::Input) -> Result<Option<String>, Self::Error> {
 ///         Ok(match msg {
 ///             Message::Text(s) => Some(s),
 ///             _ => None,
 ///         })
 ///     }
 ///
-///     fn encode(text: String) -> Self::Message {
+///     fn encode(text: String) -> Self::Output {
 ///         Message::Text(text)
 ///     }
 /// }
