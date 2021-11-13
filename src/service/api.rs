@@ -1,6 +1,5 @@
 use crate::data::{RequestEnvelope, ResponseEnvelope};
 use crate::error::{BoxError, Error};
-use crate::transport::TungsteniteApiTransport;
 
 use futures_core::TryStream;
 use futures_sink::Sink;
@@ -9,6 +8,14 @@ use std::pin::Pin;
 use std::task::{Context, Poll};
 use tokio_tower::multiplex::{Client as MultiplexClient, MultiplexTransport, TagStore};
 use tower::Service;
+
+crate::cfg_feature! {
+    #![feature = "tokio-tungstenite"]
+    use crate::transport::TungsteniteApiTransport;
+
+    /// Type alias for an [`ApiService`] wrapping a [`TungsteniteApiTransport`].
+    pub type TungsteniteApiService = ApiService<TungsteniteApiTransport>;
+}
 
 /// Struct describing how to tag [`RequestEnvelope`]s and extract tags from [`ResponseEnvelope`]s.
 #[derive(Debug)]
@@ -42,9 +49,6 @@ where
 {
     service: ServiceInner<T>,
 }
-
-/// Type alias for an [`ApiService`] wrapping a [`TungsteniteApiTransport`].
-pub type TungsteniteApiService = ApiService<TungsteniteApiTransport>;
 
 impl<T> ApiService<T>
 where

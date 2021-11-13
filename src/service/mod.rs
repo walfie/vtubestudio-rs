@@ -8,11 +8,16 @@ use crate::data::{Request, RequestEnvelope, ResponseEnvelope};
 use crate::error::Error;
 use tower::{Service, ServiceExt};
 
-pub use crate::service::api::{ApiService, TungsteniteApiService};
+pub use crate::service::api::ApiService;
 pub use crate::service::auth::{Authentication, AuthenticationLayer, ResponseWithToken};
 pub use crate::service::clone_box::CloneBoxService;
 pub use crate::service::maker::MakeApiService;
 pub use crate::service::retry::RetryPolicy;
+
+crate::cfg_feature! {
+    #![feature = "tokio-tungstenite"]
+    pub use crate::service::api::TungsteniteApiService;
+}
 
 /// Submit a request to the underlying service and parse the response.
 ///

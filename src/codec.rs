@@ -1,5 +1,3 @@
-use tokio_tungstenite::tungstenite;
-
 /// A trait describing how to encode/decode a websocket message. This is provided to allow users to
 /// use their own websocket library instead of the default [`tokio_tungstenite`] one.
 ///
@@ -47,21 +45,27 @@ pub trait MessageCodec {
     fn encode(text: String) -> Self::Message;
 }
 
-/// A codec describing how to encode/decode [`tungstenite::Message`]s.
-#[derive(Debug, Clone)]
-pub struct TungsteniteCodec;
+crate::cfg_feature! {
+    #![feature = "tokio-tungstenite"]
 
-impl MessageCodec for TungsteniteCodec {
-    type Message = tungstenite::Message;
+    use tokio_tungstenite::tungstenite;
 
-    fn decode(msg: Self::Message) -> Option<String> {
-        match msg {
-            Self::Message::Text(s) => Some(s),
-            _ => None,
+    /// A codec describing how to encode/decode [`tungstenite::Message`]s.
+    #[derive(Debug, Clone)]
+    pub struct TungsteniteCodec;
+
+    impl MessageCodec for TungsteniteCodec {
+        type Message = tungstenite::Message;
+
+        fn decode(msg: Self::Message) -> Option<String> {
+            match msg {
+                Self::Message::Text(s) => Some(s),
+                _ => None,
+            }
         }
-    }
 
-    fn encode(text: String) -> Self::Message {
-        Self::Message::Text(text)
+        fn encode(text: String) -> Self::Message {
+            Self::Message::Text(text)
+        }
     }
 }

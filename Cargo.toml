@@ -9,7 +9,11 @@ keywords = ["vtubestudio"]
 categories = ["api-bindings"]
 homepage = "https://github.com/walfie/vtubestudio-rs"
 repository = "https://github.com/walfie/vtubestudio-rs"
+documentation = "https://docs.rs/vtubestudio"
 description = "A library for interacting with the VTube Studio API."
+
+[features]
+default = ["tokio-tungstenite"]
 
 [dependencies]
 displaydoc = "0.2"
@@ -23,8 +27,14 @@ serde_json = "1"
 thiserror = "1"
 tokio = "1"
 tokio-tower = "0.6"
-tokio-tungstenite = "0.15"
+tokio-tungstenite = { version = "0.15", optional = true }
 tower = { version = "0.4", features = ["util", "retry", "reconnect", "buffer"] }
 
 [dev-dependencies]
 tokio = { version = "1", features = ["macros", "rt-multi-thread"] }
+
+[package.metadata.docs.rs]
+# Use `doc_cfg` feature on docs.rs
+# https://stackoverflow.com/a/61417700
+all-features = true # document all features
+rustdoc-args = ["--cfg", "docsrs"] # defines the configuration attribute `docsrs`
