@@ -11,7 +11,6 @@ crate::cfg_feature! {
     use tokio_tungstenite::tungstenite::client::IntoClientRequest;
     use crate::transport::TungsteniteApiTransport;
 
-    ///
     /// A [`Service`] for creating new [`TungsteniteApiTransport`]s.
     ///
     /// This is used by [`tower::reconnect::Reconnect`] (used in
