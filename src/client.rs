@@ -2,7 +2,7 @@ use crate::data::{AuthenticationTokenRequest, Request, RequestEnvelope, Response
 use crate::error::Error;
 use crate::service::{
     send_request, AuthenticationLayer, CloneBoxService, MakeApiService, ResponseWithToken,
-    RetryPolicy, TungsteniteApiService,
+    RetryPolicy,
 };
 
 use std::borrow::Cow;
@@ -235,9 +235,12 @@ impl ClientBuilder {
         self
     }
 
+    #[cfg(feature = "tokio-tungstenite")]
     /// Initializes a [`Client`] and [`TokenReceiver`] using [`tokio_tungstenite`] as the
     /// underlying websocket transport library.
     pub fn build_tungstenite(self) -> (Client, TokenReceiver) {
+        use crate::service::TungsteniteApiService;
+
         let policy = RetryPolicy::new()
             .on_disconnect(self.retry_on_disconnect)
             .on_auth_error(self.token_request.is_some());

@@ -1,13 +1,18 @@
-use crate::codec::{MessageCodec, TungsteniteCodec};
+use crate::codec::MessageCodec;
 use crate::data::{RequestEnvelope, ResponseEnvelope};
 use crate::error::BoxError;
+
+#[cfg(feature = "tokio-tungstenite")]
+use tokio_tungstenite::tungstenite;
+
+#[cfg(feature = "tokio-tungstenite")]
+use crate::codec::TungsteniteCodec;
 
 use futures_core::{Stream, TryStream};
 use futures_sink::Sink;
 use pin_project_lite::pin_project;
 use std::pin::Pin;
 use std::task::{Context, Poll};
-use tokio_tungstenite::tungstenite;
 
 pin_project! {
     /// A transport that uses a [`MessageCodec`] to implement:
@@ -38,6 +43,7 @@ where
     }
 }
 
+#[cfg(feature = "tokio-tungstenite")]
 impl<T> ApiTransport<T, TungsteniteCodec>
 where
     T: Sink<tungstenite::Message> + TryStream,

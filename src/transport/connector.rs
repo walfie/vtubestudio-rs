@@ -1,3 +1,4 @@
+#[cfg(feature = "tokio-tungstenite")]
 use crate::transport::TungsteniteApiTransport;
 use crate::{Error, ErrorKind};
 
@@ -5,9 +6,12 @@ use futures_util::TryFutureExt;
 use std::future::Future;
 use std::pin::Pin;
 use std::task::{Context, Poll};
-use tokio_tungstenite::tungstenite::client::IntoClientRequest;
 use tower::Service;
 
+#[cfg(feature = "tokio-tungstenite")]
+use tokio_tungstenite::tungstenite::client::IntoClientRequest;
+
+#[cfg(feature = "tokio-tungstenite")]
 /// A [`Service`] for creating new [`TungsteniteApiTransport`]s.
 ///
 /// This is used by [`tower::reconnect::Reconnect`] (used in
@@ -15,6 +19,7 @@ use tower::Service;
 #[derive(Debug, Clone)]
 pub struct TungsteniteConnector;
 
+#[cfg(feature = "tokio-tungstenite")]
 impl<R> Service<R> for TungsteniteConnector
 where
     R: IntoClientRequest + Unpin + Send + 'static,

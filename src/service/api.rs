@@ -1,6 +1,5 @@
 use crate::data::{RequestEnvelope, ResponseEnvelope};
 use crate::error::{BoxError, Error};
-use crate::transport::TungsteniteApiTransport;
 
 use futures_core::TryStream;
 use futures_sink::Sink;
@@ -43,8 +42,10 @@ where
     service: ServiceInner<T>,
 }
 
-/// Type alias for an [`ApiService`] wrapping a [`TungsteniteApiTransport`].
-pub type TungsteniteApiService = ApiService<TungsteniteApiTransport>;
+#[cfg(feature = "tokio-tungstenite")]
+/// Type alias for an [`ApiService`] wrapping a
+/// [`TungsteniteApiTransport`](crate::transport::TungsteniteApiTransport).
+pub type TungsteniteApiService = ApiService<crate::transport::TungsteniteApiTransport>;
 
 impl<T> ApiService<T>
 where

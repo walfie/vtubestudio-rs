@@ -11,6 +11,9 @@ homepage = "https://github.com/walfie/vtubestudio-rs"
 repository = "https://github.com/walfie/vtubestudio-rs"
 description = "A library for interacting with the VTube Studio API."
 
+[features]
+default = ["tokio-tungstenite"]
+
 [dependencies]
 displaydoc = "0.2"
 futures-core = "0.3"
@@ -23,7 +26,7 @@ serde_json = "1"
 thiserror = "1"
 tokio = "1"
 tokio-tower = "0.6"
-tokio-tungstenite = "0.15"
+tokio-tungstenite = { version = "0.15", optional = true }
 tower = { version = "0.4", features = ["util", "retry", "reconnect", "buffer"] }
 
 [dev-dependencies]
