@@ -188,6 +188,16 @@ impl ClientBuilder {
         Self::default()
     }
 
+    crate::cfg_feature! {
+        #![feature = "tokio-tungstenite"]
+        /// Consumes the builder and initializes a [`Client`] and [`TokenReceiver`] using
+        /// [`tokio_tungstenite`] as the underlying websocket transport library.
+        pub fn build_tungstenite(self) -> (Client, TokenReceiver) {
+            use crate::service::MakeApiService;
+            self.build_reconnecting_service(MakeApiService::new_tungstenite())
+        }
+    }
+
     /// If this is provided, whenever the underlying service encounters an authentication error, it
     /// will try to obtain a new auth token and retry the request.
     pub fn authentication<S1, S2, S3>(mut self, name: S1, developer: S2, icon: S3) -> Self
@@ -236,17 +246,8 @@ impl ClientBuilder {
         self
     }
 
-    crate::cfg_feature! {
-        #![feature = "tokio-tungstenite"]
-        /// Initializes a [`Client`] and [`TokenReceiver`] using [`tokio_tungstenite`] as the
-        /// underlying websocket transport library.
-        pub fn build_tungstenite(self) -> (Client, TokenReceiver) {
-            use crate::service::MakeApiService;
-            self.build_reconnecting_service(MakeApiService::new_tungstenite())
-        }
-    }
-
-    /// Initializes a [`Client`] and [`TokenReceiver`] using a custom [`Service`].
+    /// Consumes the builder and initializes a [`Client`] and [`TokenReceiver`] using a custom
+    /// [`Service`].
     pub fn build_service<S>(self, service: S) -> (Client, TokenReceiver)
     where
         S: Service<RequestEnvelope, Response = ResponseEnvelope> + Send + 'static,
@@ -291,7 +292,8 @@ impl ClientBuilder {
         return (Client::new_from_service(service), token_receiver);
     }
 
-    /// Initializes a [`Client`] and [`TokenReceiver`] with a reconnecting service.
+    /// Consumes the builder and initializes a [`Client`] and [`TokenReceiver`] with a reconnecting
+    /// service.
     ///
     /// The input service should be a [`MakeService`](tower::MakeService) that satisfies the
     /// requirements of [`Reconnect`].
