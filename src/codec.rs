@@ -1,5 +1,9 @@
 /// A trait describing how to encode/decode a websocket message. This is provided to allow users to
-/// use their own websocket library instead of the default [`tokio_tungstenite`] one.
+/// use their own websocket library instead of the default one.
+///
+/// Typically the `Input` and `Output` message types will be the same, but they're defined
+/// separately to allow for flexibility (e.g., if the underlying websocket client uses distinct
+/// types for sending vs receiving, like validating UTF-8 only for outgoing messages).
 ///
 /// # Example
 ///
@@ -19,35 +23,50 @@
 /// pub struct MyCustomMessageCodec;
 ///
 /// impl MessageCodec for MyCustomMessageCodec {
-///     type Message = Message;
+///     type Input = Message;
+///     type Output = Message;
+///     type Error = std::convert::Infallible;
 ///
-///     fn decode(msg: Self::Message) -> Option<String> {
-///         match msg {
+///     fn decode(msg: Self::Input) -> Result<Option<String>, Self::Error> {
+///         Ok(match msg {
 ///             Message::Text(s) => Some(s),
 ///             _ => None,
-///         }
+///         })
 ///     }
 ///
-///     fn encode(text: String) -> Self::Message {
+///     fn encode(text: String) -> Self::Output {
 ///         Message::Text(text)
 ///     }
 /// }
 /// ```
 pub trait MessageCodec {
-    /// The underlying message type. E.g., [`tungstenite::Message`].
-    type Message;
+    /// The underlying incoming message type.
+    type Input;
+
+    /// The underlying outgoing message type.
+    type Output;
+
+    /// Error type returned on decode failure.
+    type Error;
 
     /// Decodes a websocket text message. `None` values are ignored (E.g., for disregarding ping
     /// messages).
-    fn decode(msg: Self::Message) -> Option<String>;
+    fn decode(msg: Self::Input) -> Result<Option<String>, Self::Error>;
 
     /// Converts a string into a websocket text message.
-    fn encode(text: String) -> Self::Message;
+    fn encode(text: String) -> Self::Output;
 }
 
 crate::cfg_feature! {
     #![feature = "tokio-tungstenite"]
+    pub use self::tungstenite::TungsteniteCodec;
+}
 
+#[cfg(feature = "tokio-tungstenite")]
+mod tungstenite {
+    use super::*;
+
+    use std::convert::Infallible;
     use tokio_tungstenite::tungstenite;
 
     /// A codec describing how to encode/decode [`tungstenite::Message`]s.
@@ -55,17 +74,19 @@ crate::cfg_feature! {
     pub struct TungsteniteCodec;
 
     impl MessageCodec for TungsteniteCodec {
-        type Message = tungstenite::Message;
+        type Input = tungstenite::Message;
+        type Output = tungstenite::Message;
+        type Error = Infallible;
 
-        fn decode(msg: Self::Message) -> Option<String> {
-            match msg {
-                Self::Message::Text(s) => Some(s),
+        fn decode(msg: Self::Input) -> Result<Option<String>, Self::Error> {
+            Ok(match msg {
+                Self::Input::Text(s) => Some(s),
                 _ => None,
-            }
+            })
         }
 
-        fn encode(text: String) -> Self::Message {
-            Self::Message::Text(text)
+        fn encode(text: String) -> Self::Output {
+            Self::Output::Text(text)
         }
     }
 }

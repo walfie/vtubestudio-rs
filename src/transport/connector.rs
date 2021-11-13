@@ -1,5 +1,10 @@
 crate::cfg_feature! {
     #![feature = "tokio-tungstenite"]
+    pub use self::tungstenite::TungsteniteConnector;
+}
+
+#[cfg(feature = "tokio-tungstenite")]
+mod tungstenite {
     use crate::{Error, ErrorKind};
 
     use futures_util::TryFutureExt;
@@ -8,8 +13,8 @@ crate::cfg_feature! {
     use std::task::{Context, Poll};
     use tower::Service;
 
-    use tokio_tungstenite::tungstenite::client::IntoClientRequest;
     use crate::transport::TungsteniteApiTransport;
+    use tokio_tungstenite::tungstenite::client::IntoClientRequest;
 
     /// A [`Service`] for creating new [`TungsteniteApiTransport`]s.
     ///
