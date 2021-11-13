@@ -9,6 +9,7 @@ keywords = ["vtubestudio"]
 categories = ["api-bindings"]
 homepage = "https://github.com/walfie/vtubestudio-rs"
 repository = "https://github.com/walfie/vtubestudio-rs"
+documentation = "https://docs.rs/vtubestudio"
 description = "A library for interacting with the VTube Studio API."
 
 [features]

@@ -1,3 +1,4 @@
+#![cfg_attr(docsrs, feature(doc_cfg))]
 #![deny(
     missing_docs,
     missing_debug_implementations,
@@ -106,6 +107,7 @@ pub mod data;
 /// Types related to error handling.
 pub mod error;
 
+// Macro for enabling `doc_cfg` on docs.rs
 macro_rules! cfg_feature {
     (
         #![$meta:meta]
