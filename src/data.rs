@@ -5,6 +5,7 @@ use serde::de::DeserializeOwned;
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 use std::borrow::Cow;
+use std::fmt;
 
 /// The default `api_name` value in requests and responses.
 pub const API_NAME: &'static str = "VTubeStudioPublicAPI";
@@ -170,6 +171,18 @@ macro_rules! first_expr {
     };
 }
 
+impl fmt::Display for MessageType {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(f, "{}", self.as_str())
+    }
+}
+
+impl From<String> for MessageType {
+    fn from(string: String) -> Self {
+        Self::from_known_type(string.as_ref()).unwrap_or_else(|| Self::Other(string.into()))
+    }
+}
+
 macro_rules! define_request_response_pairs {
     ($({
         rust_name = $rust_name:ident,
@@ -178,6 +191,97 @@ macro_rules! define_request_response_pairs {
         req = { $($req:tt)* },
         resp = $(( $resp_inner:ident ))? $({ $($resp_fields:tt)* })?,
     },)*) => {
+        paste! {
+            #[allow(missing_docs)]
+            #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+            pub enum MessageType {
+                #[serde(rename = "APIError")]
+                ApiError,
+                #[serde(rename = "VTubeStudioAPIStateBroadcast")]
+                VTubeStudioApiStateBroadcast,
+                $(
+                        $(#[serde(rename = $req_name)])?
+                        [<$rust_name Request>],
+                        $(#[serde(rename = $resp_name)])?
+                        [<$rust_name Response>],
+                )*
+                Other(Cow<'static, str>),
+            }
+
+            impl MessageType {
+                /// Returns the string representation of this message type.
+                ///
+                /// ```
+                /// # use vtubestudio::data::MessageType;
+                /// assert_eq!(
+                ///     MessageType::StatisticsRequest.as_str(),
+                ///     "StatisticsRequest"
+                /// );
+                ///
+                /// assert_eq!(
+                ///     MessageType::Other("SomethingElse".into()).as_str(),
+                ///     "SomethingElse"
+                /// );
+                /// ```
+                pub fn as_str(&self) -> &str {
+                    match self {
+                        Self::ApiError => "APIError",
+
+                        $(
+                            Self::[<$rust_name Response>] => first_expr![
+                                $($resp_name,)?
+                                concat!(stringify!($rust_name), "Response")
+                            ],
+                        )*
+
+                        $(
+                            Self::[<$rust_name Request>] => first_expr![
+                                $($req_name,)?
+                                concat!(stringify!($rust_name), "Request")
+                            ],
+                        )*
+
+                        Self::VTubeStudioApiStateBroadcast => "VTubeStudioAPIStateBroadcast",
+                        Self::Other(value) => &value,
+                    }
+                }
+
+                /// Returns the message type if it's type known to this library.
+                ///
+                /// ```
+                /// # use vtubestudio::data::MessageType;
+                /// assert!(
+                ///     matches!(
+                ///         MessageType::from_known_type("StatisticsRequest"),
+                ///         Some(MessageType::StatisticsRequest)
+                ///     )
+                /// );
+                ///
+                /// assert!(MessageType::from_known_type("Something").is_none());
+                /// ```
+                pub fn from_known_type(name: &str) -> Option<Self> {
+                    Some(match name {
+                        "APIError" => Self::ApiError,
+                        $(
+                            first_expr![
+                                $($resp_name,)?
+                                concat!(stringify!($rust_name), "Response")
+                            ] => Self::[<$rust_name Response>],
+                        )*
+                        $(
+                            first_expr![
+                                $($req_name,)?
+                                concat!(stringify!($rust_name), "Request")
+                            ] => Self::[<$rust_name Request>],
+                        )*
+                        "VTubeStudioAPIStateBroadcast" => Self::VTubeStudioApiStateBroadcast,
+                        _ => return None,
+                    })
+                }
+            }
+
+        }
+
         $(
             paste! {
                 #[allow(missing_docs)]
