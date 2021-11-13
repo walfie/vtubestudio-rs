@@ -43,9 +43,11 @@ impl Client<CloneBoxApiService> {
     ///
     /// # Example
     ///
-    /// ```no_run
+    #[cfg_attr(feature = "tokio-tungstenite", doc = "```no_run")]
+    #[cfg_attr(not(feature = "tokio-tungstenite"), doc = "```ignore")]
     /// # use vtubestudio::Client;
     /// let (mut client, mut new_tokens) = Client::builder()
+    ///     .with_token(Some("...".to_string()))
     ///     .authentication("Plugin name", "Developer name", None)
     ///     .build_tungstenite();
     /// ```
@@ -74,7 +76,8 @@ where
     ///
     /// # Example
     ///
-    /// ```no_run
+    #[cfg_attr(feature = "tokio-tungstenite", doc = "```no_run")]
+    #[cfg_attr(not(feature = "tokio-tungstenite"), doc = "```ignore")]
     /// # async fn run() -> Result<(), vtubestudio::error::BoxError> {
     /// # use vtubestudio::Client;
     /// use vtubestudio::data::StatisticsRequest;
@@ -98,7 +101,8 @@ where
 ///
 /// # Example
 ///
-/// ```no_run
+#[cfg_attr(feature = "tokio-tungstenite", doc = "```no_run")]
+#[cfg_attr(not(feature = "tokio-tungstenite"), doc = "```ignore")]
 /// # async fn run() -> Result<(), vtubestudio::error::BoxError> {
 /// # fn do_something_with_new_token(token: String) { unimplemented!(); }
 /// # use vtubestudio::Client;
@@ -155,7 +159,8 @@ impl TokenReceiver {
     ///
     /// # Example
     ///
-    /// ```no_run
+    #[cfg_attr(feature = "tokio-tungstenite", doc = "```no_run")]
+    #[cfg_attr(not(feature = "tokio-tungstenite"), doc = "```ignore")]
     /// # async fn run() -> Result<(), vtubestudio::error::BoxError> {
     /// # fn do_something_with_new_token(token: String) { unimplemented!(); }
     /// # use vtubestudio::Client;

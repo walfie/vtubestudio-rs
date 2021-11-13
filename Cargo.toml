@@ -15,6 +15,10 @@ description = "A library for interacting with the VTube Studio API."
 [features]
 default = ["tokio-tungstenite"]
 
+[[example]]
+name = "statistics"
+required-features = ["tokio-tungstenite"]
+
 [dependencies]
 displaydoc = "0.2"
 futures-core = "0.3"
