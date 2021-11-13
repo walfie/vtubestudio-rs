@@ -14,8 +14,10 @@ pub use crate::service::clone_box::CloneBoxService;
 pub use crate::service::maker::MakeApiService;
 pub use crate::service::retry::RetryPolicy;
 
-#[cfg(feature = "tokio-tungstenite")]
-pub use crate::service::api::TungsteniteApiService;
+crate::cfg_feature! {
+    #![feature = "tokio-tungstenite"]
+    pub use crate::service::api::TungsteniteApiService;
+}
 
 /// Submit a request to the underlying service and parse the response.
 ///
