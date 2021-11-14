@@ -3,7 +3,12 @@ use serde::{Deserialize, Serialize, Serializer};
 use std::borrow::Cow;
 
 macro_rules! define_string_enum {
-    ($name:ident, $type:ty) => {
+    (
+        $(#[$meta:meta])*
+        $name:ident,
+        $type:ty
+    ) => {
+        $(#[$meta])*
         #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
         pub struct $name(crate::enumeration::StringEnum<$type>);
 
@@ -14,8 +19,8 @@ macro_rules! define_string_enum {
             }
 
             /// Creates a new value from a known variant.
-            pub fn new(variant: $type) -> Self {
-                Self(crate::enumeration::StringEnum::new(variant))
+            pub const fn new(variant: $type) -> Self {
+                Self(crate::enumeration::StringEnum::Known(variant))
             }
 
             /// Creates a new value from a raw string.
@@ -24,6 +29,31 @@ macro_rules! define_string_enum {
                 S: Into<Cow<'static, str>>,
             {
                 Self(crate::enumeration::StringEnum::new_from_str(value))
+            }
+
+            /// Creates a new value from a `const` static string slice.
+            pub const fn const_new_from_str(value: &'static str) -> Self {
+                Self(crate::enumeration::StringEnum::Unknown(
+                    std::borrow::Cow::Borrowed(value),
+                ))
+            }
+        }
+
+        impl std::fmt::Display for $name {
+            fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+                write!(f, "{}", self.as_str())
+            }
+        }
+
+        impl From<String> for $name {
+            fn from(string: String) -> Self {
+                Self::new_from_str(string)
+            }
+        }
+
+        impl From<&'static str> for $name {
+            fn from(string: &'static str) -> Self {
+                Self::const_new_from_str(string)
             }
         }
 
@@ -64,6 +94,8 @@ macro_rules! define_string_enum {
         }
     };
 }
+
+pub(crate) use define_string_enum;
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(untagged)]
@@ -115,10 +147,6 @@ impl<T> StringEnum<T>
 where
     T: Serialize,
 {
-    pub fn new(variant: T) -> Self {
-        Self::Known(variant)
-    }
-
     pub fn new_from_str<S>(value: S) -> Self
     where
         S: Into<Cow<'static, str>>,

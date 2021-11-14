@@ -2,16 +2,57 @@ use crate::error::{Error, UnexpectedResponseError};
 
 use paste::paste;
 use serde::de::DeserializeOwned;
-use serde::{Deserialize, Serialize, Serializer};
+use serde::{Deserialize, Serialize};
 use serde_json::Value;
 use std::borrow::Cow;
-use std::fmt;
 
 /// The default `api_name` value in requests and responses.
 pub const API_NAME: &'static str = "VTubeStudioPublicAPI";
 
 /// The default `api_version` value in requests and responses.
 pub const API_VERSION: &'static str = "1.0";
+
+crate::enumeration::define_string_enum!(
+    /// Message type for [`RequestEnvelope`].
+    ///
+    /// This is an opaque value rather than a plain `enum`, to allow the user to specify variants
+    /// besides the ones defined in this library (E.g., when a new API request is supported but
+    /// hasn't been added to this library yet).
+    ///
+    /// # Example
+    ///
+    /// ```
+    /// use vtubestudio::data::{KnownRequestType, RequestType};
+    ///
+    /// assert_eq!(
+    ///     RequestType::new(KnownRequestType::ApiStateRequest),
+    ///     RequestType::new_from_str("APIStateRequest"),
+    /// );
+    /// ```
+    RequestType,
+    KnownRequestType
+);
+
+crate::enumeration::define_string_enum!(
+    /// Message type for [`ResponseEnvelope`].
+    ///
+    /// This is an opaque value rather than a plain `enum`, to allow the user to specify variants
+    /// besides the ones defined in this library (E.g., when a new API response is supported but
+    /// hasn't been added to this library yet).
+    ///
+    /// # Example
+    ///
+    /// ```
+    /// use vtubestudio::data::{KnownResponseType, ResponseType};
+    ///
+    /// assert_eq!(
+    ///     ResponseType::new(KnownResponseType::ApiStateResponse),
+    ///     ResponseType::new_from_str("APIStateResponse"),
+    /// );
+    /// ```
+    ResponseType,
+    KnownResponseType
+);
 
 /// A VTube Studio API request.
 #[allow(missing_docs)]
@@ -31,7 +72,7 @@ impl Default for RequestEnvelope {
         Self {
             api_name: Cow::Borrowed(API_NAME),
             api_version: Cow::Borrowed(API_VERSION),
-            message_type: RequestType::ApiStateRequest,
+            message_type: KnownRequestType::ApiStateRequest.into(),
             request_id: None,
             data: Value::Null,
         }
@@ -80,7 +121,7 @@ impl Default for ResponseEnvelope {
         Self {
             api_name: API_NAME.to_owned(),
             api_version: API_VERSION.to_owned(),
-            message_type: ResponseType::Other("UnknownResponse".into()),
+            message_type: ResponseType::const_new_from_str("UnknownResponse"),
             timestamp: 0,
             request_id: "".to_owned(),
             data: Value::Null,
@@ -162,59 +203,6 @@ pub trait Response: DeserializeOwned + Send + 'static {
     const MESSAGE_TYPE: ResponseType;
 }
 
-macro_rules! first_expr {
-    ($value:expr) => {
-        $value
-    };
-    ($value:expr, $_:expr) => {
-        $value
-    };
-}
-
-macro_rules! impl_msg_type {
-    ($name:ident) => {
-        impl fmt::Display for $name {
-            fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-                write!(f, "{}", self.as_str())
-            }
-        }
-
-        impl Serialize for $name {
-            fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
-            where
-                S: Serializer,
-            {
-                serializer.collect_str(self)
-            }
-        }
-
-        impl From<String> for $name {
-            fn from(string: String) -> Self {
-                Self::from_known_type(string.as_ref()).unwrap_or_else(|| Self::Other(string.into()))
-            }
-        }
-
-        impl $name {
-            fn is_other(&self) -> bool {
-                matches!(self, Self::Other(_))
-            }
-        }
-
-        impl PartialEq for $name {
-            fn eq(&self, rhs: &Self) -> bool {
-                if self.is_other() || rhs.is_other() {
-                    self.as_str() == rhs.as_str()
-                } else {
-                    std::mem::discriminant(self) == std::mem::discriminant(rhs)
-                }
-            }
-        }
-    };
-}
-
-impl_msg_type!(RequestType);
-impl_msg_type!(ResponseType);
-
 macro_rules! define_request_response_pairs {
     ($({
         rust_name = $rust_name:ident,
@@ -224,23 +212,22 @@ macro_rules! define_request_response_pairs {
         resp = $(( $resp_inner:ident ))? $({ $($resp_fields:tt)* })?,
     },)*) => {
         paste! {
-            /// The message type of the [`RequestEnvelope`].
+            /// Known message types for [`RequestType`].
             #[allow(missing_docs)]
-            #[derive(Debug, Clone, Deserialize)]
-            #[serde(from = "String")]
-            pub enum RequestType {
+            #[non_exhaustive]
+            #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+            pub enum KnownRequestType {
                 $(
                     $(#[serde(rename = $req_name)])?
                     [<$rust_name Request>],
                 )*
-                Other(Cow<'static, str>),
             }
 
-            /// The message type of the [`ResponseEnvelope`].
+            /// Known message types for [`ResponseType`].
             #[allow(missing_docs)]
-            #[derive(Debug, Clone, Deserialize)]
-            #[serde(from = "String")]
-            pub enum ResponseType {
+            #[non_exhaustive]
+            #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+            pub enum KnownResponseType {
                 #[serde(rename = "APIError")]
                 ApiError,
                 $(
@@ -249,124 +236,7 @@ macro_rules! define_request_response_pairs {
                 )*
                 #[serde(rename = "VTubeStudioAPIStateBroadcast")]
                 VTubeStudioApiStateBroadcast,
-                Other(Cow<'static, str>),
             }
-
-            impl RequestType {
-                /// Returns the string representation of this request type.
-                ///
-                /// ```
-                /// # use vtubestudio::data::RequestType;
-                /// assert_eq!(
-                ///     RequestType::StatisticsRequest.as_str(),
-                ///     "StatisticsRequest"
-                /// );
-                ///
-                /// assert_eq!(
-                ///     RequestType::Other("SomethingElse".into()).as_str(),
-                ///     "SomethingElse"
-                /// );
-                /// ```
-                pub fn as_str(&self) -> &str {
-                    match self {
-                        $(
-                            Self::[<$rust_name Request>] => first_expr![
-                                $($req_name,)?
-                                concat!(stringify!($rust_name), "Request")
-                            ],
-                        )*
-                        Self::Other(value) => &value,
-                    }
-                }
-
-                /// Returns the request type if it's type known to this library.
-                ///
-                /// ```
-                /// # use vtubestudio::data::RequestType;
-                /// assert!(
-                ///     matches!(
-                ///         RequestType::from_known_type("StatisticsRequest"),
-                ///         Some(RequestType::StatisticsRequest)
-                ///     )
-                /// );
-                ///
-                /// assert!(RequestType::from_known_type("SomeOtherRequest").is_none());
-                /// ```
-                pub fn from_known_type(name: &str) -> Option<Self> {
-                    Some(match name {
-                        $(
-                            first_expr![
-                                $($req_name,)?
-                                concat!(stringify!($rust_name), "Request")
-                            ] => Self::[<$rust_name Request>],
-                        )*
-                        _ => return None,
-                    })
-                }
-
-            }
-
-
-
-            impl ResponseType {
-                /// Returns the string representation of this response type.
-                ///
-                /// ```
-                /// # use vtubestudio::data::ResponseType;
-                /// assert_eq!(
-                ///     ResponseType::StatisticsResponse.as_str(),
-                ///     "StatisticsResponse"
-                /// );
-                ///
-                /// assert_eq!(
-                ///     ResponseType::Other("SomeNewlyAddedResponseType".into()).as_str(),
-                ///     "SomeNewlyAddedResponseType"
-                /// );
-                /// ```
-                pub fn as_str(&self) -> &str {
-                    match self {
-                        Self::ApiError => "APIError",
-
-                        $(
-                            Self::[<$rust_name Response>] => first_expr![
-                                $($resp_name,)?
-                                concat!(stringify!($rust_name), "Response")
-                            ],
-                        )*
-
-                        Self::VTubeStudioApiStateBroadcast => "VTubeStudioAPIStateBroadcast",
-                        Self::Other(value) => &value,
-                    }
-                }
-
-                /// Returns the response type if it's type known to this library.
-                ///
-                /// ```
-                /// # use vtubestudio::data::ResponseType;
-                /// assert!(
-                ///     matches!(
-                ///         ResponseType::from_known_type("StatisticsResponse"),
-                ///         Some(ResponseType::StatisticsResponse)
-                ///     )
-                /// );
-                ///
-                /// assert!(ResponseType::from_known_type("SomeOtherResponse").is_none());
-                /// ```
-                pub fn from_known_type(name: &str) -> Option<Self> {
-                    Some(match name {
-                        "APIError" => Self::ApiError,
-                        $(
-                            first_expr![
-                                $($resp_name,)?
-                                concat!(stringify!($rust_name), "Response")
-                            ] => Self::[<$rust_name Response>],
-                        )*
-                        "VTubeStudioAPIStateBroadcast" => Self::VTubeStudioApiStateBroadcast,
-                        _ => return None,
-                    })
-                }
-            }
-
         }
 
         $(
@@ -378,7 +248,7 @@ macro_rules! define_request_response_pairs {
 
                 impl Request for [<$rust_name Request>] {
                     type Response = [<$rust_name Response>];
-                    const MESSAGE_TYPE: RequestType = RequestType::[<$rust_name Request>];
+                    const MESSAGE_TYPE: RequestType = RequestType::new(KnownRequestType::[<$rust_name Request>]);
                 }
 
                 #[allow(missing_docs)]
@@ -387,7 +257,7 @@ macro_rules! define_request_response_pairs {
                 pub struct [<$rust_name Response>] $(($resp_inner);)? $({ $($resp_fields)* })?
 
                 impl Response for [<$rust_name Response>] {
-                    const MESSAGE_TYPE: ResponseType = ResponseType::[<$rust_name Response>];
+                    const MESSAGE_TYPE: ResponseType = ResponseType::new(KnownResponseType::[<$rust_name Response>]);
                 }
             }
         )*
@@ -686,7 +556,7 @@ pub struct ApiError {
 }
 
 impl Response for ApiError {
-    const MESSAGE_TYPE: ResponseType = ResponseType::ApiError;
+    const MESSAGE_TYPE: ResponseType = ResponseType::new(KnownResponseType::ApiError);
 }
 
 impl ApiError {
@@ -708,7 +578,8 @@ pub struct VTubeStudioApiStateBroadcast {
 }
 
 impl Response for VTubeStudioApiStateBroadcast {
-    const MESSAGE_TYPE: ResponseType = ResponseType::VTubeStudioApiStateBroadcast;
+    const MESSAGE_TYPE: ResponseType =
+        ResponseType::new(KnownResponseType::VTubeStudioApiStateBroadcast);
 }
 
 #[allow(missing_docs)]
@@ -823,84 +694,34 @@ mod tests {
     type Result<T = ()> = std::result::Result<T, Box<dyn std::error::Error>>;
 
     #[test]
-    fn request_type_eq() -> Result {
-        assert_eq!(
-            RequestType::VtsFolderInfoRequest,
-            RequestType::VtsFolderInfoRequest,
-        );
-
-        assert_eq!(
-            RequestType::VtsFolderInfoRequest,
-            RequestType::Other("VTSFolderInfoRequest".into()),
-        );
-
-        assert_eq!(
-            RequestType::Other("VTSFolderInfoRequest".into()),
-            RequestType::VtsFolderInfoRequest,
-        );
-
-        assert_eq!(
-            RequestType::Other("VTSFolderInfoRequest".into()),
-            RequestType::Other("VTSFolderInfoRequest".into()),
-        );
-
-        Ok(())
-    }
-
-    #[test]
-    fn response_type_eq() -> Result {
-        assert_eq!(
-            ResponseType::VtsFolderInfoResponse,
-            ResponseType::VtsFolderInfoResponse,
-        );
-
-        assert_eq!(
-            ResponseType::VtsFolderInfoResponse,
-            ResponseType::Other("VTSFolderInfoResponse".into()),
-        );
-
-        assert_eq!(
-            ResponseType::Other("VTSFolderInfoResponse".into()),
-            ResponseType::VtsFolderInfoResponse,
-        );
-
-        assert_eq!(
-            ResponseType::Other("VTSFolderInfoResponse".into()),
-            ResponseType::Other("VTSFolderInfoResponse".into()),
-        );
-
-        Ok(())
-    }
-
-    #[test]
     fn response_type_json() -> Result {
-        assert!(matches!(
+        assert_eq!(
             serde_json::from_value::<ResponseType>(json!("APIError"))?,
-            ResponseType::ApiError,
-        ));
+            ResponseType::new(KnownResponseType::ApiError),
+        );
 
         assert_eq!(
-            serde_json::to_value::<ResponseType>(ResponseType::ApiError)?,
+            serde_json::to_value::<ResponseType>(ResponseType::new(KnownResponseType::ApiError))?,
             json!("APIError"),
         );
 
-        assert!(matches!(
+        assert_eq!(
             serde_json::from_value::<ResponseType>(json!("ColorTintResponse"))?,
-            ResponseType::ColorTintResponse,
-        ));
+            KnownResponseType::ColorTintResponse,
+        );
 
         assert_eq!(
-            serde_json::to_value::<ResponseType>(ResponseType::ColorTintResponse)?,
+            serde_json::to_value::<ResponseType>(KnownResponseType::ColorTintResponse.into())?,
             json!("ColorTintResponse"),
         );
 
-        assert!(matches!(
+        assert_eq!(
             serde_json::from_value::<ResponseType>(json!("WalfieResponse"))?,
-            ResponseType::Other(resp) if resp == "WalfieResponse",
-        ));
+            ResponseType::new_from_str("WalfieResponse"),
+        );
 
         assert_eq!(
-            serde_json::to_value::<ResponseType>(ResponseType::Other("WalfieResponse".into()))?,
+            serde_json::to_value(ResponseType::new_from_str("WalfieResponse"))?,
             json!("WalfieResponse"),
         );
 
