@@ -54,7 +54,7 @@ impl Policy<RequestEnvelope, ResponseEnvelope, Error> for RetryPolicy {
         result: Result<&ResponseEnvelope, &Error>,
     ) -> Option<Self::Future> {
         Some(future::ready(match result {
-            Ok(resp) if resp.is_auth_error() && self.retry_on_auth_error => {
+            Ok(resp) if resp.is_unauthenticated_error() && self.retry_on_auth_error => {
                 self.clone().on_auth_error(false)
             }
 

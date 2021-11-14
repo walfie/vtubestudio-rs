@@ -1,3 +1,7 @@
+mod error_id;
+
+pub use crate::data::error_id::ErrorId;
+
 use crate::error::{Error, UnexpectedResponseError};
 
 use paste::paste;
@@ -175,11 +179,11 @@ impl ResponseEnvelope {
         self.message_type == ApiError::MESSAGE_TYPE
     }
 
-    /// Returns `true` if the message is an `APIError` that represents an authentication error.
-    pub fn is_auth_error(&self) -> bool {
-        // TODO: Don't hardcode 8
+    /// Returns `true` if the message is an `APIError` with [`ErrorId::REQUEST_REQUIRES_AUTHENTICATION`].
+    pub fn is_unauthenticated_error(&self) -> bool {
         self.is_api_error()
-            && matches!(self.data.get("errorID"), Some(id) if id.as_i64() == Some(8))
+            && self.data.get("errorID").and_then(|id| id.as_i64())
+                == Some(ErrorId::REQUEST_REQUIRES_AUTHENTICATION.as_i32() as i64)
     }
 
     /// Sets the request ID.
@@ -584,14 +588,12 @@ define_request_response_pairs!(
 );
 
 #[allow(missing_docs)]
-#[derive(thiserror::Error, Default, Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[derive(thiserror::Error, Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 #[error("APIError {error_id}: {message}")]
 pub struct ApiError {
-    // TODO: ErrorId enum
-    // https://github.com/DenchiSoft/VTubeStudio/blob/master/Files/ErrorID.cs
     #[serde(rename = "errorID")]
-    pub error_id: i32,
+    pub error_id: ErrorId,
     pub message: String,
 }
 
@@ -601,8 +603,8 @@ impl Response for ApiError {
 
 impl ApiError {
     /// Returns `true` if this error is an authentication error.
-    pub fn is_auth_error(&self) -> bool {
-        self.error_id == 8 // TODO: Don't hardcode
+    pub fn is_unauthenticated(&self) -> bool {
+        self.error_id.is_unauthenticated()
     }
 }
 

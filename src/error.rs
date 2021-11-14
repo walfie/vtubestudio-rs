@@ -2,7 +2,7 @@ use futures_core::TryStream;
 use futures_sink::Sink;
 use std::error::Error as StdError;
 
-pub use crate::data::{ApiError, GenericResponseType};
+pub use crate::data::{ApiError, ErrorId, GenericResponseType};
 
 /// Alias for a type-erased error type.
 pub type BoxError = Box<dyn StdError + Send + Sync>;
@@ -106,8 +106,8 @@ impl Error {
     }
 
     /// Returns `true` if this error's underlying [`ApiError`] is an authentication error.
-    pub fn is_auth_error(&self) -> bool {
-        matches!(self.to_api_error(), Some(e) if e.is_auth_error())
+    pub fn is_unauthenticated_error(&self) -> bool {
+        matches!(self.to_api_error(), Some(e) if e.is_unauthenticated())
     }
 
     /// Converts a [`BoxError`] into this error type. If the underlying [`Error`](std::error::Error)

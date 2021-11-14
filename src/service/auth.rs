@@ -220,7 +220,7 @@ where
                 .map_err(Error::from)
                 .await?;
 
-            if !resp.is_auth_error() {
+            if !resp.is_unauthenticated_error() {
                 return Ok(ResponseWithToken::new(resp));
             }
 
