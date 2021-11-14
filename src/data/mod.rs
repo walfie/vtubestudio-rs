@@ -247,6 +247,67 @@ pub trait Response: DeserializeOwned + Send + 'static {
     const MESSAGE_TYPE: GenericResponseType;
 }
 
+// https://github.com/DenchiSoft/VTubeStudio/blob/08681904e285d37b8c22d17d7d3a36c8c6834425/Files/HotkeyAction.cs
+/// Known hotkey types for [`GenericHotkeyAction`] (used in [`Hotkey`]).
+#[non_exhaustive]
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+pub enum HotkeyAction {
+    /// Unset.
+    Unset,
+    /// Play an animation.
+    TriggerAnimation,
+    /// Change the idle animation.
+    ChangeIdleAnimation,
+    /// Toggle an expression.
+    ToggleExpression,
+    /// Remove all expressions.
+    RemoveAllExpressions,
+    /// Moves the model to the target position.
+    MoveModel,
+    /// Change the current background.
+    ChangeBackground,
+    /// Reload the current microphone.
+    ReloadMicrophone,
+    /// Reload the model texture.
+    ReloadTextures,
+    /// Calibrate Camera.
+    CalibrateCam,
+    /// Change VTS Model.
+    #[serde(rename = "ChangeVTSModel")]
+    ChangeVtsModel,
+    /// Takes a screenshot with the screenshot settings previously set in the UI.
+    TakeScreenshot,
+    /// Activates/Deactivates model screen color overlay.
+    ScreenColorOverlay,
+}
+
+impl Default for HotkeyAction {
+    fn default() -> Self {
+        Self::Unset
+    }
+}
+
+crate::enumeration::define_string_enum!(
+    /// Hotkey type for [`Hotkey`].
+    ///
+    /// This is an opaque value rather than a plain `enum`, to allow the user to specify variants
+    /// besides the ones defined in this library (E.g., when a new hotkey type is supported but
+    /// hasn't been added to this library yet).
+    ///
+    /// # Example
+    ///
+    /// ```
+    /// use vtubestudio::data::{HotkeyAction, GenericHotkeyAction};
+    ///
+    /// assert_eq!(
+    ///     GenericHotkeyAction::new(HotkeyAction::ChangeVtsModel),
+    ///     GenericHotkeyAction::new_from_str("ChangeVTSModel"),
+    /// );
+    /// ```
+    GenericHotkeyAction,
+    HotkeyAction
+);
+
 macro_rules! define_request_response_pairs {
     ($({
         rust_name = $rust_name:ident,
@@ -307,6 +368,18 @@ macro_rules! define_request_response_pairs {
         )*
 
     };
+}
+
+impl Default for RequestType {
+    fn default() -> Self {
+        Self::ApiStateRequest
+    }
+}
+
+impl Default for ResponseType {
+    fn default() -> Self {
+        Self::ApiStateResponse
+    }
 }
 
 define_request_response_pairs!(
@@ -650,10 +723,8 @@ pub struct Model {
 #[serde(rename_all = "camelCase")]
 pub struct Hotkey {
     pub name: String,
-    // TODO: HotkeyType enum
-    // https://github.com/DenchiSoft/VTubeStudio/blob/master/Files/HotkeyAction.cs
     #[serde(rename = "type")]
-    pub type_: String,
+    pub type_: GenericHotkeyAction,
     pub file: String,
     #[serde(rename = "hotkeyID")]
     pub hotkey_id: String,
