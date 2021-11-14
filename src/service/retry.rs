@@ -58,9 +58,16 @@ impl Policy<RequestEnvelope, ResponseEnvelope, Error> for RetryPolicy {
                 self.clone().on_auth_error(false)
             }
 
-            Err(e) if self.retry_on_disconnect && e.has_kind(ErrorKind::ConnectionDropped) => {
-                self.clone().on_disconnect(false)
+            Err(e) => {
+                if self.retry_on_auth_error && e.is_unauthenticated_error() {
+                    self.clone().on_auth_error(false)
+                } else if self.retry_on_disconnect && e.has_kind(ErrorKind::ConnectionDropped) {
+                    self.clone().on_disconnect(false)
+                } else {
+                    return None;
+                }
             }
+
             _ => return None,
         }))
     }
