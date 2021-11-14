@@ -192,7 +192,7 @@ pub enum HotkeyAction {
     ReloadTextures,
     /// Calibrate Camera.
     CalibrateCam,
-    /// Change VTS Model.
+    /// Change VTS model.
     #[serde(rename = "ChangeVTSModel")]
     ChangeVtsModel,
     /// Takes a screenshot with the screenshot settings previously set in the UI.
@@ -596,6 +596,7 @@ impl Response for VTubeStudioApiStateBroadcast {
         EnumString::new(ResponseType::VTubeStudioApiStateBroadcast);
 }
 
+/// Used in [`CurrentModelResponse`].
 #[allow(missing_docs)]
 #[derive(Default, Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
@@ -606,6 +607,7 @@ pub struct ModelPosition {
     pub size: f64,
 }
 
+/// Used in [`AvailableModelsResponse`].
 #[allow(missing_docs)]
 #[derive(Default, Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
@@ -618,6 +620,7 @@ pub struct Model {
     pub vts_model_icon_name: String,
 }
 
+/// Used in [`HotkeysInCurrentModelResponse`].
 #[allow(missing_docs)]
 #[derive(Default, Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
@@ -630,6 +633,7 @@ pub struct Hotkey {
     pub hotkey_id: String,
 }
 
+/// Used in [`ColorTintRequest`].
 #[allow(missing_docs)]
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
@@ -655,6 +659,7 @@ impl Default for ColorTint {
     }
 }
 
+/// Used in [`ColorTintRequest`].
 #[allow(missing_docs)]
 #[derive(Default, Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
@@ -667,6 +672,7 @@ pub struct ArtMeshMatcher {
     pub tag_contains: Vec<String>,
 }
 
+/// Used in [`SceneColorOverlayInfoResponse`].
 #[allow(missing_docs)]
 #[derive(Default, Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
@@ -677,6 +683,7 @@ pub struct CapturePart {
     pub color_b: u8,
 }
 
+/// Used in [`InputParameterListResponse`], [`ParameterValueResponse`], [`Live2DParameterListResponse`].
 #[allow(missing_docs)]
 #[derive(Default, Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
@@ -689,6 +696,7 @@ pub struct Parameter {
     pub default_value: f64,
 }
 
+/// Used in [`InjectParameterDataRequest`].
 #[allow(missing_docs)]
 #[derive(Default, Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
