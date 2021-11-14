@@ -13,11 +13,6 @@ macro_rules! define_string_enum {
         pub struct $name(crate::enumeration::StringEnum<$type>);
 
         impl $name {
-            /// Returns the string representation.
-            pub fn as_str(&self) -> &str {
-                self.0.as_str()
-            }
-
             /// Creates a new value from a known variant.
             pub const fn new(variant: $type) -> Self {
                 Self(crate::enumeration::StringEnum::Known(variant))
@@ -36,6 +31,11 @@ macro_rules! define_string_enum {
                 Self(crate::enumeration::StringEnum::Unknown(
                     std::borrow::Cow::Borrowed(value),
                 ))
+            }
+
+            /// Returns the string representation.
+            pub fn as_str(&self) -> &str {
+                self.0.as_str()
             }
         }
 

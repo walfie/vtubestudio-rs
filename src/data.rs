@@ -22,15 +22,15 @@ crate::enumeration::define_string_enum!(
     /// # Example
     ///
     /// ```
-    /// use vtubestudio::data::{KnownRequestType, RequestType};
+    /// use vtubestudio::data::{RequestType, ArbitraryRequestType};
     ///
     /// assert_eq!(
-    ///     RequestType::new(KnownRequestType::ApiStateRequest),
-    ///     RequestType::new_from_str("APIStateRequest"),
+    ///     ArbitraryRequestType::new(RequestType::ApiStateRequest),
+    ///     ArbitraryRequestType::new_from_str("APIStateRequest"),
     /// );
     /// ```
-    RequestType,
-    KnownRequestType
+    ArbitraryRequestType,
+    RequestType
 );
 
 crate::enumeration::define_string_enum!(
@@ -43,16 +43,52 @@ crate::enumeration::define_string_enum!(
     /// # Example
     ///
     /// ```
-    /// use vtubestudio::data::{KnownResponseType, ResponseType};
+    /// use vtubestudio::data::{ResponseType, ArbitraryResponseType};
     ///
     /// assert_eq!(
-    ///     ResponseType::new(KnownResponseType::ApiStateResponse),
-    ///     ResponseType::new_from_str("APIStateResponse"),
+    ///     ArbitraryResponseType::new(ResponseType::ApiStateResponse),
+    ///     ArbitraryResponseType::new_from_str("APIStateResponse"),
     /// );
     /// ```
-    ResponseType,
-    KnownResponseType
+    ArbitraryResponseType,
+    ResponseType
 );
+
+impl RequestType {
+    /// Converts this into an opaque type, to be used in [`RequestEnvelope`].
+    ///
+    /// # Example
+    ///
+    /// ```
+    /// use vtubestudio::data::{ArbitraryRequestType, RequestType};
+    ///
+    /// assert_eq!(
+    ///     RequestType::ApiStateRequest.into_arbitrary(),
+    ///     ArbitraryRequestType::new_from_str("APIStateRequest"),
+    /// );
+    /// ```
+    pub const fn into_arbitrary(self) -> ArbitraryRequestType {
+        ArbitraryRequestType::new(self)
+    }
+}
+
+impl ResponseType {
+    /// Converts this into an opaque type, to be used in [`ResponseEnvelope`].
+    ///
+    /// # Example
+    ///
+    /// ```
+    /// use vtubestudio::data::{ArbitraryResponseType, ResponseType};
+    ///
+    /// assert_eq!(
+    ///     ResponseType::ApiStateResponse.into_arbitrary(),
+    ///     ArbitraryResponseType::new_from_str("APIStateResponse"),
+    /// );
+    /// ```
+    pub const fn into_arbitrary(self) -> ArbitraryResponseType {
+        ArbitraryResponseType::new(self)
+    }
+}
 
 /// A VTube Studio API request.
 #[allow(missing_docs)]
@@ -63,7 +99,7 @@ pub struct RequestEnvelope {
     pub api_version: Cow<'static, str>,
     #[serde(rename = "requestID")]
     pub request_id: Option<String>,
-    pub message_type: RequestType,
+    pub message_type: ArbitraryRequestType,
     pub data: Value,
 }
 
@@ -72,7 +108,7 @@ impl Default for RequestEnvelope {
         Self {
             api_name: Cow::Borrowed(API_NAME),
             api_version: Cow::Borrowed(API_VERSION),
-            message_type: KnownRequestType::ApiStateRequest.into(),
+            message_type: RequestType::ApiStateRequest.into(),
             request_id: None,
             data: Value::Null,
         }
@@ -112,7 +148,7 @@ pub struct ResponseEnvelope {
     pub timestamp: i64,
     #[serde(rename = "requestID")]
     pub request_id: String,
-    pub message_type: ResponseType,
+    pub message_type: ArbitraryResponseType,
     pub data: Value,
 }
 
@@ -121,7 +157,7 @@ impl Default for ResponseEnvelope {
         Self {
             api_name: API_NAME.to_owned(),
             api_version: API_VERSION.to_owned(),
-            message_type: ResponseType::const_new_from_str("UnknownResponse"),
+            message_type: ArbitraryResponseType::const_new_from_str("UnknownResponse"),
             timestamp: 0,
             request_id: "".to_owned(),
             data: Value::Null,
@@ -191,7 +227,7 @@ impl ResponseEnvelope {
 /// Trait describing a VTube Studio request.
 pub trait Request: Serialize {
     /// The message type of this request.
-    const MESSAGE_TYPE: RequestType;
+    const MESSAGE_TYPE: ArbitraryRequestType;
 
     /// The expected [`Response`] type for this request.
     type Response: Response;
@@ -200,7 +236,7 @@ pub trait Request: Serialize {
 /// Trait describing a VTube Studio response.
 pub trait Response: DeserializeOwned + Send + 'static {
     /// The message type of this response.
-    const MESSAGE_TYPE: ResponseType;
+    const MESSAGE_TYPE: ArbitraryResponseType;
 }
 
 macro_rules! define_request_response_pairs {
@@ -212,22 +248,22 @@ macro_rules! define_request_response_pairs {
         resp = $(( $resp_inner:ident ))? $({ $($resp_fields:tt)* })?,
     },)*) => {
         paste! {
-            /// Known message types for [`RequestType`].
+            /// Known message types for [`ArbitraryRequestType`].
             #[allow(missing_docs)]
             #[non_exhaustive]
             #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
-            pub enum KnownRequestType {
+            pub enum RequestType {
                 $(
                     $(#[serde(rename = $req_name)])?
                     [<$rust_name Request>],
                 )*
             }
 
-            /// Known message types for [`ResponseType`].
+            /// Known message types for [`ArbitraryResponseType`].
             #[allow(missing_docs)]
             #[non_exhaustive]
             #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
-            pub enum KnownResponseType {
+            pub enum ResponseType {
                 #[serde(rename = "APIError")]
                 ApiError,
                 $(
@@ -248,7 +284,7 @@ macro_rules! define_request_response_pairs {
 
                 impl Request for [<$rust_name Request>] {
                     type Response = [<$rust_name Response>];
-                    const MESSAGE_TYPE: RequestType = RequestType::new(KnownRequestType::[<$rust_name Request>]);
+                    const MESSAGE_TYPE: ArbitraryRequestType = RequestType::[<$rust_name Request>].into_arbitrary();
                 }
 
                 #[allow(missing_docs)]
@@ -257,7 +293,7 @@ macro_rules! define_request_response_pairs {
                 pub struct [<$rust_name Response>] $(($resp_inner);)? $({ $($resp_fields)* })?
 
                 impl Response for [<$rust_name Response>] {
-                    const MESSAGE_TYPE: ResponseType = ResponseType::new(KnownResponseType::[<$rust_name Response>]);
+                    const MESSAGE_TYPE: ArbitraryResponseType = ResponseType::[<$rust_name Response>].into_arbitrary();
                 }
             }
         )*
@@ -556,7 +592,7 @@ pub struct ApiError {
 }
 
 impl Response for ApiError {
-    const MESSAGE_TYPE: ResponseType = ResponseType::new(KnownResponseType::ApiError);
+    const MESSAGE_TYPE: ArbitraryResponseType = ResponseType::ApiError.into_arbitrary();
 }
 
 impl ApiError {
@@ -578,8 +614,8 @@ pub struct VTubeStudioApiStateBroadcast {
 }
 
 impl Response for VTubeStudioApiStateBroadcast {
-    const MESSAGE_TYPE: ResponseType =
-        ResponseType::new(KnownResponseType::VTubeStudioApiStateBroadcast);
+    const MESSAGE_TYPE: ArbitraryResponseType =
+        ResponseType::VTubeStudioApiStateBroadcast.into_arbitrary();
 }
 
 #[allow(missing_docs)]
@@ -696,32 +732,34 @@ mod tests {
     #[test]
     fn response_type_json() -> Result {
         assert_eq!(
-            serde_json::from_value::<ResponseType>(json!("APIError"))?,
-            ResponseType::new(KnownResponseType::ApiError),
+            serde_json::from_value::<ArbitraryResponseType>(json!("APIError"))?,
+            ArbitraryResponseType::new(ResponseType::ApiError),
         );
 
         assert_eq!(
-            serde_json::to_value::<ResponseType>(ResponseType::new(KnownResponseType::ApiError))?,
+            serde_json::to_value::<ArbitraryResponseType>(ArbitraryResponseType::new(
+                ResponseType::ApiError
+            ))?,
             json!("APIError"),
         );
 
         assert_eq!(
-            serde_json::from_value::<ResponseType>(json!("ColorTintResponse"))?,
-            KnownResponseType::ColorTintResponse,
+            serde_json::from_value::<ArbitraryResponseType>(json!("ColorTintResponse"))?,
+            ResponseType::ColorTintResponse,
         );
 
         assert_eq!(
-            serde_json::to_value::<ResponseType>(KnownResponseType::ColorTintResponse.into())?,
+            serde_json::to_value::<ArbitraryResponseType>(ResponseType::ColorTintResponse.into())?,
             json!("ColorTintResponse"),
         );
 
         assert_eq!(
-            serde_json::from_value::<ResponseType>(json!("WalfieResponse"))?,
-            ResponseType::new_from_str("WalfieResponse"),
+            serde_json::from_value::<ArbitraryResponseType>(json!("WalfieResponse"))?,
+            ArbitraryResponseType::new_from_str("WalfieResponse"),
         );
 
         assert_eq!(
-            serde_json::to_value(ResponseType::new_from_str("WalfieResponse"))?,
+            serde_json::to_value(ArbitraryResponseType::new_from_str("WalfieResponse"))?,
             json!("WalfieResponse"),
         );
 
