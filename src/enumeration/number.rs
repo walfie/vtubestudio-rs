@@ -161,18 +161,18 @@ where
 #[cfg(test)]
 mod tests {
     use super::*;
-    use serde::{Deserialize, Serialize};
     use serde_json::json;
+    use serde_repr::{Deserialize_repr, Serialize_repr};
 
     type Result = std::result::Result<(), Box<dyn std::error::Error>>;
 
     #[derive(
+        Clone,
         Copy,
         Debug,
-        Clone,
-        Serialize,
-        Deserialize,
+        Deserialize_repr,
         PartialEq,
+        Serialize_repr,
         num_enum::IntoPrimitive,
         num_enum::TryFromPrimitive,
     )]
@@ -200,5 +200,20 @@ mod tests {
             HttpError::new(ServerError::InternalServerError),
             HttpError::new_from_id(500),
         );
+    }
+
+    #[test]
+    fn serde() -> Result {
+        assert_eq!(
+            serde_json::to_value(HttpError::new(ServerError::BadGateway))?,
+            json!(502),
+        );
+
+        assert_eq!(
+            serde_json::from_value::<HttpError>(json!(502))?,
+            HttpError::new(ServerError::BadGateway),
+        );
+
+        Ok(())
     }
 }
