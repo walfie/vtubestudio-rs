@@ -1,5 +1,7 @@
 mod error_id;
 
+pub use crate::data::error_id::ErrorId;
+
 use crate::error::{Error, UnexpectedResponseError};
 
 use paste::paste;
