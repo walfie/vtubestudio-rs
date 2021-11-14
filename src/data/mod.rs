@@ -1,5 +1,7 @@
+mod enumeration;
 mod error_id;
 
+pub use crate::data::enumeration::EnumString;
 pub use crate::data::error_id::ErrorId;
 
 use crate::error::{Error, UnexpectedResponseError};
@@ -16,88 +18,6 @@ pub const API_NAME: &'static str = "VTubeStudioPublicAPI";
 /// The default `api_version` value in requests and responses.
 pub const API_VERSION: &'static str = "1.0";
 
-crate::enumeration::define_string_enum!(
-    /// Message type for [`RequestEnvelope`].
-    ///
-    /// This is an opaque value rather than a plain `enum`, to allow the user to specify variants
-    /// besides the ones defined in this library (E.g., when a new API request is supported but
-    /// hasn't been added to this library yet).
-    ///
-    /// # Example
-    ///
-    /// ```
-    /// use vtubestudio::data::{RequestType, GenericRequestType};
-    ///
-    /// assert_eq!(
-    ///     GenericRequestType::new(RequestType::ApiStateRequest),
-    ///     GenericRequestType::new_from_str("APIStateRequest"),
-    /// );
-    /// ```
-    GenericRequestType,
-    RequestType
-);
-
-crate::enumeration::define_string_enum!(
-    /// Message type for [`ResponseEnvelope`].
-    ///
-    /// This is an opaque value rather than a plain `enum`, to allow the user to specify variants
-    /// besides the ones defined in this library (E.g., when a new API response is supported but
-    /// hasn't been added to this library yet).
-    ///
-    /// # Example
-    ///
-    /// ```
-    /// use vtubestudio::data::{ResponseType, GenericResponseType};
-    ///
-    /// assert_eq!(
-    ///     GenericResponseType::new(ResponseType::ApiStateResponse),
-    ///     GenericResponseType::new_from_str("APIStateResponse"),
-    /// );
-    /// ```
-    GenericResponseType,
-    ResponseType
-);
-
-impl RequestType {
-    /// Converts this into an opaque type, to be used in [`RequestEnvelope`].
-    ///
-    /// This is the same as `.into()` but available in `const` contexts.
-    ///
-    /// # Example
-    ///
-    /// ```
-    /// use vtubestudio::data::{GenericRequestType, RequestType};
-    ///
-    /// assert_eq!(
-    ///     RequestType::ApiStateRequest.widen(),
-    ///     GenericRequestType::new_from_str("APIStateRequest"),
-    /// );
-    /// ```
-    pub const fn widen(self) -> GenericRequestType {
-        GenericRequestType::new(self)
-    }
-}
-
-impl ResponseType {
-    /// Converts this into an opaque type, to be used in [`ResponseEnvelope`].
-    ///
-    /// This is the same as `.into()` but available in `const` contexts.
-    ///
-    /// # Example
-    ///
-    /// ```
-    /// use vtubestudio::data::{GenericResponseType, ResponseType};
-    ///
-    /// assert_eq!(
-    ///     ResponseType::ApiStateResponse.widen(),
-    ///     GenericResponseType::new_from_str("APIStateResponse"),
-    /// );
-    /// ```
-    pub const fn widen(self) -> GenericResponseType {
-        GenericResponseType::new(self)
-    }
-}
-
 /// A VTube Studio API request.
 #[allow(missing_docs)]
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
@@ -107,7 +27,7 @@ pub struct RequestEnvelope {
     pub api_version: Cow<'static, str>,
     #[serde(rename = "requestID")]
     pub request_id: Option<String>,
-    pub message_type: GenericRequestType,
+    pub message_type: EnumString<RequestType>,
     pub data: Value,
 }
 
@@ -116,7 +36,7 @@ impl Default for RequestEnvelope {
         Self {
             api_name: Cow::Borrowed(API_NAME),
             api_version: Cow::Borrowed(API_VERSION),
-            message_type: RequestType::ApiStateRequest.into(),
+            message_type: EnumString::new(RequestType::ApiStateRequest),
             request_id: None,
             data: Value::Null,
         }
@@ -156,7 +76,7 @@ pub struct ResponseEnvelope {
     pub timestamp: i64,
     #[serde(rename = "requestID")]
     pub request_id: String,
-    pub message_type: GenericResponseType,
+    pub message_type: EnumString<ResponseType>,
     pub data: Value,
 }
 
@@ -165,7 +85,7 @@ impl Default for ResponseEnvelope {
         Self {
             api_name: API_NAME.to_owned(),
             api_version: API_VERSION.to_owned(),
-            message_type: GenericResponseType::const_new_from_str("UnknownResponse"),
+            message_type: EnumString::const_new_from_str("UnknownResponse"),
             timestamp: 0,
             request_id: "".to_owned(),
             data: Value::Null,
@@ -235,7 +155,7 @@ impl ResponseEnvelope {
 /// Trait describing a VTube Studio request.
 pub trait Request: Serialize {
     /// The message type of this request.
-    const MESSAGE_TYPE: GenericRequestType;
+    const MESSAGE_TYPE: EnumString<RequestType>;
 
     /// The expected [`Response`] type for this request.
     type Response: Response;
@@ -244,11 +164,11 @@ pub trait Request: Serialize {
 /// Trait describing a VTube Studio response.
 pub trait Response: DeserializeOwned + Send + 'static {
     /// The message type of this response.
-    const MESSAGE_TYPE: GenericResponseType;
+    const MESSAGE_TYPE: EnumString<ResponseType>;
 }
 
 // https://github.com/DenchiSoft/VTubeStudio/blob/08681904e285d37b8c22d17d7d3a36c8c6834425/Files/HotkeyAction.cs
-/// Known hotkey types for [`GenericHotkeyAction`] (used in [`Hotkey`]).
+/// Known hotkey types for [`EnumString<HotkeyAction>`] (used in [`Hotkey`]).
 #[non_exhaustive]
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
 pub enum HotkeyAction {
@@ -272,7 +192,7 @@ pub enum HotkeyAction {
     ReloadTextures,
     /// Calibrate Camera.
     CalibrateCam,
-    /// Change VTS Model.
+    /// Change VTS model.
     #[serde(rename = "ChangeVTSModel")]
     ChangeVtsModel,
     /// Takes a screenshot with the screenshot settings previously set in the UI.
@@ -287,27 +207,6 @@ impl Default for HotkeyAction {
     }
 }
 
-crate::enumeration::define_string_enum!(
-    /// Hotkey type for [`Hotkey`].
-    ///
-    /// This is an opaque value rather than a plain `enum`, to allow the user to specify variants
-    /// besides the ones defined in this library (E.g., when a new hotkey type is supported but
-    /// hasn't been added to this library yet).
-    ///
-    /// # Example
-    ///
-    /// ```
-    /// use vtubestudio::data::{HotkeyAction, GenericHotkeyAction};
-    ///
-    /// assert_eq!(
-    ///     GenericHotkeyAction::new(HotkeyAction::ChangeVtsModel),
-    ///     GenericHotkeyAction::new_from_str("ChangeVTSModel"),
-    /// );
-    /// ```
-    GenericHotkeyAction,
-    HotkeyAction
-);
-
 macro_rules! define_request_response_pairs {
     ($({
         rust_name = $rust_name:ident,
@@ -317,7 +216,7 @@ macro_rules! define_request_response_pairs {
         resp = $(( $resp_inner:ident ))? $({ $($resp_fields:tt)* })?,
     },)*) => {
         paste! {
-            /// Known message types for [`GenericRequestType`].
+            /// Known message types for [`EnumString<RequestType>`].
             #[allow(missing_docs)]
             #[non_exhaustive]
             #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
@@ -328,7 +227,7 @@ macro_rules! define_request_response_pairs {
                 )*
             }
 
-            /// Known message types for [`GenericResponseType`].
+            /// Known message types for [`EnumString<ResponseType>`].
             #[allow(missing_docs)]
             #[non_exhaustive]
             #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
@@ -353,7 +252,7 @@ macro_rules! define_request_response_pairs {
 
                 impl Request for [<$rust_name Request>] {
                     type Response = [<$rust_name Response>];
-                    const MESSAGE_TYPE: GenericRequestType = RequestType::[<$rust_name Request>].widen();
+                    const MESSAGE_TYPE: EnumString<RequestType> = EnumString::new(RequestType::[<$rust_name Request>]);
                 }
 
                 #[allow(missing_docs)]
@@ -362,7 +261,7 @@ macro_rules! define_request_response_pairs {
                 pub struct [<$rust_name Response>] $(($resp_inner);)? $({ $($resp_fields)* })?
 
                 impl Response for [<$rust_name Response>] {
-                    const MESSAGE_TYPE: GenericResponseType = ResponseType::[<$rust_name Response>].widen();
+                    const MESSAGE_TYPE: EnumString<ResponseType> = EnumString::new(ResponseType::[<$rust_name Response>]);
                 }
             }
         )*
@@ -671,7 +570,7 @@ pub struct ApiError {
 }
 
 impl Response for ApiError {
-    const MESSAGE_TYPE: GenericResponseType = ResponseType::ApiError.widen();
+    const MESSAGE_TYPE: EnumString<ResponseType> = EnumString::new(ResponseType::ApiError);
 }
 
 impl ApiError {
@@ -693,9 +592,11 @@ pub struct VTubeStudioApiStateBroadcast {
 }
 
 impl Response for VTubeStudioApiStateBroadcast {
-    const MESSAGE_TYPE: GenericResponseType = ResponseType::VTubeStudioApiStateBroadcast.widen();
+    const MESSAGE_TYPE: EnumString<ResponseType> =
+        EnumString::new(ResponseType::VTubeStudioApiStateBroadcast);
 }
 
+/// Used in [`CurrentModelResponse`].
 #[allow(missing_docs)]
 #[derive(Default, Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
@@ -706,6 +607,7 @@ pub struct ModelPosition {
     pub size: f64,
 }
 
+/// Used in [`AvailableModelsResponse`].
 #[allow(missing_docs)]
 #[derive(Default, Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
@@ -718,18 +620,20 @@ pub struct Model {
     pub vts_model_icon_name: String,
 }
 
+/// Used in [`HotkeysInCurrentModelResponse`].
 #[allow(missing_docs)]
 #[derive(Default, Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct Hotkey {
     pub name: String,
     #[serde(rename = "type")]
-    pub type_: GenericHotkeyAction,
+    pub type_: EnumString<HotkeyAction>,
     pub file: String,
     #[serde(rename = "hotkeyID")]
     pub hotkey_id: String,
 }
 
+/// Used in [`ColorTintRequest`].
 #[allow(missing_docs)]
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
@@ -755,6 +659,7 @@ impl Default for ColorTint {
     }
 }
 
+/// Used in [`ColorTintRequest`].
 #[allow(missing_docs)]
 #[derive(Default, Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
@@ -767,6 +672,7 @@ pub struct ArtMeshMatcher {
     pub tag_contains: Vec<String>,
 }
 
+/// Used in [`SceneColorOverlayInfoResponse`].
 #[allow(missing_docs)]
 #[derive(Default, Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
@@ -777,6 +683,7 @@ pub struct CapturePart {
     pub color_b: u8,
 }
 
+/// Used in [`InputParameterListResponse`], [`ParameterValueResponse`], [`Live2DParameterListResponse`].
 #[allow(missing_docs)]
 #[derive(Default, Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
@@ -789,6 +696,7 @@ pub struct Parameter {
     pub default_value: f64,
 }
 
+/// Used in [`InjectParameterDataRequest`].
 #[allow(missing_docs)]
 #[derive(Default, Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
@@ -808,34 +716,36 @@ mod tests {
     #[test]
     fn response_type_json() -> Result {
         assert_eq!(
-            serde_json::from_value::<GenericResponseType>(json!("APIError"))?,
-            GenericResponseType::new(ResponseType::ApiError),
+            serde_json::from_value::<EnumString<ResponseType>>(json!("APIError"))?,
+            EnumString::new(ResponseType::ApiError),
         );
 
         assert_eq!(
-            serde_json::to_value::<GenericResponseType>(GenericResponseType::new(
+            serde_json::to_value::<EnumString<ResponseType>>(EnumString::new(
                 ResponseType::ApiError
             ))?,
             json!("APIError"),
         );
 
         assert_eq!(
-            serde_json::from_value::<GenericResponseType>(json!("ColorTintResponse"))?,
+            serde_json::from_value::<EnumString<ResponseType>>(json!("ColorTintResponse"))?,
             ResponseType::ColorTintResponse,
         );
 
         assert_eq!(
-            serde_json::to_value::<GenericResponseType>(ResponseType::ColorTintResponse.into())?,
+            serde_json::to_value::<EnumString<ResponseType>>(
+                ResponseType::ColorTintResponse.into()
+            )?,
             json!("ColorTintResponse"),
         );
 
         assert_eq!(
-            serde_json::from_value::<GenericResponseType>(json!("WalfieResponse"))?,
-            GenericResponseType::new_from_str("WalfieResponse"),
+            serde_json::from_value::<EnumString<ResponseType>>(json!("WalfieResponse"))?,
+            EnumString::new_from_str("WalfieResponse"),
         );
 
         assert_eq!(
-            serde_json::to_value(GenericResponseType::new_from_str("WalfieResponse"))?,
+            serde_json::to_value(EnumString::<ResponseType>::new_from_str("WalfieResponse"))?,
             json!("WalfieResponse"),
         );
 

@@ -3,112 +3,107 @@ use serde::{Deserialize, Serialize, Serializer};
 use std::borrow::Cow;
 
 // Helper enum for allowing serde deserialization to retain unknown values, and serialize arbitrary
-// string values for enums. This is meant to be used inside the `define_string_enum` macro.
+// unknown values for enums.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(untagged)]
-pub(crate) enum Enum<T, Repr> {
+enum Enum<T, Repr> {
     Known(T),
     Unknown(Repr),
 }
 
-pub(crate) type StringEnum<T> = Enum<T, Cow<'static, str>>;
+type EnumStringInner<T> = Enum<T, Cow<'static, str>>;
 
-// Define a wrapper struct around `StringEnum` allowing for serializing/deserializing from a known
-// set of variants, and also arbitrary string values.
-macro_rules! define_string_enum {
-    (
-        $(#[$meta:meta])*
-        $name:ident,
-        $type:ty
-    ) => {
-        $(#[$meta])*
-        #[derive(Default, Debug, Clone, serde::Serialize, serde::Deserialize, PartialEq)]
-        pub struct $name(crate::enumeration::StringEnum<$type>);
+/// Wrapper type for an `enum` with a serialized string representation.
+///
+/// This allows for defining an `enum` with a set of known values, but still accept other arbitrary
+/// string values when serializing/deserializing.
+///
+/// # Example
+///
+/// ```
+/// use vtubestudio::data::{EnumString, ResponseType};
+///
+/// // Multiple representations of the same enum
+/// let resp_enum = EnumString::new(ResponseType::VtsFolderInfoResponse);
+/// let resp_str = EnumString::new_from_str("VTSFolderInfoResponse");
+///
+/// // Can be compared to the inner enum type and other `EnumString`s
+/// assert_eq!(resp_enum, ResponseType::VtsFolderInfoResponse);
+/// assert_eq!(resp_str, ResponseType::VtsFolderInfoResponse);
+/// assert_eq!(resp_enum, resp_str);
+///
+/// // Get the string representation of the enum
+/// assert_eq!(resp_enum.as_str(), "VTSFolderInfoResponse");
+/// assert_eq!(resp_str.as_str(), "VTSFolderInfoResponse");
+/// ```
+#[derive(Default, Debug, Clone, serde::Serialize, serde::Deserialize)]
+pub struct EnumString<T>(EnumStringInner<T>);
 
-        impl $name {
-            /// Creates a new value from a known variant.
-            pub const fn new(variant: $type) -> Self {
-                Self(crate::enumeration::StringEnum::Known(variant))
-            }
+impl<T> EnumString<T> {
+    /// Creates a new value from a known variant.
+    pub const fn new(variant: T) -> Self {
+        Self(EnumStringInner::Known(variant))
+    }
 
-            /// Creates a new value from a raw string.
-            pub fn new_from_str<S>(value: S) -> Self
-            where
-                S: Into<Cow<'static, str>>,
-            {
-                Self(crate::enumeration::StringEnum::new_from_str(value))
-            }
+    /// Creates a new value from a raw string.
+    pub fn new_from_str<S>(value: S) -> Self
+    where
+        S: Into<Cow<'static, str>>,
+    {
+        Self(EnumStringInner::new_from_str(value))
+    }
 
-            /// Creates a new value from a `const` static string slice.
-            pub const fn const_new_from_str(value: &'static str) -> Self {
-                Self(crate::enumeration::StringEnum::Unknown(
-                    std::borrow::Cow::Borrowed(value),
-                ))
-            }
-
-            /// Returns the string representation.
-            pub fn as_str(&self) -> &str {
-                self.0.as_str()
-            }
-        }
-
-        impl std::fmt::Display for $name {
-            fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-                write!(f, "{}", self.as_str())
-            }
-        }
-
-        impl From<String> for $name {
-            fn from(string: String) -> Self {
-                Self::new_from_str(string)
-            }
-        }
-
-        impl From<&'static str> for $name {
-            fn from(string: &'static str) -> Self {
-                Self::const_new_from_str(string)
-            }
-        }
-
-        impl From<$type> for $name {
-            fn from(value: $type) -> Self {
-                Self::new(value)
-            }
-        }
-
-        impl PartialEq<$name> for $type {
-            fn eq(&self, rhs: &$name) -> bool {
-                rhs.0 == self
-            }
-        }
-
-        impl PartialEq<&$name> for $type {
-            fn eq(&self, rhs: &&$name) -> bool {
-                (*rhs).0 == self
-            }
-        }
-
-        impl PartialEq<$type> for $name {
-            fn eq(&self, rhs: &$type) -> bool {
-                self.0 == rhs
-            }
-        }
-
-        impl PartialEq<str> for $name {
-            fn eq(&self, rhs: &str) -> bool {
-                self.0.as_str() == rhs
-            }
-        }
-
-        impl PartialEq<&str> for $name {
-            fn eq(&self, rhs: &&str) -> bool {
-                self.0.as_str() == *rhs
-            }
-        }
-    };
+    /// Creates a new value from a `const` static string slice.
+    pub const fn const_new_from_str(value: &'static str) -> Self {
+        Self(EnumStringInner::Unknown(std::borrow::Cow::Borrowed(value)))
+    }
 }
 
-pub(crate) use define_string_enum;
+impl<T> From<T> for EnumString<T>
+where
+    T: Serialize + PartialEq,
+{
+    fn from(value: T) -> Self {
+        Self::new(value)
+    }
+}
+
+impl<T> PartialEq for EnumString<T>
+where
+    T: Serialize + PartialEq,
+{
+    fn eq(&self, rhs: &Self) -> bool {
+        self.0 == rhs.0
+    }
+}
+
+impl<T> PartialEq<T> for EnumString<T>
+where
+    T: Serialize + PartialEq,
+{
+    fn eq(&self, rhs: &T) -> bool {
+        self.0 == rhs
+    }
+}
+
+impl<T> EnumString<T>
+where
+    T: Serialize,
+{
+    /// Returns the string representation.
+    pub fn as_str(&self) -> &str {
+        self.0.as_str()
+    }
+}
+
+impl<T> std::fmt::Display for EnumString<T>
+where
+    T: Serialize,
+{
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{}", self.as_str())
+    }
+}
 
 impl<T, Repr> Default for Enum<T, Repr>
 where
@@ -119,7 +114,7 @@ where
     }
 }
 
-impl<T> PartialEq for StringEnum<T>
+impl<T> PartialEq for EnumStringInner<T>
 where
     T: Serialize + PartialEq,
 {
@@ -135,7 +130,16 @@ where
     }
 }
 
-impl<T> PartialEq<T> for StringEnum<T>
+impl<T> PartialEq<str> for EnumStringInner<T>
+where
+    T: Serialize + PartialEq,
+{
+    fn eq(&self, rhs: &str) -> bool {
+        self.as_str() == rhs
+    }
+}
+
+impl<T> PartialEq<T> for EnumStringInner<T>
 where
     T: Serialize + PartialEq,
 {
@@ -149,7 +153,7 @@ where
     }
 }
 
-impl<T> PartialEq<&T> for StringEnum<T>
+impl<T> PartialEq<&T> for EnumStringInner<T>
 where
     T: Serialize + PartialEq,
 {
@@ -158,17 +162,19 @@ where
     }
 }
 
-impl<T> StringEnum<T>
-where
-    T: Serialize,
-{
+impl<T> EnumStringInner<T> {
     pub fn new_from_str<S>(value: S) -> Self
     where
         S: Into<Cow<'static, str>>,
     {
         Self::Unknown(value.into())
     }
+}
 
+impl<T> EnumStringInner<T>
+where
+    T: Serialize,
+{
     pub fn as_str(&self) -> &str {
         match self {
             Self::Known(value) => VariantName::extract(value),
@@ -414,7 +420,7 @@ mod tests {
         }
     }
 
-    define_string_enum!(Nijisanji, LazuLight);
+    type Nijisanji = EnumString<LazuLight>;
 
     #[test]
     fn from() {
@@ -440,15 +446,11 @@ mod tests {
         // Equality between wrapper struct and unwrapped struct
         assert_eq!(Nijisanji::new(LazuLight::Pomu), LazuLight::Pomu);
 
-        assert_eq!(LazuLight::Pomu, Nijisanji::new(LazuLight::Pomu));
-
         assert_ne!(Nijisanji::new(LazuLight::Pomu), LazuLight::Finana);
 
-        assert_ne!(LazuLight::Pomu, Nijisanji::new(LazuLight::Finana));
-
         // Equality between wrapper struct and raw string, renamed
-        assert_eq!(Nijisanji::new(LazuLight::Pomu), "DaPomky");
-        assert_ne!(Nijisanji::new(LazuLight::Pomu), "Pomu");
+        assert_eq!(Nijisanji::new(LazuLight::Pomu).as_str(), "DaPomky");
+        assert_ne!(Nijisanji::new(LazuLight::Pomu).as_str(), "Pomu");
 
         // Equality between wrapper struct constructed different ways
         assert_eq!(
