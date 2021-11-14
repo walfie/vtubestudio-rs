@@ -22,7 +22,7 @@ macro_rules! define_string_enum {
         $type:ty
     ) => {
         $(#[$meta])*
-        #[derive(Debug, Clone, serde::Serialize, serde::Deserialize, PartialEq)]
+        #[derive(Default, Debug, Clone, serde::Serialize, serde::Deserialize, PartialEq)]
         pub struct $name(crate::enumeration::StringEnum<$type>);
 
         impl $name {
@@ -109,6 +109,15 @@ macro_rules! define_string_enum {
 }
 
 pub(crate) use define_string_enum;
+
+impl<T, Repr> Default for Enum<T, Repr>
+where
+    T: Default,
+{
+    fn default() -> Self {
+        Self::Known(T::default())
+    }
+}
 
 impl<T> PartialEq for StringEnum<T>
 where
@@ -397,6 +406,12 @@ mod tests {
         Pomu,
         Elira,
         Finana,
+    }
+
+    impl Default for LazuLight {
+        fn default() -> Self {
+            LazuLight::Pomu
+        }
     }
 
     define_string_enum!(Nijisanji, LazuLight);
