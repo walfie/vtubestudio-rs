@@ -99,13 +99,15 @@ macro_rules! define_string_enum {
 
 pub(crate) use define_string_enum;
 
+pub(crate) type StringEnum<T> = Enum<T, Cow<'static, str>>;
+
 // Helper enum for allowing serde deserialization to retain unknown values, and serialize arbitrary
 // string values for enums. This is meant to be used inside the `define_string_enum` macro.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(untagged)]
-pub(crate) enum StringEnum<T> {
+pub(crate) enum Enum<T, Repr> {
     Known(T),
-    Unknown(Cow<'static, str>),
+    Unknown(Repr),
 }
 
 impl<T> PartialEq for StringEnum<T>
@@ -113,7 +115,7 @@ where
     T: Serialize + PartialEq,
 {
     fn eq(&self, rhs: &Self) -> bool {
-        use StringEnum::{Known, Unknown};
+        use Enum::{Known, Unknown};
 
         match (self, rhs) {
             (Known(a), Known(b)) => a == b,
@@ -129,7 +131,7 @@ where
     T: Serialize + PartialEq,
 {
     fn eq(&self, rhs: &T) -> bool {
-        use StringEnum::{Known, Unknown};
+        use Enum::{Known, Unknown};
 
         match self {
             Known(value) => value == rhs,
