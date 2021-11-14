@@ -1,7 +1,7 @@
 mod enumeration;
 mod error_id;
 
-pub use crate::data::enumeration::StringEnum;
+pub use crate::data::enumeration::EnumString;
 pub use crate::data::error_id::ErrorId;
 
 use crate::error::{Error, UnexpectedResponseError};
@@ -27,7 +27,7 @@ pub struct RequestEnvelope {
     pub api_version: Cow<'static, str>,
     #[serde(rename = "requestID")]
     pub request_id: Option<String>,
-    pub message_type: StringEnum<RequestType>,
+    pub message_type: EnumString<RequestType>,
     pub data: Value,
 }
 
@@ -36,7 +36,7 @@ impl Default for RequestEnvelope {
         Self {
             api_name: Cow::Borrowed(API_NAME),
             api_version: Cow::Borrowed(API_VERSION),
-            message_type: StringEnum::new(RequestType::ApiStateRequest),
+            message_type: EnumString::new(RequestType::ApiStateRequest),
             request_id: None,
             data: Value::Null,
         }
@@ -76,7 +76,7 @@ pub struct ResponseEnvelope {
     pub timestamp: i64,
     #[serde(rename = "requestID")]
     pub request_id: String,
-    pub message_type: StringEnum<ResponseType>,
+    pub message_type: EnumString<ResponseType>,
     pub data: Value,
 }
 
@@ -85,7 +85,7 @@ impl Default for ResponseEnvelope {
         Self {
             api_name: API_NAME.to_owned(),
             api_version: API_VERSION.to_owned(),
-            message_type: StringEnum::const_new_from_str("UnknownResponse"),
+            message_type: EnumString::const_new_from_str("UnknownResponse"),
             timestamp: 0,
             request_id: "".to_owned(),
             data: Value::Null,
@@ -155,7 +155,7 @@ impl ResponseEnvelope {
 /// Trait describing a VTube Studio request.
 pub trait Request: Serialize {
     /// The message type of this request.
-    const MESSAGE_TYPE: StringEnum<RequestType>;
+    const MESSAGE_TYPE: EnumString<RequestType>;
 
     /// The expected [`Response`] type for this request.
     type Response: Response;
@@ -164,11 +164,11 @@ pub trait Request: Serialize {
 /// Trait describing a VTube Studio response.
 pub trait Response: DeserializeOwned + Send + 'static {
     /// The message type of this response.
-    const MESSAGE_TYPE: StringEnum<ResponseType>;
+    const MESSAGE_TYPE: EnumString<ResponseType>;
 }
 
 // https://github.com/DenchiSoft/VTubeStudio/blob/08681904e285d37b8c22d17d7d3a36c8c6834425/Files/HotkeyAction.cs
-/// Known hotkey types for [`StringEnum<HotkeyAction>`] (used in [`Hotkey`]).
+/// Known hotkey types for [`EnumString<HotkeyAction>`] (used in [`Hotkey`]).
 #[non_exhaustive]
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
 pub enum HotkeyAction {
@@ -216,7 +216,7 @@ macro_rules! define_request_response_pairs {
         resp = $(( $resp_inner:ident ))? $({ $($resp_fields:tt)* })?,
     },)*) => {
         paste! {
-            /// Known message types for [`StringEnum<RequestType>`].
+            /// Known message types for [`EnumString<RequestType>`].
             #[allow(missing_docs)]
             #[non_exhaustive]
             #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
@@ -227,7 +227,7 @@ macro_rules! define_request_response_pairs {
                 )*
             }
 
-            /// Known message types for [`StringEnum<ResponseType>`].
+            /// Known message types for [`EnumString<ResponseType>`].
             #[allow(missing_docs)]
             #[non_exhaustive]
             #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
@@ -252,7 +252,7 @@ macro_rules! define_request_response_pairs {
 
                 impl Request for [<$rust_name Request>] {
                     type Response = [<$rust_name Response>];
-                    const MESSAGE_TYPE: StringEnum<RequestType> = StringEnum::new(RequestType::[<$rust_name Request>]);
+                    const MESSAGE_TYPE: EnumString<RequestType> = EnumString::new(RequestType::[<$rust_name Request>]);
                 }
 
                 #[allow(missing_docs)]
@@ -261,7 +261,7 @@ macro_rules! define_request_response_pairs {
                 pub struct [<$rust_name Response>] $(($resp_inner);)? $({ $($resp_fields)* })?
 
                 impl Response for [<$rust_name Response>] {
-                    const MESSAGE_TYPE: StringEnum<ResponseType> = StringEnum::new(ResponseType::[<$rust_name Response>]);
+                    const MESSAGE_TYPE: EnumString<ResponseType> = EnumString::new(ResponseType::[<$rust_name Response>]);
                 }
             }
         )*
@@ -570,7 +570,7 @@ pub struct ApiError {
 }
 
 impl Response for ApiError {
-    const MESSAGE_TYPE: StringEnum<ResponseType> = StringEnum::new(ResponseType::ApiError);
+    const MESSAGE_TYPE: EnumString<ResponseType> = EnumString::new(ResponseType::ApiError);
 }
 
 impl ApiError {
@@ -592,8 +592,8 @@ pub struct VTubeStudioApiStateBroadcast {
 }
 
 impl Response for VTubeStudioApiStateBroadcast {
-    const MESSAGE_TYPE: StringEnum<ResponseType> =
-        StringEnum::new(ResponseType::VTubeStudioApiStateBroadcast);
+    const MESSAGE_TYPE: EnumString<ResponseType> =
+        EnumString::new(ResponseType::VTubeStudioApiStateBroadcast);
 }
 
 #[allow(missing_docs)]
@@ -624,7 +624,7 @@ pub struct Model {
 pub struct Hotkey {
     pub name: String,
     #[serde(rename = "type")]
-    pub type_: StringEnum<HotkeyAction>,
+    pub type_: EnumString<HotkeyAction>,
     pub file: String,
     #[serde(rename = "hotkeyID")]
     pub hotkey_id: String,
@@ -708,36 +708,36 @@ mod tests {
     #[test]
     fn response_type_json() -> Result {
         assert_eq!(
-            serde_json::from_value::<StringEnum<ResponseType>>(json!("APIError"))?,
-            StringEnum::new(ResponseType::ApiError),
+            serde_json::from_value::<EnumString<ResponseType>>(json!("APIError"))?,
+            EnumString::new(ResponseType::ApiError),
         );
 
         assert_eq!(
-            serde_json::to_value::<StringEnum<ResponseType>>(StringEnum::new(
+            serde_json::to_value::<EnumString<ResponseType>>(EnumString::new(
                 ResponseType::ApiError
             ))?,
             json!("APIError"),
         );
 
         assert_eq!(
-            serde_json::from_value::<StringEnum<ResponseType>>(json!("ColorTintResponse"))?,
+            serde_json::from_value::<EnumString<ResponseType>>(json!("ColorTintResponse"))?,
             ResponseType::ColorTintResponse,
         );
 
         assert_eq!(
-            serde_json::to_value::<StringEnum<ResponseType>>(
+            serde_json::to_value::<EnumString<ResponseType>>(
                 ResponseType::ColorTintResponse.into()
             )?,
             json!("ColorTintResponse"),
         );
 
         assert_eq!(
-            serde_json::from_value::<StringEnum<ResponseType>>(json!("WalfieResponse"))?,
-            StringEnum::new_from_str("WalfieResponse"),
+            serde_json::from_value::<EnumString<ResponseType>>(json!("WalfieResponse"))?,
+            EnumString::new_from_str("WalfieResponse"),
         );
 
         assert_eq!(
-            serde_json::to_value(StringEnum::<ResponseType>::new_from_str("WalfieResponse"))?,
+            serde_json::to_value(EnumString::<ResponseType>::new_from_str("WalfieResponse"))?,
             json!("WalfieResponse"),
         );
 

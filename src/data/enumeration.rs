@@ -11,7 +11,7 @@ enum Enum<T, Repr> {
     Unknown(Repr),
 }
 
-type StringEnumInner<T> = Enum<T, Cow<'static, str>>;
+type EnumStringInner<T> = Enum<T, Cow<'static, str>>;
 
 /// Wrapper type for an `enum` with a serialized string representation.
 ///
@@ -21,13 +21,13 @@ type StringEnumInner<T> = Enum<T, Cow<'static, str>>;
 /// # Example
 ///
 /// ```
-/// use vtubestudio::data::{StringEnum, ResponseType};
+/// use vtubestudio::data::{EnumString, ResponseType};
 ///
 /// // Multiple representations of the same enum
-/// let resp_enum = StringEnum::new(ResponseType::VtsFolderInfoResponse);
-/// let resp_str = StringEnum::new_from_str("VTSFolderInfoResponse");
+/// let resp_enum = EnumString::new(ResponseType::VtsFolderInfoResponse);
+/// let resp_str = EnumString::new_from_str("VTSFolderInfoResponse");
 ///
-/// // Can be compared to the inner enum type and other `StringEnum`s
+/// // Can be compared to the inner enum type and other `EnumString`s
 /// assert_eq!(resp_enum, ResponseType::VtsFolderInfoResponse);
 /// assert_eq!(resp_str, ResponseType::VtsFolderInfoResponse);
 /// assert_eq!(resp_enum, resp_str);
@@ -37,12 +37,12 @@ type StringEnumInner<T> = Enum<T, Cow<'static, str>>;
 /// assert_eq!(resp_str.as_str(), "VTSFolderInfoResponse");
 /// ```
 #[derive(Default, Debug, Clone, serde::Serialize, serde::Deserialize)]
-pub struct StringEnum<T>(StringEnumInner<T>);
+pub struct EnumString<T>(EnumStringInner<T>);
 
-impl<T> StringEnum<T> {
+impl<T> EnumString<T> {
     /// Creates a new value from a known variant.
     pub const fn new(variant: T) -> Self {
-        Self(StringEnumInner::Known(variant))
+        Self(EnumStringInner::Known(variant))
     }
 
     /// Creates a new value from a raw string.
@@ -50,16 +50,16 @@ impl<T> StringEnum<T> {
     where
         S: Into<Cow<'static, str>>,
     {
-        Self(StringEnumInner::new_from_str(value))
+        Self(EnumStringInner::new_from_str(value))
     }
 
     /// Creates a new value from a `const` static string slice.
     pub const fn const_new_from_str(value: &'static str) -> Self {
-        Self(StringEnumInner::Unknown(std::borrow::Cow::Borrowed(value)))
+        Self(EnumStringInner::Unknown(std::borrow::Cow::Borrowed(value)))
     }
 }
 
-impl<T> From<T> for StringEnum<T>
+impl<T> From<T> for EnumString<T>
 where
     T: Serialize + PartialEq,
 {
@@ -68,7 +68,7 @@ where
     }
 }
 
-impl<T> PartialEq for StringEnum<T>
+impl<T> PartialEq for EnumString<T>
 where
     T: Serialize + PartialEq,
 {
@@ -77,7 +77,7 @@ where
     }
 }
 
-impl<T> PartialEq<T> for StringEnum<T>
+impl<T> PartialEq<T> for EnumString<T>
 where
     T: Serialize + PartialEq,
 {
@@ -86,7 +86,7 @@ where
     }
 }
 
-impl<T> StringEnum<T>
+impl<T> EnumString<T>
 where
     T: Serialize,
 {
@@ -96,7 +96,7 @@ where
     }
 }
 
-impl<T> std::fmt::Display for StringEnum<T>
+impl<T> std::fmt::Display for EnumString<T>
 where
     T: Serialize,
 {
@@ -114,7 +114,7 @@ where
     }
 }
 
-impl<T> PartialEq for StringEnumInner<T>
+impl<T> PartialEq for EnumStringInner<T>
 where
     T: Serialize + PartialEq,
 {
@@ -130,7 +130,7 @@ where
     }
 }
 
-impl<T> PartialEq<str> for StringEnumInner<T>
+impl<T> PartialEq<str> for EnumStringInner<T>
 where
     T: Serialize + PartialEq,
 {
@@ -139,7 +139,7 @@ where
     }
 }
 
-impl<T> PartialEq<T> for StringEnumInner<T>
+impl<T> PartialEq<T> for EnumStringInner<T>
 where
     T: Serialize + PartialEq,
 {
@@ -153,7 +153,7 @@ where
     }
 }
 
-impl<T> PartialEq<&T> for StringEnumInner<T>
+impl<T> PartialEq<&T> for EnumStringInner<T>
 where
     T: Serialize + PartialEq,
 {
@@ -162,7 +162,7 @@ where
     }
 }
 
-impl<T> StringEnumInner<T> {
+impl<T> EnumStringInner<T> {
     pub fn new_from_str<S>(value: S) -> Self
     where
         S: Into<Cow<'static, str>>,
@@ -171,7 +171,7 @@ impl<T> StringEnumInner<T> {
     }
 }
 
-impl<T> StringEnumInner<T>
+impl<T> EnumStringInner<T>
 where
     T: Serialize,
 {
@@ -420,7 +420,7 @@ mod tests {
         }
     }
 
-    type Nijisanji = StringEnum<LazuLight>;
+    type Nijisanji = EnumString<LazuLight>;
 
     #[test]
     fn from() {
