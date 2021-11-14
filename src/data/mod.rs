@@ -1,3 +1,5 @@
+mod error_id;
+
 use crate::error::{Error, UnexpectedResponseError};
 
 use paste::paste;

@@ -1,6 +1,9 @@
+use crate::enumeration::Enum;
 use serde::ser::{Impossible, SerializeTupleVariant};
-use serde::{Deserialize, Serialize, Serializer};
+use serde::{Serialize, Serializer};
 use std::borrow::Cow;
+
+pub(crate) type StringEnum<T> = Enum<T, Cow<'static, str>>;
 
 // Define a wrapper struct around `StringEnum` allowing for serializing/deserializing from a known
 // set of variants, and also arbitrary string values.
@@ -11,7 +14,7 @@ macro_rules! define_string_enum {
         $type:ty
     ) => {
         $(#[$meta])*
-        #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+        #[derive(Debug, Clone, serde::Serialize, serde::Deserialize, PartialEq)]
         pub struct $name(crate::enumeration::StringEnum<$type>);
 
         impl $name {
@@ -99,17 +102,6 @@ macro_rules! define_string_enum {
 
 pub(crate) use define_string_enum;
 
-pub(crate) type StringEnum<T> = Enum<T, Cow<'static, str>>;
-
-// Helper enum for allowing serde deserialization to retain unknown values, and serialize arbitrary
-// string values for enums. This is meant to be used inside the `define_string_enum` macro.
-#[derive(Debug, Clone, Serialize, Deserialize)]
-#[serde(untagged)]
-pub(crate) enum Enum<T, Repr> {
-    Known(T),
-    Unknown(Repr),
-}
-
 impl<T> PartialEq for StringEnum<T>
 where
     T: Serialize + PartialEq,
@@ -169,16 +161,16 @@ where
 }
 
 #[derive(Debug)]
-struct VariantName;
+pub(crate) struct VariantName;
 impl VariantName {
-    pub fn extract<T: Serialize>(value: &T) -> &'static str {
+    pub(crate) fn extract<T: Serialize>(value: &T) -> &'static str {
         value.serialize(&mut VariantName).unwrap_or("unknown")
     }
 }
 
 #[derive(thiserror::Error, Debug)]
 #[error("cannot extract name of variant")]
-struct VariantNameError;
+pub(crate) struct VariantNameError;
 
 impl serde::ser::Error for VariantNameError {
     fn custom<T: std::fmt::Display>(_msg: T) -> Self {
@@ -186,7 +178,7 @@ impl serde::ser::Error for VariantNameError {
     }
 }
 
-struct TupleVariantName {
+pub(crate) struct TupleVariantName {
     name: &'static str,
 }
 
@@ -386,6 +378,7 @@ impl<'a> Serializer for &'a mut VariantName {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use serde::{Deserialize, Serialize};
     use serde_json::json;
 
     type Result = std::result::Result<(), Box<dyn std::error::Error>>;
