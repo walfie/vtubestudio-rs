@@ -108,6 +108,7 @@ pub mod data;
 /// Types related to error handling.
 pub mod error;
 
+// Internal helpers for generating enums
 pub(crate) mod enumeration;
 
 // Macro for enabling `doc_cfg` on docs.rs

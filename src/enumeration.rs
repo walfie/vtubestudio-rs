@@ -2,6 +2,8 @@ use serde::ser::{Impossible, SerializeTupleVariant};
 use serde::{Deserialize, Serialize, Serializer};
 use std::borrow::Cow;
 
+// Define a wrapper struct around `StringEnum` allowing for serializing/deserializing from a known
+// set of variants, and also arbitrary string values.
 macro_rules! define_string_enum {
     (
         $(#[$meta:meta])*
@@ -97,9 +99,11 @@ macro_rules! define_string_enum {
 
 pub(crate) use define_string_enum;
 
+// Helper enum for allowing serde deserialization to retain unknown values, and serialize arbitrary
+// string values for enums. This is meant to be used inside the `define_string_enum` macro.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(untagged)]
-pub enum StringEnum<T> {
+pub(crate) enum StringEnum<T> {
     Known(T),
     Unknown(Cow<'static, str>),
 }
@@ -200,6 +204,7 @@ impl SerializeTupleVariant for TupleVariantName {
     }
 }
 
+// Verbose serializer implementation that just extracts the enum variant name.
 impl<'a> Serializer for &'a mut VariantName {
     type Ok = &'static str;
     type Error = VariantNameError;
