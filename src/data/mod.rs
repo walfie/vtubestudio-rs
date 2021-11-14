@@ -1,6 +1,7 @@
 mod error_id;
 
 pub use crate::data::error_id::ErrorId;
+pub use crate::enumeration::StringEnum;
 
 use crate::error::{Error, UnexpectedResponseError};
 
@@ -16,87 +17,9 @@ pub const API_NAME: &'static str = "VTubeStudioPublicAPI";
 /// The default `api_version` value in requests and responses.
 pub const API_VERSION: &'static str = "1.0";
 
-crate::enumeration::define_string_enum!(
-    /// Message type for [`RequestEnvelope`].
-    ///
-    /// This is an opaque value rather than a plain `enum`, to allow the user to specify variants
-    /// besides the ones defined in this library (E.g., when a new API request is supported but
-    /// hasn't been added to this library yet).
-    ///
-    /// # Example
-    ///
-    /// ```
-    /// use vtubestudio::data::{RequestType, GenericRequestType};
-    ///
-    /// assert_eq!(
-    ///     GenericRequestType::new(RequestType::ApiStateRequest),
-    ///     GenericRequestType::new_from_str("APIStateRequest"),
-    /// );
-    /// ```
-    GenericRequestType,
-    RequestType
-);
-
-crate::enumeration::define_string_enum!(
-    /// Message type for [`ResponseEnvelope`].
-    ///
-    /// This is an opaque value rather than a plain `enum`, to allow the user to specify variants
-    /// besides the ones defined in this library (E.g., when a new API response is supported but
-    /// hasn't been added to this library yet).
-    ///
-    /// # Example
-    ///
-    /// ```
-    /// use vtubestudio::data::{ResponseType, GenericResponseType};
-    ///
-    /// assert_eq!(
-    ///     GenericResponseType::new(ResponseType::ApiStateResponse),
-    ///     GenericResponseType::new_from_str("APIStateResponse"),
-    /// );
-    /// ```
-    GenericResponseType,
-    ResponseType
-);
-
-impl RequestType {
-    /// Converts this into an opaque type, to be used in [`RequestEnvelope`].
-    ///
-    /// This is the same as `.into()` but available in `const` contexts.
-    ///
-    /// # Example
-    ///
-    /// ```
-    /// use vtubestudio::data::{GenericRequestType, RequestType};
-    ///
-    /// assert_eq!(
-    ///     RequestType::ApiStateRequest.widen(),
-    ///     GenericRequestType::new_from_str("APIStateRequest"),
-    /// );
-    /// ```
-    pub const fn widen(self) -> GenericRequestType {
-        GenericRequestType::new(self)
-    }
-}
-
-impl ResponseType {
-    /// Converts this into an opaque type, to be used in [`ResponseEnvelope`].
-    ///
-    /// This is the same as `.into()` but available in `const` contexts.
-    ///
-    /// # Example
-    ///
-    /// ```
-    /// use vtubestudio::data::{GenericResponseType, ResponseType};
-    ///
-    /// assert_eq!(
-    ///     ResponseType::ApiStateResponse.widen(),
-    ///     GenericResponseType::new_from_str("APIStateResponse"),
-    /// );
-    /// ```
-    pub const fn widen(self) -> GenericResponseType {
-        GenericResponseType::new(self)
-    }
-}
+type GenericRequestType = StringEnum<RequestType>;
+type GenericResponseType = StringEnum<ResponseType>;
+type GenericHotkeyAction = StringEnum<HotkeyAction>;
 
 /// A VTube Studio API request.
 #[allow(missing_docs)]
@@ -116,7 +39,7 @@ impl Default for RequestEnvelope {
         Self {
             api_name: Cow::Borrowed(API_NAME),
             api_version: Cow::Borrowed(API_VERSION),
-            message_type: RequestType::ApiStateRequest.into(),
+            message_type: StringEnum::new(RequestType::ApiStateRequest),
             request_id: None,
             data: Value::Null,
         }
@@ -287,27 +210,6 @@ impl Default for HotkeyAction {
     }
 }
 
-crate::enumeration::define_string_enum!(
-    /// Hotkey type for [`Hotkey`].
-    ///
-    /// This is an opaque value rather than a plain `enum`, to allow the user to specify variants
-    /// besides the ones defined in this library (E.g., when a new hotkey type is supported but
-    /// hasn't been added to this library yet).
-    ///
-    /// # Example
-    ///
-    /// ```
-    /// use vtubestudio::data::{HotkeyAction, GenericHotkeyAction};
-    ///
-    /// assert_eq!(
-    ///     GenericHotkeyAction::new(HotkeyAction::ChangeVtsModel),
-    ///     GenericHotkeyAction::new_from_str("ChangeVTSModel"),
-    /// );
-    /// ```
-    GenericHotkeyAction,
-    HotkeyAction
-);
-
 macro_rules! define_request_response_pairs {
     ($({
         rust_name = $rust_name:ident,
@@ -353,7 +255,7 @@ macro_rules! define_request_response_pairs {
 
                 impl Request for [<$rust_name Request>] {
                     type Response = [<$rust_name Response>];
-                    const MESSAGE_TYPE: GenericRequestType = RequestType::[<$rust_name Request>].widen();
+                    const MESSAGE_TYPE: GenericRequestType = StringEnum::new(RequestType::[<$rust_name Request>]);
                 }
 
                 #[allow(missing_docs)]
@@ -362,7 +264,7 @@ macro_rules! define_request_response_pairs {
                 pub struct [<$rust_name Response>] $(($resp_inner);)? $({ $($resp_fields)* })?
 
                 impl Response for [<$rust_name Response>] {
-                    const MESSAGE_TYPE: GenericResponseType = ResponseType::[<$rust_name Response>].widen();
+                    const MESSAGE_TYPE: GenericResponseType = StringEnum::new(ResponseType::[<$rust_name Response>]);
                 }
             }
         )*
@@ -671,7 +573,7 @@ pub struct ApiError {
 }
 
 impl Response for ApiError {
-    const MESSAGE_TYPE: GenericResponseType = ResponseType::ApiError.widen();
+    const MESSAGE_TYPE: GenericResponseType = StringEnum::new(ResponseType::ApiError);
 }
 
 impl ApiError {
@@ -693,7 +595,8 @@ pub struct VTubeStudioApiStateBroadcast {
 }
 
 impl Response for VTubeStudioApiStateBroadcast {
-    const MESSAGE_TYPE: GenericResponseType = ResponseType::VTubeStudioApiStateBroadcast.widen();
+    const MESSAGE_TYPE: GenericResponseType =
+        StringEnum::new(ResponseType::VTubeStudioApiStateBroadcast);
 }
 
 #[allow(missing_docs)]
