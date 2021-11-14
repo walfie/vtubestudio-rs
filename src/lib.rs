@@ -108,6 +108,8 @@ pub mod data;
 /// Types related to error handling.
 pub mod error;
 
+pub(crate) mod enumeration;
+
 // Macro for enabling `doc_cfg` on docs.rs
 macro_rules! cfg_feature {
     (
