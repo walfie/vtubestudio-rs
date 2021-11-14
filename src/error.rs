@@ -2,7 +2,7 @@ use futures_core::TryStream;
 use futures_sink::Sink;
 use std::error::Error as StdError;
 
-pub use crate::data::{ApiError, ArbitraryResponseType};
+pub use crate::data::{ApiError, GenericResponseType};
 
 /// Alias for a type-erased error type.
 pub type BoxError = Box<dyn StdError + Send + Sync>;
@@ -49,9 +49,9 @@ pub enum ErrorKind {
 #[error("received unexpected response (expected {expected}, received {received})")]
 pub struct UnexpectedResponseError {
     /// The expected response type.
-    pub expected: ArbitraryResponseType,
+    pub expected: GenericResponseType,
     /// The received response type.
-    pub received: ArbitraryResponseType,
+    pub received: GenericResponseType,
 }
 
 impl From<serde_json::Error> for Error {

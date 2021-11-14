@@ -22,14 +22,14 @@ crate::enumeration::define_string_enum!(
     /// # Example
     ///
     /// ```
-    /// use vtubestudio::data::{RequestType, ArbitraryRequestType};
+    /// use vtubestudio::data::{RequestType, GenericRequestType};
     ///
     /// assert_eq!(
-    ///     ArbitraryRequestType::new(RequestType::ApiStateRequest),
-    ///     ArbitraryRequestType::new_from_str("APIStateRequest"),
+    ///     GenericRequestType::new(RequestType::ApiStateRequest),
+    ///     GenericRequestType::new_from_str("APIStateRequest"),
     /// );
     /// ```
-    ArbitraryRequestType,
+    GenericRequestType,
     RequestType
 );
 
@@ -43,50 +43,54 @@ crate::enumeration::define_string_enum!(
     /// # Example
     ///
     /// ```
-    /// use vtubestudio::data::{ResponseType, ArbitraryResponseType};
+    /// use vtubestudio::data::{ResponseType, GenericResponseType};
     ///
     /// assert_eq!(
-    ///     ArbitraryResponseType::new(ResponseType::ApiStateResponse),
-    ///     ArbitraryResponseType::new_from_str("APIStateResponse"),
+    ///     GenericResponseType::new(ResponseType::ApiStateResponse),
+    ///     GenericResponseType::new_from_str("APIStateResponse"),
     /// );
     /// ```
-    ArbitraryResponseType,
+    GenericResponseType,
     ResponseType
 );
 
 impl RequestType {
     /// Converts this into an opaque type, to be used in [`RequestEnvelope`].
     ///
+    /// This is the same as `.into()` but available in `const` contexts.
+    ///
     /// # Example
     ///
     /// ```
-    /// use vtubestudio::data::{ArbitraryRequestType, RequestType};
+    /// use vtubestudio::data::{GenericRequestType, RequestType};
     ///
     /// assert_eq!(
-    ///     RequestType::ApiStateRequest.into_arbitrary(),
-    ///     ArbitraryRequestType::new_from_str("APIStateRequest"),
+    ///     RequestType::ApiStateRequest.widen(),
+    ///     GenericRequestType::new_from_str("APIStateRequest"),
     /// );
     /// ```
-    pub const fn into_arbitrary(self) -> ArbitraryRequestType {
-        ArbitraryRequestType::new(self)
+    pub const fn widen(self) -> GenericRequestType {
+        GenericRequestType::new(self)
     }
 }
 
 impl ResponseType {
     /// Converts this into an opaque type, to be used in [`ResponseEnvelope`].
     ///
+    /// This is the same as `.into()` but available in `const` contexts.
+    ///
     /// # Example
     ///
     /// ```
-    /// use vtubestudio::data::{ArbitraryResponseType, ResponseType};
+    /// use vtubestudio::data::{GenericResponseType, ResponseType};
     ///
     /// assert_eq!(
-    ///     ResponseType::ApiStateResponse.into_arbitrary(),
-    ///     ArbitraryResponseType::new_from_str("APIStateResponse"),
+    ///     ResponseType::ApiStateResponse.widen(),
+    ///     GenericResponseType::new_from_str("APIStateResponse"),
     /// );
     /// ```
-    pub const fn into_arbitrary(self) -> ArbitraryResponseType {
-        ArbitraryResponseType::new(self)
+    pub const fn widen(self) -> GenericResponseType {
+        GenericResponseType::new(self)
     }
 }
 
@@ -99,7 +103,7 @@ pub struct RequestEnvelope {
     pub api_version: Cow<'static, str>,
     #[serde(rename = "requestID")]
     pub request_id: Option<String>,
-    pub message_type: ArbitraryRequestType,
+    pub message_type: GenericRequestType,
     pub data: Value,
 }
 
@@ -148,7 +152,7 @@ pub struct ResponseEnvelope {
     pub timestamp: i64,
     #[serde(rename = "requestID")]
     pub request_id: String,
-    pub message_type: ArbitraryResponseType,
+    pub message_type: GenericResponseType,
     pub data: Value,
 }
 
@@ -157,7 +161,7 @@ impl Default for ResponseEnvelope {
         Self {
             api_name: API_NAME.to_owned(),
             api_version: API_VERSION.to_owned(),
-            message_type: ArbitraryResponseType::const_new_from_str("UnknownResponse"),
+            message_type: GenericResponseType::const_new_from_str("UnknownResponse"),
             timestamp: 0,
             request_id: "".to_owned(),
             data: Value::Null,
@@ -227,7 +231,7 @@ impl ResponseEnvelope {
 /// Trait describing a VTube Studio request.
 pub trait Request: Serialize {
     /// The message type of this request.
-    const MESSAGE_TYPE: ArbitraryRequestType;
+    const MESSAGE_TYPE: GenericRequestType;
 
     /// The expected [`Response`] type for this request.
     type Response: Response;
@@ -236,7 +240,7 @@ pub trait Request: Serialize {
 /// Trait describing a VTube Studio response.
 pub trait Response: DeserializeOwned + Send + 'static {
     /// The message type of this response.
-    const MESSAGE_TYPE: ArbitraryResponseType;
+    const MESSAGE_TYPE: GenericResponseType;
 }
 
 macro_rules! define_request_response_pairs {
@@ -248,7 +252,7 @@ macro_rules! define_request_response_pairs {
         resp = $(( $resp_inner:ident ))? $({ $($resp_fields:tt)* })?,
     },)*) => {
         paste! {
-            /// Known message types for [`ArbitraryRequestType`].
+            /// Known message types for [`GenericRequestType`].
             #[allow(missing_docs)]
             #[non_exhaustive]
             #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
@@ -259,7 +263,7 @@ macro_rules! define_request_response_pairs {
                 )*
             }
 
-            /// Known message types for [`ArbitraryResponseType`].
+            /// Known message types for [`GenericResponseType`].
             #[allow(missing_docs)]
             #[non_exhaustive]
             #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
@@ -284,7 +288,7 @@ macro_rules! define_request_response_pairs {
 
                 impl Request for [<$rust_name Request>] {
                     type Response = [<$rust_name Response>];
-                    const MESSAGE_TYPE: ArbitraryRequestType = RequestType::[<$rust_name Request>].into_arbitrary();
+                    const MESSAGE_TYPE: GenericRequestType = RequestType::[<$rust_name Request>].widen();
                 }
 
                 #[allow(missing_docs)]
@@ -293,7 +297,7 @@ macro_rules! define_request_response_pairs {
                 pub struct [<$rust_name Response>] $(($resp_inner);)? $({ $($resp_fields)* })?
 
                 impl Response for [<$rust_name Response>] {
-                    const MESSAGE_TYPE: ArbitraryResponseType = ResponseType::[<$rust_name Response>].into_arbitrary();
+                    const MESSAGE_TYPE: GenericResponseType = ResponseType::[<$rust_name Response>].widen();
                 }
             }
         )*
@@ -592,7 +596,7 @@ pub struct ApiError {
 }
 
 impl Response for ApiError {
-    const MESSAGE_TYPE: ArbitraryResponseType = ResponseType::ApiError.into_arbitrary();
+    const MESSAGE_TYPE: GenericResponseType = ResponseType::ApiError.widen();
 }
 
 impl ApiError {
@@ -614,8 +618,7 @@ pub struct VTubeStudioApiStateBroadcast {
 }
 
 impl Response for VTubeStudioApiStateBroadcast {
-    const MESSAGE_TYPE: ArbitraryResponseType =
-        ResponseType::VTubeStudioApiStateBroadcast.into_arbitrary();
+    const MESSAGE_TYPE: GenericResponseType = ResponseType::VTubeStudioApiStateBroadcast.widen();
 }
 
 #[allow(missing_docs)]
@@ -732,34 +735,34 @@ mod tests {
     #[test]
     fn response_type_json() -> Result {
         assert_eq!(
-            serde_json::from_value::<ArbitraryResponseType>(json!("APIError"))?,
-            ArbitraryResponseType::new(ResponseType::ApiError),
+            serde_json::from_value::<GenericResponseType>(json!("APIError"))?,
+            GenericResponseType::new(ResponseType::ApiError),
         );
 
         assert_eq!(
-            serde_json::to_value::<ArbitraryResponseType>(ArbitraryResponseType::new(
+            serde_json::to_value::<GenericResponseType>(GenericResponseType::new(
                 ResponseType::ApiError
             ))?,
             json!("APIError"),
         );
 
         assert_eq!(
-            serde_json::from_value::<ArbitraryResponseType>(json!("ColorTintResponse"))?,
+            serde_json::from_value::<GenericResponseType>(json!("ColorTintResponse"))?,
             ResponseType::ColorTintResponse,
         );
 
         assert_eq!(
-            serde_json::to_value::<ArbitraryResponseType>(ResponseType::ColorTintResponse.into())?,
+            serde_json::to_value::<GenericResponseType>(ResponseType::ColorTintResponse.into())?,
             json!("ColorTintResponse"),
         );
 
         assert_eq!(
-            serde_json::from_value::<ArbitraryResponseType>(json!("WalfieResponse"))?,
-            ArbitraryResponseType::new_from_str("WalfieResponse"),
+            serde_json::from_value::<GenericResponseType>(json!("WalfieResponse"))?,
+            GenericResponseType::new_from_str("WalfieResponse"),
         );
 
         assert_eq!(
-            serde_json::to_value(ArbitraryResponseType::new_from_str("WalfieResponse"))?,
+            serde_json::to_value(GenericResponseType::new_from_str("WalfieResponse"))?,
             json!("WalfieResponse"),
         );
 
