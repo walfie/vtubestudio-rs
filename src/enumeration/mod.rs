@@ -1,6 +1,7 @@
 mod number;
 mod string;
 
+#[allow(dead_code, unused_imports, unused_macros)] // TODO
 pub(crate) use self::number::{define_i32_enum, I32Enum};
 pub(crate) use self::string::{define_string_enum, StringEnum};
 

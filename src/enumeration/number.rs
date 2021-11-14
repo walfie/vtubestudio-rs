@@ -1,3 +1,5 @@
+#![allow(unused_macros, unused_imports)] // TODO
+
 use crate::enumeration::string::VariantName;
 use crate::enumeration::Enum;
 use serde::{Deserialize, Serialize};
@@ -150,6 +152,7 @@ impl<T> I32Enum<T>
 where
     T: Serialize,
 {
+    #[allow(dead_code)] // TODO
     pub fn as_str(&self) -> Option<&str> {
         match self {
             Self::Known(value) => Some(VariantName::extract(value)),
