@@ -23,9 +23,18 @@ type StringEnumInner<T> = Enum<T, Cow<'static, str>>;
 /// ```
 /// use vtubestudio::data::{StringEnum, ResponseType};
 ///
-/// let resp_type = StringEnum::new(ResponseType::VtsFolderInfoResponse);
-/// assert_eq!(resp_type, "VTSFolderInfoResponse");
-/// assert_eq!(resp_type, ResponseType::VtsFolderInfoResponse);
+/// // Multiple representations of the same enum
+/// let resp_enum = StringEnum::new(ResponseType::VtsFolderInfoResponse);
+/// let resp_str = StringEnum::new_from_str("VTSFolderInfoResponse");
+///
+/// // Can be compared to the inner enum type and other `StringEnum`s
+/// assert_eq!(resp_enum, ResponseType::VtsFolderInfoResponse);
+/// assert_eq!(resp_str, ResponseType::VtsFolderInfoResponse);
+/// assert_eq!(resp_enum, resp_str);
+///
+/// // Get the string representation of the enum
+/// assert_eq!(resp_enum.as_str(), "VTSFolderInfoResponse");
+/// assert_eq!(resp_str.as_str(), "VTSFolderInfoResponse");
 /// ```
 #[derive(Default, Debug, Clone, serde::Serialize, serde::Deserialize)]
 pub struct StringEnum<T>(StringEnumInner<T>);
