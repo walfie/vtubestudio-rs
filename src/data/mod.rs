@@ -1,7 +1,8 @@
+mod enumeration;
 mod error_id;
 
+pub use crate::data::enumeration::StringEnum;
 pub use crate::data::error_id::ErrorId;
-pub use crate::enumeration::StringEnum;
 
 use crate::error::{Error, UnexpectedResponseError};
 
