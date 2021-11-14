@@ -1,7 +1,15 @@
-use crate::enumeration::Enum;
 use serde::ser::{Impossible, SerializeTupleVariant};
-use serde::{Serialize, Serializer};
+use serde::{Deserialize, Serialize, Serializer};
 use std::borrow::Cow;
+
+// Helper enum for allowing serde deserialization to retain unknown values, and serialize arbitrary
+// string values for enums. This is meant to be used inside the `define_string_enum` macro.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(untagged)]
+pub(crate) enum Enum<T, Repr> {
+    Known(T),
+    Unknown(Repr),
+}
 
 pub(crate) type StringEnum<T> = Enum<T, Cow<'static, str>>;
 
