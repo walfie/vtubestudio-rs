@@ -75,12 +75,6 @@ macro_rules! define_error_ids {
         )+
     ) => {
         impl ErrorId {
-            $(
-                #[allow(missing_docs)]
-                $(#[$docs])*
-                pub const $rust_name: ErrorId = ErrorId($id);
-            )+
-
             /// Returns a descriptive name for the error.
             pub fn name(&self) -> Option<&'static str> {
                 match self.0 {
@@ -90,6 +84,13 @@ macro_rules! define_error_ids {
                     _ => None,
                 }
             }
+
+            $(
+                $(#[$docs])*
+                #[doc = concat!("`", stringify!($id), " ", stringify!($cs_name), "`")]
+                pub const $rust_name: ErrorId = ErrorId($id);
+            )+
+
         }
     }
 }
