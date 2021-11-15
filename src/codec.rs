@@ -59,7 +59,11 @@ pub trait MessageCodec {
 
 crate::cfg_feature! {
     #![feature = "tokio-tungstenite"]
-    pub use self::tungstenite::TungsteniteCodec;
+
+    /// A codec describing how to encode/decode
+    /// [`tungstenite::Message`](tokio_tungstenite::tungstenite::Message)s.
+    #[derive(Debug, Clone)]
+    pub struct TungsteniteCodec;
 }
 
 #[cfg(feature = "tokio-tungstenite")]
@@ -68,10 +72,6 @@ mod tungstenite {
 
     use std::convert::Infallible;
     use tokio_tungstenite::tungstenite;
-
-    /// A codec describing how to encode/decode [`tungstenite::Message`]s.
-    #[derive(Debug, Clone)]
-    pub struct TungsteniteCodec;
 
     impl MessageCodec for TungsteniteCodec {
         type Input = tungstenite::Message;

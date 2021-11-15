@@ -1,20 +1,13 @@
 crate::cfg_feature! {
     #![feature = "tokio-tungstenite"]
-    pub use self::tungstenite::TungsteniteConnector;
-}
 
-#[cfg(feature = "tokio-tungstenite")]
-mod tungstenite {
-    use crate::{Error, ErrorKind};
-
+    use crate::transport::TungsteniteApiTransport;
     use futures_util::TryFutureExt;
     use std::future::Future;
     use std::pin::Pin;
     use std::task::{Context, Poll};
-    use tower::Service;
-
-    use crate::transport::TungsteniteApiTransport;
     use tokio_tungstenite::tungstenite::client::IntoClientRequest;
+    use tower::Service;
 
     /// A [`Service`] for creating new [`TungsteniteApiTransport`]s.
     ///
@@ -22,6 +15,13 @@ mod tungstenite {
     /// [`ClientBuilder`](crate::ClientBuilder)) for lazily connecting/reconnecting to websockets.
     #[derive(Debug, Clone)]
     pub struct TungsteniteConnector;
+}
+
+#[cfg(feature = "tokio-tungstenite")]
+mod tungstenite {
+    use super::*;
+
+    use crate::{Error, ErrorKind};
 
     impl<R> Service<R> for TungsteniteConnector
     where

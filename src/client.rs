@@ -5,6 +5,7 @@ use crate::service::{
 };
 
 use crate::error::BoxError;
+use crate::service::CloneBoxApiService;
 use std::borrow::Cow;
 use std::error::Error as StdError;
 use tokio::sync::mpsc;
@@ -18,24 +19,6 @@ use tower::{Service, ServiceBuilder};
 #[derive(Clone, Debug)]
 pub struct Client<S = CloneBoxApiService> {
     service: S,
-}
-
-/// A [`Clone`]able [`Service`] that is compatible with [`Client`].
-pub type CloneBoxApiService = CloneBoxService<RequestEnvelope, ResponseEnvelope, Error>;
-
-/// Trait alias for a [`Service`] that is compatible with [`Client`].
-pub trait ClientService:
-    Service<RequestEnvelope, Response = ResponseEnvelope> + Send + Sync
-where
-    Error: From<Self::Error>,
-{
-}
-
-impl<S> ClientService for S
-where
-    S: Service<RequestEnvelope, Response = ResponseEnvelope> + Send + Sync,
-    Error: From<Self::Error>,
-{
 }
 
 impl Client<CloneBoxApiService> {
