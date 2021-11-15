@@ -1,4 +1,4 @@
-use crate::data::{RequestEnvelope, ResponseEnvelope};
+use crate::data::{RequestEnvelope, RequestId, ResponseEnvelope};
 use crate::error::{BoxError, Error};
 
 use futures_core::TryStream;
@@ -22,10 +22,10 @@ crate::cfg_feature! {
 pub struct IdTagger(usize);
 
 impl TagStore<RequestEnvelope, ResponseEnvelope> for IdTagger {
-    type Tag = String;
+    type Tag = RequestId;
 
     fn assign_tag(mut self: Pin<&mut Self>, request: &mut RequestEnvelope) -> Self::Tag {
-        let id = self.0.to_string();
+        let id = RequestId::from(self.0.to_string());
         request.request_id = Some(id.clone());
         self.0 += 1;
         id
