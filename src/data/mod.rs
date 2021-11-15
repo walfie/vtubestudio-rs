@@ -7,8 +7,8 @@ pub use crate::data::error_id::ErrorId;
 use crate::error::{Error, UnexpectedResponseError};
 
 use paste::paste;
-use serde::de::DeserializeOwned;
-use serde::{Deserialize, Serialize};
+use serde::de::{DeserializeOwned, IntoDeserializer};
+use serde::{Deserialize, Deserializer, Serialize, Serializer};
 use serde_json::Value;
 use std::borrow::Cow;
 
@@ -66,17 +66,102 @@ impl RequestEnvelope {
     }
 }
 
+impl<'de> Deserialize<'de> for ResponseEnvelope {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: Deserializer<'de>,
+    {
+        #[derive(Deserialize)]
+        #[serde(rename_all = "camelCase")]
+        struct RawResponseEnvelope {
+            pub api_name: String,
+            pub api_version: String,
+            pub timestamp: i64,
+            #[serde(rename = "requestID")]
+            pub request_id: String,
+            pub message_type: EnumString<ResponseType>,
+            pub data: Value,
+        }
+
+        let raw = RawResponseEnvelope::deserialize(deserializer)?;
+
+        let data = if raw.message_type == ResponseType::ApiError {
+            Err(ApiError::deserialize(raw.data.into_deserializer())
+                .map_err(serde::de::Error::custom)?)
+        } else {
+            Ok(ResponseData {
+                message_type: raw.message_type,
+                data: raw.data,
+            })
+        };
+
+        Ok(Self {
+            api_name: raw.api_name,
+            api_version: raw.api_version,
+            timestamp: raw.timestamp,
+            request_id: raw.request_id,
+            data,
+        })
+    }
+}
+
+impl Serialize for ResponseEnvelope {
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: Serializer,
+    {
+        #[derive(Serialize)]
+        #[serde(rename_all = "camelCase")]
+        struct RawResponseEnvelope<'a, T> {
+            pub api_name: &'a str,
+            pub api_version: &'a str,
+            pub timestamp: i64,
+            #[serde(rename = "requestID")]
+            pub request_id: &'a str,
+            pub message_type: &'a EnumString<ResponseType>,
+            pub data: &'a T,
+        }
+
+        match &self.data {
+            Ok(inner) => RawResponseEnvelope {
+                api_name: &self.api_name,
+                api_version: &self.api_version,
+                timestamp: self.timestamp,
+                request_id: &self.request_id,
+                message_type: &inner.message_type,
+                data: &inner.data,
+            }
+            .serialize(serializer),
+            Err(e) => RawResponseEnvelope {
+                api_name: &self.api_name,
+                api_version: &self.api_version,
+                timestamp: self.timestamp,
+                request_id: &self.request_id,
+                message_type: &ApiError::MESSAGE_TYPE,
+                data: &e,
+            }
+            .serialize(serializer),
+        }
+    }
+}
+
 /// A VTube Studio API response.
 #[allow(missing_docs)]
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
-#[serde(rename_all = "camelCase")]
+#[derive(Debug, Clone, PartialEq)]
 pub struct ResponseEnvelope {
     pub api_name: String,
     pub api_version: String,
     pub timestamp: i64,
-    #[serde(rename = "requestID")]
     pub request_id: String,
+    pub data: Result<ResponseData, ApiError>,
+}
+
+/// Response data wrapper for [`ResponseEnvelope`].
+#[derive(Debug, Clone, PartialEq)]
+pub struct ResponseData {
+    /// The message type.
     pub message_type: EnumString<ResponseType>,
+    /// The raw data.
     pub data: Value,
 }
 
@@ -85,10 +170,12 @@ impl Default for ResponseEnvelope {
         Self {
             api_name: API_NAME.to_owned(),
             api_version: API_VERSION.to_owned(),
-            message_type: EnumString::const_new_from_str("UnknownResponse"),
             timestamp: 0,
             request_id: "".to_owned(),
-            data: Value::Null,
+            data: Ok(ResponseData {
+                message_type: EnumString::const_new_from_str("UnknownResponse"),
+                data: Value::Null,
+            }),
         }
     }
 }
@@ -96,14 +183,12 @@ impl Default for ResponseEnvelope {
 impl ResponseEnvelope {
     /// Returns `true` if the message type is `APIError`.
     pub fn is_api_error(&self) -> bool {
-        self.message_type == ApiError::MESSAGE_TYPE
+        self.data.is_err()
     }
 
     /// Returns `true` if the message is an `APIError` with [`ErrorId::REQUEST_REQUIRES_AUTHENTICATION`].
     pub fn is_unauthenticated_error(&self) -> bool {
-        self.is_api_error()
-            && self.data.get("errorID").and_then(|id| id.as_i64())
-                == Some(ErrorId::REQUEST_REQUIRES_AUTHENTICATION.as_i32() as i64)
+        matches!(&self.data, Err(e) if e.is_unauthenticated())
     }
 
     /// Sets the request ID.
@@ -130,22 +215,24 @@ impl ResponseEnvelope {
         Resp: Response + Serialize,
     {
         let data = serde_json::to_value(&data)?;
-        self.message_type = Resp::MESSAGE_TYPE.into();
-        self.data = data;
+        self.data = Ok(ResponseData {
+            message_type: Resp::MESSAGE_TYPE.into(),
+            data,
+        });
         Ok(())
     }
 
     /// Attempts to parse the response into a the given [`Response`] type. This can return an error
     /// if the message type is an [`ApiError`] or isn't the expected type.
-    pub fn parse<Resp: Response>(&self) -> Result<Resp, Error> {
-        if self.message_type == Resp::MESSAGE_TYPE {
-            Ok(Resp::deserialize(&self.data)?)
-        } else if self.is_api_error() {
-            Err(ApiError::deserialize(&self.data)?.into())
+    pub fn parse<Resp: Response>(self) -> Result<Resp, Error> {
+        let data = self.data?;
+
+        if data.message_type == Resp::MESSAGE_TYPE {
+            Ok(serde_json::from_value(data.data)?)
         } else {
             Err(UnexpectedResponseError {
                 expected: Resp::MESSAGE_TYPE,
-                received: self.message_type.clone(),
+                received: data.message_type,
             }
             .into())
         }
@@ -791,12 +878,14 @@ mod tests {
                 api_version: "1.0".into(),
                 request_id: "MyIDWithLessThan64Characters".into(),
                 timestamp: 1625405710728,
-                message_type: ApiStateResponse::MESSAGE_TYPE.into(),
-                data: serde_json::to_value(ApiStateResponse {
-                    active: true,
-                    vtubestudio_version: "1.9.0".into(),
-                    current_session_authenticated: false,
-                })?,
+                data: Ok(ResponseData {
+                    message_type: ApiStateResponse::MESSAGE_TYPE.into(),
+                    data: serde_json::to_value(ApiStateResponse {
+                        active: true,
+                        vtubestudio_version: "1.9.0".into(),
+                        current_session_authenticated: false,
+                    })?
+                }),
             }
         );
 
@@ -826,15 +915,17 @@ mod tests {
                 api_version: "1.0".into(),
                 request_id: "SomeID".into(),
                 timestamp: 1625405710728,
-                message_type: ParameterValueResponse::MESSAGE_TYPE.into(),
-                data: serde_json::to_value(ParameterValueResponse(Parameter {
-                    name: "MyCustomParamName1".into(),
-                    added_by: "My Plugin Name".into(),
-                    value: 12.4,
-                    min: -30.0,
-                    max: 30.0,
-                    default_value: 0.0
-                }))?,
+                data: Ok(ResponseData {
+                    message_type: ParameterValueResponse::MESSAGE_TYPE.into(),
+                    data: serde_json::to_value(ParameterValueResponse(Parameter {
+                        name: "MyCustomParamName1".into(),
+                        added_by: "My Plugin Name".into(),
+                        value: 12.4,
+                        min: -30.0,
+                        max: 30.0,
+                        default_value: 0.0
+                    }))?,
+                }),
             }
         );
 
