@@ -5,12 +5,14 @@ use crate::service::{
 };
 
 use crate::error::BoxError;
-use crate::service::CloneBoxApiService;
 use std::borrow::Cow;
 use std::error::Error as StdError;
 use tokio::sync::mpsc;
 use tower::reconnect::Reconnect;
 use tower::{Service, ServiceBuilder};
+
+// TODO: Kept here for backwards compatibility. Remove in 0.3.
+pub use crate::service::{ClientService, CloneBoxApiService};
 
 /// A client for interacting with the VTube Studio API.
 ///
