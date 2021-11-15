@@ -4,7 +4,7 @@ mod error_id;
 
 pub use crate::data::enumeration::EnumString;
 pub use crate::data::envelope::{
-    RequestEnvelope, RequestId, ResponseData, ResponseEnvelope, API_NAME, API_VERSION,
+    OpaqueValue, RequestEnvelope, RequestId, ResponseData, ResponseEnvelope, API_NAME, API_VERSION,
 };
 pub use crate::data::error_id::ErrorId;
 
@@ -654,7 +654,7 @@ mod tests {
             timestamp: 1625405710728,
             data: Ok(ResponseData {
                 message_type: ApiStateResponse::MESSAGE_TYPE.into(),
-                data: serde_json::to_value(ApiStateResponse {
+                data: OpaqueValue::new(&ApiStateResponse {
                     active: true,
                     vtubestudio_version: "1.9.0".into(),
                     current_session_authenticated: false,
@@ -724,7 +724,7 @@ mod tests {
             timestamp: 1625405710728,
             data: Ok(ResponseData {
                 message_type: ParameterValueResponse::MESSAGE_TYPE.into(),
-                data: serde_json::to_value(ParameterValueResponse(Parameter {
+                data: OpaqueValue::new(&ParameterValueResponse(Parameter {
                     name: "MyCustomParamName1".into(),
                     added_by: "My Plugin Name".into(),
                     value: 12.4,
