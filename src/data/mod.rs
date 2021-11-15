@@ -1,156 +1,17 @@
 mod enumeration;
+mod envelope;
 mod error_id;
 
 pub use crate::data::enumeration::EnumString;
+pub use crate::data::envelope::{
+    RequestEnvelope, ResponseData, ResponseEnvelope, API_NAME, API_VERSION,
+};
 pub use crate::data::error_id::ErrorId;
-
-use crate::error::{Error, UnexpectedResponseError};
 
 use paste::paste;
 use serde::de::DeserializeOwned;
 use serde::{Deserialize, Serialize};
-use serde_json::Value;
 use std::borrow::Cow;
-
-/// The default `api_name` value in requests and responses.
-pub const API_NAME: &'static str = "VTubeStudioPublicAPI";
-
-/// The default `api_version` value in requests and responses.
-pub const API_VERSION: &'static str = "1.0";
-
-/// A VTube Studio API request.
-#[allow(missing_docs)]
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
-#[serde(rename_all = "camelCase")]
-pub struct RequestEnvelope {
-    pub api_name: Cow<'static, str>,
-    pub api_version: Cow<'static, str>,
-    #[serde(rename = "requestID")]
-    pub request_id: Option<String>,
-    pub message_type: EnumString<RequestType>,
-    pub data: Value,
-}
-
-impl Default for RequestEnvelope {
-    fn default() -> Self {
-        Self {
-            api_name: Cow::Borrowed(API_NAME),
-            api_version: Cow::Borrowed(API_VERSION),
-            message_type: EnumString::new(RequestType::ApiStateRequest),
-            request_id: None,
-            data: Value::Null,
-        }
-    }
-}
-
-impl RequestEnvelope {
-    /// Creates a request with the underlying typed data.
-    pub fn new<Req: Request>(data: &Req) -> Result<Self, serde_json::Error> {
-        let mut value = Self::default();
-        value.set_data(data)?;
-        Ok(value)
-    }
-
-    /// Sets the `data` field of a request.
-    pub fn set_data<Req: Request>(&mut self, data: &Req) -> Result<(), serde_json::Error> {
-        let data = serde_json::to_value(&data)?;
-        self.message_type = Req::MESSAGE_TYPE.into();
-        self.data = data;
-        Ok(())
-    }
-
-    /// Sets the request ID.
-    pub fn with_id<S: Into<Option<String>>>(mut self, id: S) -> Self {
-        self.request_id = id.into();
-        self
-    }
-}
-
-/// A VTube Studio API response.
-#[allow(missing_docs)]
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
-#[serde(rename_all = "camelCase")]
-pub struct ResponseEnvelope {
-    pub api_name: String,
-    pub api_version: String,
-    pub timestamp: i64,
-    #[serde(rename = "requestID")]
-    pub request_id: String,
-    pub message_type: EnumString<ResponseType>,
-    pub data: Value,
-}
-
-impl Default for ResponseEnvelope {
-    fn default() -> Self {
-        Self {
-            api_name: API_NAME.to_owned(),
-            api_version: API_VERSION.to_owned(),
-            message_type: EnumString::const_new_from_str("UnknownResponse"),
-            timestamp: 0,
-            request_id: "".to_owned(),
-            data: Value::Null,
-        }
-    }
-}
-
-impl ResponseEnvelope {
-    /// Returns `true` if the message type is `APIError`.
-    pub fn is_api_error(&self) -> bool {
-        self.message_type == ApiError::MESSAGE_TYPE
-    }
-
-    /// Returns `true` if the message is an `APIError` with [`ErrorId::REQUEST_REQUIRES_AUTHENTICATION`].
-    pub fn is_unauthenticated_error(&self) -> bool {
-        self.is_api_error()
-            && self.data.get("errorID").and_then(|id| id.as_i64())
-                == Some(ErrorId::REQUEST_REQUIRES_AUTHENTICATION.as_i32() as i64)
-    }
-
-    /// Sets the request ID.
-    pub fn with_id(mut self, id: String) -> Self {
-        self.request_id = id;
-        self
-    }
-}
-
-impl ResponseEnvelope {
-    /// Creates a new response with the underlying typed data.
-    pub fn new<Resp>(data: &Resp) -> Result<Self, serde_json::Error>
-    where
-        Resp: Response + Serialize,
-    {
-        let mut value = Self::default();
-        value.set_data(data)?;
-        Ok(value)
-    }
-
-    /// Sets the `data` field of a response.
-    pub fn set_data<Resp>(&mut self, data: &Resp) -> Result<(), serde_json::Error>
-    where
-        Resp: Response + Serialize,
-    {
-        let data = serde_json::to_value(&data)?;
-        self.message_type = Resp::MESSAGE_TYPE.into();
-        self.data = data;
-        Ok(())
-    }
-
-    /// Attempts to parse the response into a the given [`Response`] type. This can return an error
-    /// if the message type is an [`ApiError`] or isn't the expected type.
-    pub fn parse<Resp: Response>(&self) -> Result<Resp, Error> {
-        if self.message_type == Resp::MESSAGE_TYPE {
-            Ok(Resp::deserialize(&self.data)?)
-        } else if self.is_api_error() {
-            Err(ApiError::deserialize(&self.data)?.into())
-        } else {
-            Err(UnexpectedResponseError {
-                expected: Resp::MESSAGE_TYPE,
-                received: self.message_type.clone(),
-            }
-            .into())
-        }
-    }
-}
 
 /// Trait describing a VTube Studio request.
 pub trait Request: Serialize {
@@ -757,75 +618,111 @@ mod tests {
         let mut req = RequestEnvelope::new(&ApiStateRequest {})?;
         req.request_id = Some("MyIDWithLessThan64Characters".into());
 
-        assert_eq!(
-            serde_json::to_value(&req)?,
-            json!({
-                "apiName": "VTubeStudioPublicAPI",
-                "apiVersion": "1.0",
-                "requestID": "MyIDWithLessThan64Characters",
-                "messageType": "APIStateRequest",
-                "data": {}
-            })
-        );
+        let json = json!({
+            "apiName": "VTubeStudioPublicAPI",
+            "apiVersion": "1.0",
+            "requestID": "MyIDWithLessThan64Characters",
+            "messageType": "APIStateRequest",
+            "data": {}
+        });
+
+        assert_eq!(serde_json::to_value(&req)?, json);
+        assert_eq!(serde_json::from_value::<RequestEnvelope>(json)?, req);
 
         Ok(())
     }
 
     #[test]
     fn response() -> Result {
-        assert_eq!(
-            serde_json::from_value::<ResponseEnvelope>(json!({
-                "apiName": "VTubeStudioPublicAPI",
-                "apiVersion": "1.0",
-                "timestamp": 1625405710728i64,
-                "messageType": "APIStateResponse",
-                "requestID": "MyIDWithLessThan64Characters",
-                "data": {
-                    "active": true,
-                    "vTubeStudioVersion": "1.9.0",
-                    "currentSessionAuthenticated": false
-                }
-            }))?,
-            ResponseEnvelope {
-                api_name: "VTubeStudioPublicAPI".into(),
-                api_version: "1.0".into(),
-                request_id: "MyIDWithLessThan64Characters".into(),
-                timestamp: 1625405710728,
+        let json = json!({
+            "apiName": "VTubeStudioPublicAPI",
+            "apiVersion": "1.0",
+            "timestamp": 1625405710728i64,
+            "messageType": "APIStateResponse",
+            "requestID": "MyIDWithLessThan64Characters",
+            "data": {
+                "active": true,
+                "vTubeStudioVersion": "1.9.0",
+                "currentSessionAuthenticated": false
+            }
+        });
+
+        let resp = ResponseEnvelope {
+            api_name: "VTubeStudioPublicAPI".into(),
+            api_version: "1.0".into(),
+            request_id: "MyIDWithLessThan64Characters".into(),
+            timestamp: 1625405710728,
+            data: Ok(ResponseData {
                 message_type: ApiStateResponse::MESSAGE_TYPE.into(),
                 data: serde_json::to_value(ApiStateResponse {
                     active: true,
                     vtubestudio_version: "1.9.0".into(),
                     current_session_authenticated: false,
                 })?,
+            }),
+        };
+
+        assert_eq!(serde_json::to_value(&resp)?, json);
+        assert_eq!(serde_json::from_value::<ResponseEnvelope>(json)?, resp);
+
+        Ok(())
+    }
+
+    #[test]
+    fn api_error() -> Result {
+        let json = json!({
+            "apiName": "VTubeStudioPublicAPI",
+            "apiVersion": "1.0",
+            "timestamp": 1625405710728i64,
+            "requestID": "SomeID",
+            "messageType": "APIError",
+            "data": {
+                "errorID": 1,
+                "message": "Error message"
             }
-        );
+        });
+
+        let resp = ResponseEnvelope {
+            api_name: "VTubeStudioPublicAPI".into(),
+            api_version: "1.0".into(),
+            request_id: "SomeID".into(),
+            timestamp: 1625405710728,
+            data: Err(ApiError {
+                error_id: ErrorId::API_ACCESS_DEACTIVATED,
+                message: "Error message".into(),
+            }),
+        };
+
+        assert_eq!(serde_json::to_value(&resp)?, json);
+        assert_eq!(serde_json::from_value::<ResponseEnvelope>(json)?, resp);
 
         Ok(())
     }
 
     #[test]
     fn parameter_value_response() -> Result {
-        assert_eq!(
-            serde_json::from_value::<ResponseEnvelope>(json!({
-                "apiName": "VTubeStudioPublicAPI",
-                "apiVersion": "1.0",
-                "timestamp": 1625405710728i64,
-                "requestID": "SomeID",
-                "messageType": "ParameterValueResponse",
-                "data": {
-                    "name": "MyCustomParamName1",
-                    "addedBy": "My Plugin Name",
-                    "value": 12.4,
-                    "min": -30.0,
-                    "max": 30.0,
-                    "defaultValue": 0.0
-                }
-            }))?,
-            ResponseEnvelope {
-                api_name: "VTubeStudioPublicAPI".into(),
-                api_version: "1.0".into(),
-                request_id: "SomeID".into(),
-                timestamp: 1625405710728,
+        let json = json!({
+            "apiName": "VTubeStudioPublicAPI",
+            "apiVersion": "1.0",
+            "timestamp": 1625405710728i64,
+            "requestID": "SomeID",
+            "messageType": "ParameterValueResponse",
+            "data": {
+                "name": "MyCustomParamName1",
+                "addedBy": "My Plugin Name",
+                "value": 12.4,
+                "min": -30.0,
+                "max": 30.0,
+                "defaultValue": 0.0
+            }
+        });
+
+        let resp = ResponseEnvelope {
+            api_name: "VTubeStudioPublicAPI".into(),
+            api_version: "1.0".into(),
+            request_id: "SomeID".into(),
+            timestamp: 1625405710728,
+            data: Ok(ResponseData {
                 message_type: ParameterValueResponse::MESSAGE_TYPE.into(),
                 data: serde_json::to_value(ParameterValueResponse(Parameter {
                     name: "MyCustomParamName1".into(),
@@ -833,10 +730,13 @@ mod tests {
                     value: 12.4,
                     min: -30.0,
                     max: 30.0,
-                    default_value: 0.0
+                    default_value: 0.0,
                 }))?,
-            }
-        );
+            }),
+        };
+
+        assert_eq!(serde_json::to_value(&resp)?, json);
+        assert_eq!(serde_json::from_value::<ResponseEnvelope>(json)?, resp);
 
         Ok(())
     }
