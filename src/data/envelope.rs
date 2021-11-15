@@ -3,9 +3,9 @@ use crate::data::{ApiError, Request, RequestType, Response, ResponseType};
 
 use crate::error::{Error, UnexpectedResponseError};
 
-use serde::de::{DeserializeOwned, IntoDeserializer};
+use serde::de::DeserializeOwned;
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
-use serde_json::Value;
+use serde_json::value::RawValue;
 use std::borrow::Cow;
 use std::fmt;
 
@@ -58,23 +58,35 @@ impl fmt::Display for RequestId {
 }
 
 /// Arbitrary JSON data used in [`RequestEnvelope`] and [`ResponseEnvelope`].
-#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
-pub struct OpaqueValue(Value);
+#[derive(Default, Clone, Debug, Serialize, Deserialize)]
+pub struct OpaqueValue(Box<RawValue>);
+
+// This is an expensive operation so it's only enabled in tests
+#[cfg(test)]
+impl PartialEq for OpaqueValue {
+    fn eq(&self, rhs: &Self) -> bool {
+        let left = self.deserialize::<serde_json::Value>();
+        let right = rhs.deserialize::<serde_json::Value>();
+
+        matches!((left, right), (Ok(a), Ok(b)) if a == b)
+    }
+}
 
 impl OpaqueValue {
     /// Creates a new instance from a serializable value.
-    pub fn new<T: Serialize>(value: T) -> Result<Self, serde_json::Error> {
-        Ok(Self(serde_json::to_value(value)?))
+    pub fn new<T: Serialize>(value: &T) -> Result<Self, serde_json::Error> {
+        Ok(Self(serde_json::value::to_raw_value(value)?))
     }
 
     /// Deserializes the value.
-    pub fn deserialize<T: DeserializeOwned>(self) -> Result<T, serde_json::Error> {
-        Ok(serde_json::from_value(self.0)?)
+    pub fn deserialize<T: DeserializeOwned>(&self) -> Result<T, serde_json::Error> {
+        Ok(serde_json::from_str(self.0.get())?)
     }
 }
 
 /// A VTube Studio API request.
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[cfg_attr(test, derive(PartialEq))]
 #[serde(rename_all = "camelCase")]
 pub struct RequestEnvelope {
     /// API name, typically `"VTubeStudioPublicAPI"`.
@@ -97,7 +109,7 @@ impl Default for RequestEnvelope {
             api_version: Cow::Borrowed(API_VERSION),
             message_type: EnumString::new(RequestType::ApiStateRequest),
             request_id: None,
-            data: OpaqueValue(Value::Null),
+            data: OpaqueValue::default(),
         }
     }
 }
@@ -112,9 +124,8 @@ impl RequestEnvelope {
 
     /// Sets the `data` field of a request.
     pub fn set_data<Req: Request>(&mut self, data: &Req) -> Result<(), serde_json::Error> {
-        let data = serde_json::to_value(&data)?;
         self.message_type = Req::MESSAGE_TYPE.into();
-        self.data = OpaqueValue(data);
+        self.data = OpaqueValue::new(data)?;
         Ok(())
     }
 
@@ -126,7 +137,8 @@ impl RequestEnvelope {
 }
 
 /// A VTube Studio API response.
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone)]
+#[cfg_attr(test, derive(PartialEq))]
 pub struct ResponseEnvelope {
     /// API name, typically `"VTubeStudioPublicAPI"`.
     pub api_name: Cow<'static, str>,
@@ -165,10 +177,9 @@ impl ResponseEnvelope {
     where
         Resp: Response + Serialize,
     {
-        let data = serde_json::to_value(data)?;
         self.data = Ok(ResponseData {
             message_type: Resp::MESSAGE_TYPE.into(),
-            data: OpaqueValue(data),
+            data: OpaqueValue::new(data)?,
         });
         Ok(())
     }
@@ -187,7 +198,7 @@ impl ResponseEnvelope {
         let data = self.data?;
 
         if data.message_type == Resp::MESSAGE_TYPE {
-            Ok(serde_json::from_value(data.data.0)?)
+            Ok(data.data.deserialize()?)
         } else {
             Err(UnexpectedResponseError {
                 expected: Resp::MESSAGE_TYPE,
@@ -210,7 +221,8 @@ impl ResponseEnvelope {
 }
 
 /// Response data wrapper for [`ResponseEnvelope`] (typically for non-error responses).
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone)]
+#[cfg_attr(test, derive(PartialEq))]
 pub struct ResponseData {
     /// The message type.
     pub message_type: EnumString<ResponseType>,
@@ -241,8 +253,7 @@ impl<'de> Deserialize<'de> for ResponseEnvelope {
         let raw = RawResponseEnvelope::deserialize(deserializer)?;
 
         let data = if raw.message_type == ResponseType::ApiError {
-            Err(ApiError::deserialize(raw.data.0.into_deserializer())
-                .map_err(serde::de::Error::custom)?)
+            Err(raw.data.deserialize().map_err(serde::de::Error::custom)?)
         } else {
             Ok(ResponseData {
                 message_type: raw.message_type,
@@ -323,7 +334,7 @@ impl Default for ResponseEnvelope {
             request_id: RequestId("".to_owned()),
             data: Ok(ResponseData {
                 message_type: EnumString::const_new_from_str("UnknownResponse"),
-                data: OpaqueValue(Value::Null),
+                data: OpaqueValue::default(),
             }),
         }
     }

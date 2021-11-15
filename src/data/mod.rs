@@ -654,7 +654,7 @@ mod tests {
             timestamp: 1625405710728,
             data: Ok(ResponseData {
                 message_type: ApiStateResponse::MESSAGE_TYPE.into(),
-                data: OpaqueValue::new(ApiStateResponse {
+                data: OpaqueValue::new(&ApiStateResponse {
                     active: true,
                     vtubestudio_version: "1.9.0".into(),
                     current_session_authenticated: false,
@@ -724,7 +724,7 @@ mod tests {
             timestamp: 1625405710728,
             data: Ok(ResponseData {
                 message_type: ParameterValueResponse::MESSAGE_TYPE.into(),
-                data: OpaqueValue::new(ParameterValueResponse(Parameter {
+                data: OpaqueValue::new(&ParameterValueResponse(Parameter {
                     name: "MyCustomParamName1".into(),
                     added_by: "My Plugin Name".into(),
                     value: 12.4,
