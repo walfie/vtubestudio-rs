@@ -7,12 +7,55 @@ use serde::de::IntoDeserializer;
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
 use serde_json::Value;
 use std::borrow::Cow;
+use std::fmt;
 
 /// The default `api_name` value in requests and responses.
 pub const API_NAME: &'static str = "VTubeStudioPublicAPI";
 
 /// The default `api_version` value in requests and responses.
 pub const API_VERSION: &'static str = "1.0";
+
+/// Request ID used in [`RequestEnvelope`] and [`ResponseEnvelope`].
+///
+/// This is a newtype wrapper rather than a plain `String` to allow for possible optimizations to
+/// the internal representation (using types optimized for small strings, etc).
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct RequestId(String);
+
+impl RequestId {
+    /// Creates a new [`RequestId`].
+    pub fn new(value: String) -> Self {
+        Self(value)
+    }
+
+    /// Returns the string representation of the request ID.
+    pub fn as_str(&self) -> &str {
+        self.0.as_ref()
+    }
+
+    /// Consumes this value and returns the inner `String` representation.
+    pub fn into_string(self) -> String {
+        self.0
+    }
+}
+
+impl From<String> for RequestId {
+    fn from(value: String) -> Self {
+        Self(value)
+    }
+}
+
+impl From<&str> for RequestId {
+    fn from(value: &str) -> Self {
+        Self(value.into())
+    }
+}
+
+impl fmt::Display for RequestId {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(f, "{}", self.0)
+    }
+}
 
 /// A VTube Studio API request.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
@@ -24,7 +67,7 @@ pub struct RequestEnvelope {
     pub api_version: Cow<'static, str>,
     /// The original request ID.
     #[serde(rename = "requestID")]
-    pub request_id: Option<String>,
+    pub request_id: Option<RequestId>,
     /// The request type.
     pub message_type: EnumString<RequestType>,
     /// The request data.
@@ -60,7 +103,7 @@ impl RequestEnvelope {
     }
 
     /// Sets the request ID.
-    pub fn with_id<S: Into<Option<String>>>(mut self, id: S) -> Self {
+    pub fn with_id<T: Into<Option<RequestId>>>(mut self, id: T) -> Self {
         self.request_id = id.into();
         self
     }
@@ -76,7 +119,7 @@ pub struct ResponseEnvelope {
     /// Unix timestamp (in milliseconds) of the response.
     pub timestamp: i64,
     /// The original request ID.
-    pub request_id: String,
+    pub request_id: RequestId,
     /// Response data, which could be an [`ApiError`].
     pub data: Result<ResponseData, ApiError>,
 }
@@ -96,7 +139,7 @@ impl ResponseEnvelope {
     }
 
     /// Sets the request ID.
-    pub fn with_id(mut self, id: String) -> Self {
+    pub fn with_id(mut self, id: RequestId) -> Self {
         self.request_id = id;
         self
     }
@@ -174,7 +217,7 @@ impl<'de> Deserialize<'de> for ResponseEnvelope {
             pub api_version: Cow<'a, str>,
             pub timestamp: i64,
             #[serde(rename = "requestID")]
-            pub request_id: String,
+            pub request_id: RequestId,
             pub message_type: EnumString<ResponseType>,
             pub data: Value,
         }
@@ -227,7 +270,7 @@ impl Serialize for ResponseEnvelope {
             pub api_version: &'a str,
             pub timestamp: i64,
             #[serde(rename = "requestID")]
-            pub request_id: &'a str,
+            pub request_id: &'a RequestId,
             pub message_type: &'a EnumString<ResponseType>,
             pub data: &'a T,
         }
@@ -261,7 +304,7 @@ impl Default for ResponseEnvelope {
             api_name: API_NAME.into(),
             api_version: API_VERSION.into(),
             timestamp: 0,
-            request_id: "".to_owned(),
+            request_id: RequestId("".to_owned()),
             data: Ok(ResponseData {
                 message_type: EnumString::const_new_from_str("UnknownResponse"),
                 data: Value::Null,

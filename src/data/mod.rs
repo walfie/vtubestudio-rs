@@ -4,7 +4,7 @@ mod error_id;
 
 pub use crate::data::enumeration::EnumString;
 pub use crate::data::envelope::{
-    RequestEnvelope, ResponseData, ResponseEnvelope, API_NAME, API_VERSION,
+    RequestEnvelope, RequestId, ResponseData, ResponseEnvelope, API_NAME, API_VERSION,
 };
 pub use crate::data::error_id::ErrorId;
 
