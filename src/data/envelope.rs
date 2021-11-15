@@ -169,9 +169,9 @@ impl<'de> Deserialize<'de> for ResponseEnvelope {
         #[serde(rename_all = "camelCase")]
         struct RawResponseEnvelope<'a> {
             #[serde(borrow)]
-            pub api_name: &'a str,
+            pub api_name: Cow<'a, str>,
             #[serde(borrow)]
-            pub api_version: &'a str,
+            pub api_version: Cow<'a, str>,
             pub timestamp: i64,
             #[serde(rename = "requestID")]
             pub request_id: String,
@@ -191,18 +191,18 @@ impl<'de> Deserialize<'de> for ResponseEnvelope {
             })
         };
 
-        // Typically this will always be "VTubeStudioPublicAPI, so we can avoid allocating
+        // Typically this will be "VTubeStudioPublicAPI, so we can possibly avoid allocating
         let api_name = if raw.api_name == API_NAME {
             Cow::Borrowed(API_NAME)
         } else {
-            Cow::Owned(raw.api_name.to_string())
+            Cow::Owned(raw.api_name.into_owned())
         };
 
-        // Typically this will always be "1.0", so we can avoid allocating
+        // Typically this will be "1.0", so we can possibly avoid allocating
         let api_version = if raw.api_version == API_VERSION {
             Cow::Borrowed(API_VERSION)
         } else {
-            Cow::Owned(raw.api_version.to_string())
+            Cow::Owned(raw.api_version.into_owned())
         };
 
         Ok(Self {
