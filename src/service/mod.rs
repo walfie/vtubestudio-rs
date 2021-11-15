@@ -19,6 +19,24 @@ crate::cfg_feature! {
     pub use crate::service::api::TungsteniteApiService;
 }
 
+/// A [`Clone`]able [`Service`] that is compatible with [`Client`](crate::client::Client).
+pub type CloneBoxApiService = CloneBoxService<RequestEnvelope, ResponseEnvelope, Error>;
+
+/// Trait alias for a [`Service`] that is compatible with [`Client`](crate::client::Client).
+pub trait ClientService:
+    Service<RequestEnvelope, Response = ResponseEnvelope> + Send + Sync
+where
+    Error: From<Self::Error>,
+{
+}
+
+impl<S> ClientService for S
+where
+    S: Service<RequestEnvelope, Response = ResponseEnvelope> + Send + Sync,
+    Error: From<Self::Error>,
+{
+}
+
 /// Submit a request to the underlying service and parse the response.
 ///
 /// This is the same as [`Client::send`](crate::Client::send) but as a standalone function.

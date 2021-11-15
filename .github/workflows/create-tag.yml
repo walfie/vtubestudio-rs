@@ -39,5 +39,5 @@ jobs:
         CARGO_REGISTRY_TOKEN: ${{ secrets.CARGO_REGISTRY_TOKEN }}
       with:
         command: release
-        args: --no-confirm --execute --no-verify
+        args: --no-confirm --execute --no-verify --dev-version
 

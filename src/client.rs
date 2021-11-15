@@ -11,6 +11,9 @@ use tokio::sync::mpsc;
 use tower::reconnect::Reconnect;
 use tower::{Service, ServiceBuilder};
 
+// TODO: Kept here for backwards compatibility. Remove in 0.3.
+pub use crate::service::{ClientService, CloneBoxApiService};
+
 /// A client for interacting with the VTube Studio API.
 ///
 /// This is a wrapper on top of [`tower::Service`] that provides a convenient interface for
@@ -18,24 +21,6 @@ use tower::{Service, ServiceBuilder};
 #[derive(Clone, Debug)]
 pub struct Client<S = CloneBoxApiService> {
     service: S,
-}
-
-/// A [`Clone`]able [`Service`] that is compatible with [`Client`].
-pub type CloneBoxApiService = CloneBoxService<RequestEnvelope, ResponseEnvelope, Error>;
-
-/// Trait alias for a [`Service`] that is compatible with [`Client`].
-pub trait ClientService:
-    Service<RequestEnvelope, Response = ResponseEnvelope> + Send + Sync
-where
-    Error: From<Self::Error>,
-{
-}
-
-impl<S> ClientService for S
-where
-    S: Service<RequestEnvelope, Response = ResponseEnvelope> + Send + Sync,
-    Error: From<Self::Error>,
-{
 }
 
 impl Client<CloneBoxApiService> {
