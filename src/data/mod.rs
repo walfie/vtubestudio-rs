@@ -19,15 +19,19 @@ pub const API_NAME: &'static str = "VTubeStudioPublicAPI";
 pub const API_VERSION: &'static str = "1.0";
 
 /// A VTube Studio API request.
-#[allow(missing_docs)]
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct RequestEnvelope {
+    /// API name, typically `"VTubeStudioPublicAPI"`.
     pub api_name: Cow<'static, str>,
+    /// API version, typically `"1.0"`.
     pub api_version: Cow<'static, str>,
+    /// The original request ID.
     #[serde(rename = "requestID")]
     pub request_id: Option<String>,
+    /// The request type.
     pub message_type: EnumString<RequestType>,
+    /// The request data.
     pub data: Value,
 }
 
@@ -66,6 +70,99 @@ impl RequestEnvelope {
     }
 }
 
+/// A VTube Studio API response.
+#[derive(Debug, Clone, PartialEq)]
+pub struct ResponseEnvelope {
+    /// API name, typically `"VTubeStudioPublicAPI"`.
+    pub api_name: Cow<'static, str>,
+    /// API version, typically `"1.0"`.
+    pub api_version: Cow<'static, str>,
+    /// Unix timestamp (in milliseconds) of the response.
+    pub timestamp: i64,
+    /// The original request ID.
+    pub request_id: String,
+    /// Response data, which could be an [`ApiError`].
+    pub data: Result<ResponseData, ApiError>,
+}
+
+const API_ERROR_MESSAGE_TYPE: &'static EnumString<ResponseType> =
+    &EnumString::new(ResponseType::ApiError);
+
+impl ResponseEnvelope {
+    /// Creates a new response with the underlying typed data.
+    pub fn new<Resp>(data: &Resp) -> Result<Self, serde_json::Error>
+    where
+        Resp: Response + Serialize,
+    {
+        let mut value = Self::default();
+        value.set_data(data)?;
+        Ok(value)
+    }
+
+    /// Sets the request ID.
+    pub fn with_id(mut self, id: String) -> Self {
+        self.request_id = id;
+        self
+    }
+
+    /// Sets the `data` field of a response.
+    pub fn set_data<Resp>(&mut self, data: &Resp) -> Result<(), serde_json::Error>
+    where
+        Resp: Response + Serialize,
+    {
+        let data = serde_json::to_value(data)?;
+        self.data = Ok(ResponseData {
+            message_type: Resp::MESSAGE_TYPE.into(),
+            data,
+        });
+        Ok(())
+    }
+
+    /// The message type of this response.
+    pub fn message_type(&self) -> &EnumString<ResponseType> {
+        match &self.data {
+            Ok(data) => &data.message_type,
+            Err(_) => &API_ERROR_MESSAGE_TYPE,
+        }
+    }
+
+    /// Attempts to parse the response into a the given [`Response`] type. This can return an error
+    /// if the message type is an [`ApiError`] or isn't the expected type.
+    pub fn parse<Resp: Response>(self) -> Result<Resp, Error> {
+        let data = self.data?;
+
+        if data.message_type == Resp::MESSAGE_TYPE {
+            Ok(serde_json::from_value(data.data)?)
+        } else {
+            Err(UnexpectedResponseError {
+                expected: Resp::MESSAGE_TYPE,
+                received: data.message_type,
+            }
+            .into())
+        }
+    }
+
+    /// Returns `true` if the message type is `APIError`.
+    pub fn is_api_error(&self) -> bool {
+        self.data.is_err()
+    }
+
+    /// Returns `true` if the message is an `APIError` with [`ErrorId::REQUEST_REQUIRES_AUTHENTICATION`].
+    pub fn is_unauthenticated_error(&self) -> bool {
+        matches!(&self.data, Err(e) if e.is_unauthenticated())
+    }
+}
+
+/// Response data wrapper for [`ResponseEnvelope`] (typically for non-error responses).
+#[derive(Debug, Clone, PartialEq)]
+pub struct ResponseData {
+    /// The message type.
+    pub message_type: EnumString<ResponseType>,
+    /// The raw data.
+    pub data: Value,
+}
+
+// Custom deserialize, to eagerly parse API errors.
 impl<'de> Deserialize<'de> for ResponseEnvelope {
     fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
     where
@@ -73,9 +170,11 @@ impl<'de> Deserialize<'de> for ResponseEnvelope {
     {
         #[derive(Deserialize)]
         #[serde(rename_all = "camelCase")]
-        struct RawResponseEnvelope {
-            pub api_name: String,
-            pub api_version: String,
+        struct RawResponseEnvelope<'a> {
+            #[serde(borrow)]
+            pub api_name: &'a str,
+            #[serde(borrow)]
+            pub api_version: &'a str,
             pub timestamp: i64,
             #[serde(rename = "requestID")]
             pub request_id: String,
@@ -95,9 +194,23 @@ impl<'de> Deserialize<'de> for ResponseEnvelope {
             })
         };
 
+        // Typically this will always be "VTubeStudioPublicAPI, so we can avoid allocating
+        let api_name = if raw.api_name == API_NAME {
+            Cow::Borrowed(API_NAME)
+        } else {
+            Cow::Owned(raw.api_name.to_string())
+        };
+
+        // Typically this will always be "1.0", so we can avoid allocating
+        let api_version = if raw.api_version == API_VERSION {
+            Cow::Borrowed(API_VERSION)
+        } else {
+            Cow::Owned(raw.api_version.to_string())
+        };
+
         Ok(Self {
-            api_name: raw.api_name,
-            api_version: raw.api_version,
+            api_name,
+            api_version,
             timestamp: raw.timestamp,
             request_id: raw.request_id,
             data,
@@ -145,96 +258,17 @@ impl Serialize for ResponseEnvelope {
     }
 }
 
-/// A VTube Studio API response.
-#[allow(missing_docs)]
-#[derive(Debug, Clone, PartialEq)]
-pub struct ResponseEnvelope {
-    pub api_name: String,
-    pub api_version: String,
-    pub timestamp: i64,
-    pub request_id: String,
-    pub data: Result<ResponseData, ApiError>,
-}
-
-/// Response data wrapper for [`ResponseEnvelope`].
-#[derive(Debug, Clone, PartialEq)]
-pub struct ResponseData {
-    /// The message type.
-    pub message_type: EnumString<ResponseType>,
-    /// The raw data.
-    pub data: Value,
-}
-
 impl Default for ResponseEnvelope {
     fn default() -> Self {
         Self {
-            api_name: API_NAME.to_owned(),
-            api_version: API_VERSION.to_owned(),
+            api_name: API_NAME.into(),
+            api_version: API_VERSION.into(),
             timestamp: 0,
             request_id: "".to_owned(),
             data: Ok(ResponseData {
                 message_type: EnumString::const_new_from_str("UnknownResponse"),
                 data: Value::Null,
             }),
-        }
-    }
-}
-
-impl ResponseEnvelope {
-    /// Returns `true` if the message type is `APIError`.
-    pub fn is_api_error(&self) -> bool {
-        self.data.is_err()
-    }
-
-    /// Returns `true` if the message is an `APIError` with [`ErrorId::REQUEST_REQUIRES_AUTHENTICATION`].
-    pub fn is_unauthenticated_error(&self) -> bool {
-        matches!(&self.data, Err(e) if e.is_unauthenticated())
-    }
-
-    /// Sets the request ID.
-    pub fn with_id(mut self, id: String) -> Self {
-        self.request_id = id;
-        self
-    }
-}
-
-impl ResponseEnvelope {
-    /// Creates a new response with the underlying typed data.
-    pub fn new<Resp>(data: &Resp) -> Result<Self, serde_json::Error>
-    where
-        Resp: Response + Serialize,
-    {
-        let mut value = Self::default();
-        value.set_data(data)?;
-        Ok(value)
-    }
-
-    /// Sets the `data` field of a response.
-    pub fn set_data<Resp>(&mut self, data: &Resp) -> Result<(), serde_json::Error>
-    where
-        Resp: Response + Serialize,
-    {
-        let data = serde_json::to_value(&data)?;
-        self.data = Ok(ResponseData {
-            message_type: Resp::MESSAGE_TYPE.into(),
-            data,
-        });
-        Ok(())
-    }
-
-    /// Attempts to parse the response into a the given [`Response`] type. This can return an error
-    /// if the message type is an [`ApiError`] or isn't the expected type.
-    pub fn parse<Resp: Response>(self) -> Result<Resp, Error> {
-        let data = self.data?;
-
-        if data.message_type == Resp::MESSAGE_TYPE {
-            Ok(serde_json::from_value(data.data)?)
-        } else {
-            Err(UnexpectedResponseError {
-                expected: Resp::MESSAGE_TYPE,
-                received: data.message_type,
-            }
-            .into())
         }
     }
 }
