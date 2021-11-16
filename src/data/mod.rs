@@ -180,6 +180,7 @@ define_request_response_pairs!(
         req = {
             pub plugin_name: Cow<'static, str>,
             pub plugin_developer: Cow<'static, str>,
+            #[serde(skip_serializing_if = "Option::is_none")]
             pub plugin_icon: Option<Cow<'static, str>>,
         },
         /// Authentication token response.
@@ -297,17 +298,21 @@ define_request_response_pairs!(
         rust_name = MoveModel,
         /// Moving the currently loaded VTS model.
         req = {
-            /// How long the animation should take to complete. Maximum `2`.
+            /// How many seconds the animation should take. Maximum `2`.
             pub time_in_seconds: f64,
             /// If `true`, apply movements relative to the model's current state.
             pub values_are_relative_to_model: bool,
             /// Horizontal position. `-1` for left edge, `1` for right edge.
+            #[serde(skip_serializing_if = "Option::is_none")]
             pub position_x: Option<f64>,
             /// Vertical position. `-1` for bottom edge, `1` for top edge.
+            #[serde(skip_serializing_if = "Option::is_none")]
             pub position_y: Option<f64>,
             /// Rotation in degrees. Must be between `-360` and `360`.
+            #[serde(skip_serializing_if = "Option::is_none")]
             pub rotation: Option<f64>,
             /// Size, between `-100` and `100`.
+            #[serde(skip_serializing_if = "Option::is_none")]
             pub size: Option<f64>,
         },
         /// Empty response.
@@ -318,6 +323,7 @@ define_request_response_pairs!(
         rust_name = HotkeysInCurrentModel,
         /// Requesting list of hotkeys available in current or other VTS model.
         req = {
+            #[serde(skip_serializing_if = "Option::is_none")]
             #[serde(rename = "modelID")]
             pub model_id: Option<String>,
         },
@@ -450,6 +456,7 @@ define_request_response_pairs!(
         /// Adding new tracking parameters ("custom parameters").
         req = {
             pub parameter_name: String,
+            #[serde(skip_serializing_if = "Option::is_none")]
             pub explanation: Option<String>,
             pub min: f64,
             pub max: f64,
@@ -571,6 +578,7 @@ pub struct ColorTint {
     pub color_g: u8,
     pub color_b: u8,
     pub color_a: u8,
+    #[serde(skip_serializing_if = "Option::is_none")]
     pub mix_with_scene_lighting_color: Option<f64>,
     pub jeb_: bool,
 }
@@ -632,6 +640,7 @@ pub struct Parameter {
 pub struct ParameterValue {
     pub id: String,
     pub value: f64,
+    #[serde(skip_serializing_if = "Option::is_none")]
     pub weight: Option<f64>,
 }
 
