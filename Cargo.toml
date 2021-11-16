@@ -19,6 +19,10 @@ default = ["tokio-tungstenite"]
 name = "statistics"
 required-features = ["tokio-tungstenite"]
 
+[[example]]
+name = "spin"
+required-features = ["tokio-tungstenite"]
+
 [dependencies]
 displaydoc = "0.2"
 futures-core = "0.3"
