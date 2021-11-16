@@ -15,18 +15,6 @@ description = "A library for interacting with the VTube Studio API."
 [features]
 default = ["tokio-tungstenite"]
 
-[[example]]
-name = "readme"
-required-features = ["tokio-tungstenite"]
-
-[[example]]
-name = "statistics"
-required-features = ["tokio-tungstenite"]
-
-[[example]]
-name = "spin"
-required-features = ["tokio-tungstenite"]
-
 [dependencies]
 displaydoc = "0.2"
 futures-core = "0.3"
@@ -51,3 +39,20 @@ tokio = { version = "1", features = ["macros", "rt-multi-thread"] }
 # https://stackoverflow.com/a/61417700
 all-features = true # document all features
 rustdoc-args = ["--cfg", "docsrs"] # defines the configuration attribute `docsrs`
+
+[[example]]
+name = "readme"
+required-features = ["tokio-tungstenite"]
+
+[[example]]
+name = "statistics"
+required-features = ["tokio-tungstenite"]
+
+[[example]]
+name = "spin"
+required-features = ["tokio-tungstenite"]
+
+[[example]]
+name = "no_middleware"
+required-features = ["tokio-tungstenite"]
+

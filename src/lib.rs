@@ -65,6 +65,11 @@
 //! [`tower::buffer::Buffer`] which adds an mpsc buffer in front of the underlying websocket
 //! transport).
 //!
+//! For an example of constructing a [`Client`] manually without the builder, check the
+//! [`no_middleware` example] in the repo.
+//!
+//! [`no_middleware` example]: https://github.com/walfie/vtubestudio-rs/blob/master/examples/no_middleware.rs
+//!
 //! # Project structure
 //!
 //! * [`client`] provides a high level API dealing with typed [`Request`]/[`Response`] types, which wraps a... ⏎
