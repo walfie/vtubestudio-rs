@@ -3,6 +3,7 @@ use crate::error::{BoxError, Error};
 
 use futures_core::TryStream;
 use futures_sink::Sink;
+use std::fmt::Write;
 use std::future::Future;
 use std::pin::Pin;
 use std::task::{Context, Poll};
@@ -19,15 +20,25 @@ crate::cfg_feature! {
 
 /// Struct describing how to tag [`RequestEnvelope`]s and extract tags from [`ResponseEnvelope`]s.
 #[derive(Debug)]
-pub struct IdTagger(usize);
+pub struct IdTagger {
+    next: usize,
+    buffer: String,
+}
 
 impl TagStore<RequestEnvelope, ResponseEnvelope> for IdTagger {
     type Tag = RequestId;
 
     fn assign_tag(mut self: Pin<&mut Self>, request: &mut RequestEnvelope) -> Self::Tag {
-        let id = RequestId::from(self.0.to_string());
+        let id = self.next;
+        if let Err(_) = write!(self.buffer, "{}", id) {
+            self.buffer = id.to_string();
+        }
+
+        let id = RequestId::from(self.buffer.as_str());
         request.request_id = Some(id.clone());
-        self.0 += 1;
+
+        self.next += 1;
+        self.buffer.clear();
         id
     }
 
@@ -66,7 +77,10 @@ where
     where
         F: FnOnce(Error) + Send + 'static,
     {
-        let tagger = IdTagger(0);
+        let tagger = IdTagger {
+            next: 0,
+            buffer: String::new(),
+        };
 
         let multiplex_transport = MultiplexTransport::new(transport, tagger);
         let service = MultiplexClient::with_error_handler(multiplex_transport, on_service_error);

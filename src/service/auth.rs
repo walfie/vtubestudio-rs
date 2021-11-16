@@ -4,7 +4,6 @@ use crate::data::{
 use crate::error::Error;
 use crate::service::send_request;
 
-use futures_util::TryFutureExt;
 use std::fmt;
 use std::future::Future;
 use std::pin::Pin;
@@ -211,14 +210,7 @@ where
         let mut this = self.clone();
 
         let f = async move {
-            let resp = this
-                .service
-                .ready()
-                .await
-                .map_err(Error::from)?
-                .call(req)
-                .map_err(Error::from)
-                .await?;
+            let resp = this.service.ready().await?.call(req).await?;
 
             if !resp.is_unauthenticated_error() {
                 return Ok(ResponseWithToken::new(resp));
