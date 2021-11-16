@@ -19,29 +19,29 @@ pub const API_VERSION: &'static str = "1.0";
 ///
 /// This is a newtype wrapper rather than a plain `String` to allow for possible optimizations to
 /// the internal representation (using types optimized for small strings, etc).
-#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
-pub struct RequestId(String);
+#[derive(Default, Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct RequestId(smol_str::SmolStr);
 
 impl RequestId {
     /// Creates a new [`RequestId`].
     pub fn new(value: String) -> Self {
-        Self(value)
+        Self(value.into())
     }
 
     /// Returns the string representation of the request ID.
     pub fn as_str(&self) -> &str {
-        self.0.as_ref()
+        self.0.as_str()
     }
 
     /// Consumes this value and returns the inner `String` representation.
     pub fn into_string(self) -> String {
-        self.0
+        String::from(self.0)
     }
 }
 
 impl From<String> for RequestId {
     fn from(value: String) -> Self {
-        Self(value)
+        Self(value.into())
     }
 }
 
@@ -331,7 +331,7 @@ impl Default for ResponseEnvelope {
             api_name: API_NAME.into(),
             api_version: API_VERSION.into(),
             timestamp: 0,
-            request_id: RequestId("".to_owned()),
+            request_id: RequestId::default(),
             data: Ok(ResponseData {
                 message_type: EnumString::const_new_from_str("UnknownResponse"),
                 data: OpaqueValue::default(),
