@@ -30,7 +30,8 @@ impl TagStore<RequestEnvelope, ResponseEnvelope> for IdTagger {
 
     fn assign_tag(mut self: Pin<&mut Self>, request: &mut RequestEnvelope) -> Self::Tag {
         let id = self.next;
-        if let Err(_) = write!(self.buffer, "{}", id) {
+        if write!(self.buffer, "{}", id).is_err() {
+            // We don't expect this to happen, but recover just in case
             self.buffer = id.to_string();
         }
 
