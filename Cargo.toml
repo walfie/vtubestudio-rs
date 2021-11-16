@@ -16,6 +16,10 @@ description = "A library for interacting with the VTube Studio API."
 default = ["tokio-tungstenite"]
 
 [[example]]
+name = "readme"
+required-features = ["tokio-tungstenite"]
+
+[[example]]
 name = "statistics"
 required-features = ["tokio-tungstenite"]
 

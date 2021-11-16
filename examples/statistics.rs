@@ -1,3 +1,5 @@
+// This example authenticates and sends a request every time you press the Enter key.
+
 use vtubestudio::data::StatisticsRequest;
 use vtubestudio::Client;
 

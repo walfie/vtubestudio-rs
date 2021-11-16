@@ -1,3 +1,6 @@
+// This example demonstrates using `MoveModelRequest` to rotate your
+// Live2D model until you exit the example.
+
 use vtubestudio::data::{MoveModelRequest, StatisticsRequest};
 use vtubestudio::Client;
 
