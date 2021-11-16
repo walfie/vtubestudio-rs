@@ -1,7 +1,7 @@
 use vtubestudio::data::StatisticsRequest;
 use vtubestudio::Client;
 
-#[tokio::main(flavor = "current_thread")]
+#[tokio::main]
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let stored_token = std::env::var("VTS_AUTH_TOKEN").ok();
     if stored_token.is_some() {

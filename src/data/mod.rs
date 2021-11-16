@@ -297,11 +297,17 @@ define_request_response_pairs!(
         rust_name = MoveModel,
         /// Moving the currently loaded VTS model.
         req = {
+            /// How long the animation should take to complete. Maximum `2`.
             pub time_in_seconds: f64,
+            /// If `true`, apply movements relative to the model's current state.
             pub values_are_relative_to_model: bool,
+            /// Horizontal position. `-1` for left edge, `1` for right edge.
             pub position_x: Option<f64>,
+            /// Vertical position. `-1` for bottom edge, `1` for top edge.
             pub position_y: Option<f64>,
+            /// Rotation in degrees. Must be between `-360` and `360`.
             pub rotation: Option<f64>,
+            /// Size, between `-100` and `100`.
             pub size: Option<f64>,
         },
         /// Empty response.
