@@ -29,6 +29,11 @@ impl TagStore<RequestEnvelope, ResponseEnvelope> for IdTagger {
     type Tag = RequestId;
 
     fn assign_tag(mut self: Pin<&mut Self>, request: &mut RequestEnvelope) -> Self::Tag {
+        // If request already has an ID, use it. Otherwise generate a new one.
+        if let Some(id) = &request.request_id {
+            return id.clone();
+        }
+
         let id = self.next;
         if write!(self.buffer, "{}", id).is_err() {
             // We don't expect this to happen, but recover just in case
