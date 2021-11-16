@@ -23,12 +23,14 @@ impl RetryPolicy {
         }
     }
 
+    // TODO: Default to true in 0.3
     /// Whether requests should be retried on disconnect. Default `false`.
     pub fn on_disconnect(mut self, value: bool) -> Self {
         self.retry_on_disconnect = value;
         self
     }
 
+    // TODO: Default to true in 0.3
     /// Whether requests should be retried on auth error. Default `false`.
     pub fn on_auth_error(mut self, value: bool) -> Self {
         self.retry_on_auth_error = value;
