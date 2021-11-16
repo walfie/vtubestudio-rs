@@ -49,3 +49,5 @@ async fn main() -> Result<(), Error> {
 }
 ```
 
+For more details, please check the [documentation on docs.rs](https://docs.rs/vtubestudio).
+
