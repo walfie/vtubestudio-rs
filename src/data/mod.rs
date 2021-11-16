@@ -1,3 +1,8 @@
+//! Request/response types for the VTube Studio API.
+//!
+//! For a list of all request types, see the implementors for [`Request`].
+//! For the corresponding response types, see [`Response`].
+
 mod enumeration;
 mod envelope;
 mod error_id;
@@ -73,7 +78,9 @@ macro_rules! define_request_response_pairs {
         rust_name = $rust_name:ident,
         $(req_name = $req_name:literal,)?
         $(resp_name = $resp_name:literal,)?
+        $(#[doc = $req_doc:expr])+
         req = { $($req:tt)* },
+        $(#[doc = $resp_doc:expr])+
         resp = $(( $resp_inner:ident ))? $({ $($resp_fields:tt)* })?,
     },)*) => {
         paste! {
@@ -107,21 +114,30 @@ macro_rules! define_request_response_pairs {
         $(
             paste! {
                 #[allow(missing_docs)]
+                $(#[doc = $req_doc])+
+                ///
+                #[doc = concat!("This request returns [`", stringify!($rust_name), "Response`].")]
                 #[derive(Default, Debug, Clone, PartialEq, Serialize, Deserialize)]
                 #[serde(rename_all = "camelCase")]
                 pub struct [<$rust_name Request>] { $($req)* }
 
                 impl Request for [<$rust_name Request>] {
                     type Response = [<$rust_name Response>];
+
+                    #[doc = concat!("[`RequestType::", stringify!($rust_name), "Request`]")]
                     const MESSAGE_TYPE: EnumString<RequestType> = EnumString::new(RequestType::[<$rust_name Request>]);
                 }
 
                 #[allow(missing_docs)]
+                $(#[doc = $resp_doc])+
+                ///
+                #[doc = concat!("This is the return value of [`", stringify!($rust_name), "Request`].")]
                 #[derive(Default, Debug, Clone, PartialEq, Serialize, Deserialize)]
                 #[serde(rename_all = "camelCase")]
                 pub struct [<$rust_name Response>] $(($resp_inner);)? $({ $($resp_fields)* })?
 
                 impl Response for [<$rust_name Response>] {
+                    #[doc = concat!("[`ResponseType::", stringify!($rust_name), "Response`]")]
                     const MESSAGE_TYPE: EnumString<ResponseType> = EnumString::new(ResponseType::[<$rust_name Response>]);
                 }
             }
@@ -147,7 +163,9 @@ define_request_response_pairs!(
         rust_name = ApiState,
         req_name = "APIStateRequest",
         resp_name = "APIStateResponse",
+        /// Get the current state of the API.
         req = {},
+        /// The API state.
         resp = {
             pub active: bool,
             #[serde(rename = "vTubeStudioVersion")]
@@ -158,11 +176,13 @@ define_request_response_pairs!(
 
     {
         rust_name = AuthenticationToken,
+        /// Request an authentication token.
         req = {
             pub plugin_name: Cow<'static, str>,
             pub plugin_developer: Cow<'static, str>,
             pub plugin_icon: Option<Cow<'static, str>>,
         },
+        /// Authentication token response.
         resp = {
             pub authentication_token: String,
         },
@@ -170,11 +190,13 @@ define_request_response_pairs!(
 
     {
         rust_name = Authentication,
+        /// Authenticate with the API using a token.
         req = {
             pub plugin_name: Cow<'static, str>,
             pub plugin_developer: Cow<'static, str>,
             pub authentication_token: String,
         },
+        /// Whether the authentication request was successful.
         resp = {
             pub authenticated: bool,
             pub reason: String,
@@ -183,8 +205,11 @@ define_request_response_pairs!(
 
     {
         rust_name = Statistics,
+        /// Getting current VTS statistics.
         req = {},
+        /// Statistics about the VTube Studio session.
         resp = {
+            /// Uptime in milliseconds.
             pub uptime: i64,
             pub framerate: i32,
             #[serde(rename = "vTubeStudioVersion")]
@@ -202,7 +227,9 @@ define_request_response_pairs!(
         rust_name = VtsFolderInfo,
         req_name = "VTSFolderInfoRequest",
         resp_name = "VTSFolderInfoResponse",
+        /// Getting list of VTS folders.
         req = {},
+        /// Names of various folders in the `StreamingAssets` directory.
         resp = {
             pub models: String,
             pub backgrounds: String,
@@ -215,7 +242,9 @@ define_request_response_pairs!(
 
     {
         rust_name = CurrentModel,
+        /// Getting the currently loaded model.
         req = {},
+        /// Information about the current model.
         resp = {
             pub model_loaded: bool,
             pub model_name: String,
@@ -240,7 +269,9 @@ define_request_response_pairs!(
 
     {
         rust_name = AvailableModels,
+        /// Getting a list of available VTS models
         req = {},
+        /// List of available models.
         resp = {
             pub number_of_models: i32,
             pub available_models: Vec<Model>,
@@ -249,10 +280,12 @@ define_request_response_pairs!(
 
     {
         rust_name = ModelLoad,
+        /// Loading a VTS model by its ID.
         req = {
             #[serde(rename = "modelID")]
             pub model_id: String,
         },
+        /// Information about the loaded model ID.
         resp = {
             #[serde(rename = "modelID")]
             pub model_id: String,
@@ -262,6 +295,7 @@ define_request_response_pairs!(
 
     {
         rust_name = MoveModel,
+        /// Moving the currently loaded VTS model.
         req = {
             pub time_in_seconds: f64,
             pub values_are_relative_to_model: bool,
@@ -270,15 +304,18 @@ define_request_response_pairs!(
             pub rotation: Option<f64>,
             pub size: Option<f64>,
         },
+        /// Empty response.
         resp = {},
     },
 
     {
         rust_name = HotkeysInCurrentModel,
+        /// Requesting list of hotkeys available in current or other VTS model.
         req = {
             #[serde(rename = "modelID")]
             pub model_id: Option<String>,
         },
+        /// Model info and list of hotkeys.
         resp = {
             pub model_loaded: bool,
             pub model_name: String,
@@ -290,10 +327,12 @@ define_request_response_pairs!(
 
     {
         rust_name = HotkeyTrigger,
+        /// Requesting execution of hotkeys.
         req = {
             #[serde(rename = "hotkeyID")]
             pub hotkey_id: String,
         },
+        /// The hotkey that was triggered.
         resp = {
             #[serde(rename = "hotkeyID")]
             pub hotkey_id: String,
@@ -302,7 +341,9 @@ define_request_response_pairs!(
 
     {
         rust_name = ArtMeshList,
+        /// Requesting list of ArtMeshes in current model.
         req = {},
+        /// List of ArtMeshes.
         resp = {
             pub model_loaded: bool,
             pub number_of_art_mesh_names: i32,
@@ -314,10 +355,12 @@ define_request_response_pairs!(
 
     {
         rust_name = ColorTint,
+        /// Tint ArtMeshes with color
         req = {
             pub color_tint: ColorTint,
             pub art_mesh_matcher: ArtMeshMatcher,
         },
+        /// Number of matched ArtMeshes.
         resp = {
             pub matched_art_meshes: i32,
         },
@@ -325,7 +368,9 @@ define_request_response_pairs!(
 
     {
         rust_name = SceneColorOverlayInfo,
+        /// Getting scene lighting overlay color.
         req = {},
+        /// Info about the color overlay.
         resp = {
             pub active: bool,
             pub items_included: bool,
@@ -347,7 +392,9 @@ define_request_response_pairs!(
 
     {
         rust_name = FaceFound,
+        /// Checking if face is currently found by tracker.
         req = {},
+        /// Whether the face was found.
         resp = {
             pub found: bool,
         },
@@ -355,7 +402,9 @@ define_request_response_pairs!(
 
     {
         rust_name = InputParameterList,
+        /// Requesting list of available tracking parameters.
         req = {},
+        /// List of available parameters.
         resp = {
             pub model_loaded: bool,
             pub model_name: String,
@@ -368,15 +417,19 @@ define_request_response_pairs!(
 
     {
         rust_name = ParameterValue,
+        /// Get the value for one specific parameter, default or custom.
         req = {
             pub name: String,
         },
+        /// The requested parameter.
         resp = (Parameter),
     },
 
     {
         rust_name = Live2DParameterList,
+        /// Get the value for all Live2D parameters in the current model.
         req = {},
+        /// Info about the current model and list of parameters.
         resp = {
             pub model_loaded: bool,
             pub model_name: String,
@@ -388,6 +441,7 @@ define_request_response_pairs!(
 
     {
         rust_name = ParameterCreation,
+        /// Adding new tracking parameters ("custom parameters").
         req = {
             pub parameter_name: String,
             pub explanation: Option<String>,
@@ -395,6 +449,7 @@ define_request_response_pairs!(
             pub max: f64,
             pub default_value: f64,
         },
+        /// Name of the created parameter.
         resp = {
             pub parameter_name: String,
         },
@@ -402,9 +457,11 @@ define_request_response_pairs!(
 
     {
         rust_name = ParameterDeletion,
+        /// Delete custom parameters.
         req = {
             pub parameter_name: String,
         },
+        /// Name of the deleted parameter.
         resp = {
             pub parameter_name: String,
         },
@@ -412,21 +469,25 @@ define_request_response_pairs!(
 
     {
         rust_name = InjectParameterData,
+        /// Feeding in data for default or custom parameters.
         req = {
             pub parameter_values: Vec<ParameterValue>,
         },
+        /// Empty response.
         resp = {},
     },
 
 );
 
-#[allow(missing_docs)]
+/// Error returned by the VTube Studio API.
 #[derive(thiserror::Error, Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 #[error("APIError {error_id}: {message}")]
 pub struct ApiError {
+    /// The error ID.
     #[serde(rename = "errorID")]
     pub error_id: ErrorId,
+    /// A description of the error.
     pub message: String,
 }
 
@@ -441,6 +502,7 @@ impl ApiError {
     }
 }
 
+/// API Server Discovery (UDP).
 #[allow(missing_docs)]
 #[derive(Default, Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]

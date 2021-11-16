@@ -113,7 +113,6 @@ pub mod transport;
 /// Codecs for converting to/from websocket message types.
 pub mod codec;
 
-/// Request/response types for the VTube Studio API.
 pub mod data;
 
 /// Types related to error handling.
