@@ -18,20 +18,18 @@ impl RetryPolicy {
     /// Creates a new [`RetryPolicy`] with default values.
     pub fn new() -> Self {
         RetryPolicy {
-            retry_on_disconnect: false,
-            retry_on_auth_error: false,
+            retry_on_disconnect: true,
+            retry_on_auth_error: true,
         }
     }
 
-    // TODO: Default to true in 0.3
-    /// Whether requests should be retried on disconnect. Default `false`.
+    /// Whether requests should be retried on disconnect. Default `true`.
     pub fn on_disconnect(mut self, value: bool) -> Self {
         self.retry_on_disconnect = value;
         self
     }
 
-    // TODO: Default to true in 0.3
-    /// Whether requests should be retried on auth error. Default `false`.
+    /// Whether requests should be retried on auth error. Default `true`.
     pub fn on_auth_error(mut self, value: bool) -> Self {
         self.retry_on_auth_error = value;
         self

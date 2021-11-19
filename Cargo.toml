@@ -1,6 +1,6 @@
 [package]
 name = "vtubestudio"
-version = "0.2.2-alpha.0"
+version = "0.3.0-alpha.0"
 edition = "2018"
 authors = ["Walfie <walfington@gmail.com"]
 license = "MIT"
@@ -29,7 +29,7 @@ thiserror = "1"
 tokio = "1"
 tokio-tower = "0.6"
 tokio-tungstenite = { version = "0.15", optional = true }
-tower = { version = "0.4", features = ["util", "retry", "reconnect", "buffer"] }
+tower = { version = "0.4.11", features = ["util", "retry", "reconnect", "buffer"] }
 
 [dev-dependencies]
 tokio = { version = "1", features = ["macros", "rt-multi-thread"] }

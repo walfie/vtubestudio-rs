@@ -1,16 +1,15 @@
 pub(crate) mod api;
 pub(crate) mod auth;
-pub(crate) mod clone_box;
 pub(crate) mod maker;
 pub(crate) mod retry;
 
 use crate::data::{Request, RequestEnvelope, ResponseEnvelope};
 use crate::error::Error;
+use tower::util::BoxCloneService;
 use tower::{Service, ServiceExt};
 
 pub use crate::service::api::ApiService;
 pub use crate::service::auth::{Authentication, AuthenticationLayer, ResponseWithToken};
-pub use crate::service::clone_box::CloneBoxService;
 pub use crate::service::maker::MakeApiService;
 pub use crate::service::retry::RetryPolicy;
 
@@ -20,7 +19,7 @@ crate::cfg_feature! {
 }
 
 /// A [`Clone`]able [`Service`] that is compatible with [`Client`](crate::client::Client).
-pub type CloneBoxApiService = CloneBoxService<RequestEnvelope, ResponseEnvelope, Error>;
+pub type BoxCloneApiService = BoxCloneService<RequestEnvelope, ResponseEnvelope, Error>;
 
 /// Trait alias for a [`Service`] that is compatible with [`Client`](crate::client::Client).
 pub trait ClientService:
