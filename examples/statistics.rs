@@ -26,6 +26,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let mut line = String::new();
     loop {
         println!("Press Enter to send a request");
+        line.clear();
         std::io::stdin().read_line(&mut line)?;
 
         let resp = client.send(&StatisticsRequest {}).await;
