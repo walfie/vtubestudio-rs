@@ -61,7 +61,7 @@ crate::cfg_feature! {
     #![feature = "tokio-tungstenite"]
 
     /// A codec describing how to encode/decode
-    /// [`tungstenite::Message`](tokio_tungstenite::tungstenite::Message)s.
+    /// [`tungstenite::Message`](::tokio_tungstenite::tungstenite::Message)s.
     #[derive(Debug, Clone)]
     pub struct TungsteniteCodec;
 }
