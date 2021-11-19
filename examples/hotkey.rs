@@ -11,13 +11,22 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         .authentication("vtubestudio-rs example", "Walfie", None)
         .build_tungstenite();
 
-    let mut line = String::new();
+    let mut input = String::new();
     println!("Please accept the permission pop-up in VTube Studio");
 
     loop {
         let resp = client
             .send(&HotkeysInCurrentModelRequest { model_id: None })
             .await?;
+
+        if resp.available_hotkeys.len() == 0 {
+            println!(
+                "No hotkeys detected! Please add some in the VTube Studio app, then press Enter."
+            );
+            input.clear();
+            std::io::stdin().read_line(&mut input)?;
+            continue;
+        }
 
         println!("Choose which hotkey to activate:");
 
@@ -30,10 +39,10 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
             );
         }
 
-        line.clear();
-        std::io::stdin().read_line(&mut line)?;
+        input.clear();
+        std::io::stdin().read_line(&mut input)?;
 
-        match line.trim().parse::<usize>() {
+        match input.trim().parse::<usize>() {
             Ok(index) => match resp.available_hotkeys.get(index - 1) {
                 Some(hotkey) => {
                     println!("Activating hotkey {}", hotkey.name);
@@ -48,7 +57,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                     resp.available_hotkeys.len()
                 ),
             },
-            Err(e) => eprintln!("Failed to parse input {} as number: {}", line, e),
+            Err(e) => eprintln!("Failed to parse input `{}` as number: {}", input, e),
         }
     }
 }
