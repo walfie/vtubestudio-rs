@@ -1,29 +1,26 @@
 use crate::data::{AuthenticationTokenRequest, Request, RequestEnvelope, ResponseEnvelope};
 use crate::error::Error;
-use crate::service::{
-    send_request, AuthenticationLayer, CloneBoxService, ResponseWithToken, RetryPolicy,
-};
+use crate::service::{send_request, AuthenticationLayer, ResponseWithToken, RetryPolicy};
 
 use crate::error::BoxError;
+use crate::service::BoxCloneApiService;
 use std::borrow::Cow;
 use std::error::Error as StdError;
 use tokio::sync::mpsc;
 use tower::reconnect::Reconnect;
+use tower::util::BoxCloneService;
 use tower::{Service, ServiceBuilder};
-
-// TODO: Kept here for backwards compatibility. Remove in 0.3.
-pub use crate::service::{ClientService, CloneBoxApiService};
 
 /// A client for interacting with the VTube Studio API.
 ///
 /// This is a wrapper on top of [`tower::Service`] that provides a convenient interface for
 /// [`send`](Self::send)ing API requests and receiving structured data.
 #[derive(Clone, Debug)]
-pub struct Client<S = CloneBoxApiService> {
+pub struct Client<S = BoxCloneApiService> {
     service: S,
 }
 
-impl Client<CloneBoxApiService> {
+impl Client<BoxCloneApiService> {
     /// Creates a builder to configure a new client.
     ///
     /// # Example
@@ -251,7 +248,7 @@ impl ClientBuilder {
         let (token_tx, token_rx) = mpsc::channel(self.token_stream_buffer_size);
 
         let service = if let Some(token_req) = self.token_request {
-            CloneBoxService::new(
+            BoxCloneService::new(
                 ServiceBuilder::new()
                     .retry(policy)
                     .and_then(|resp: ResponseWithToken| async move {
@@ -268,7 +265,7 @@ impl ClientBuilder {
                     .service(service),
             )
         } else {
-            CloneBoxService::new(
+            BoxCloneService::new(
                 ServiceBuilder::new()
                     .retry(policy)
                     .map_err(Error::from_boxed)
