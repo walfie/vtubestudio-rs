@@ -4,6 +4,7 @@ use crate::error::{Error, ErrorKind};
 use futures_util::future;
 use tower::retry::{Policy, Retry};
 use tower::Layer;
+use tracing::debug;
 
 /// Determines whether a request should be retried.
 ///
@@ -50,7 +51,7 @@ impl Policy<RequestEnvelope, ResponseEnvelope, Error> for RetryPolicy {
 
     fn retry(
         &self,
-        _req: &RequestEnvelope,
+        req: &RequestEnvelope,
         result: Result<&ResponseEnvelope, &Error>,
     ) -> Option<Self::Future> {
         Some(future::ready(match result {
@@ -60,8 +61,16 @@ impl Policy<RequestEnvelope, ResponseEnvelope, Error> for RetryPolicy {
 
             Err(e) => {
                 if self.retry_on_auth_error && e.is_unauthenticated_error() {
+                    debug!(
+                        message_type = req.message_type.as_str(),
+                        "Retrying request due to API auth error"
+                    );
                     self.clone().on_auth_error(false)
                 } else if self.retry_on_disconnect && e.has_kind(ErrorKind::ConnectionDropped) {
+                    debug!(
+                        message_type = req.message_type.as_str(),
+                        "Retrying request due to disconnection"
+                    );
                     self.clone().on_disconnect(false)
                 } else {
                     return None;
