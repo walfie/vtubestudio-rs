@@ -32,6 +32,8 @@ pub enum ErrorKind {
     ConnectionDropped,
     /// received unexpected response from server
     UnexpectedResponse,
+    /// the provided authentication token was invalid
+    InvalidToken,
     /// received server response with unexpected request ID
     Desynchronized,
     /// JSON error
@@ -45,13 +47,44 @@ pub enum ErrorKind {
 }
 
 /// The API response type did not match the expected type.
-#[derive(thiserror::Error, Debug)]
+#[derive(thiserror::Error, Debug, Clone, PartialEq)]
 #[error("received unexpected response (expected {expected}, received {received})")]
 pub struct UnexpectedResponseError {
+    pub(crate) expected: EnumString<ResponseType>,
+    pub(crate) received: EnumString<ResponseType>,
+}
+
+impl UnexpectedResponseError {
     /// The expected response type.
-    pub expected: EnumString<ResponseType>,
+    pub fn expected(&self) -> &EnumString<ResponseType> {
+        &self.expected
+    }
+
     /// The received response type.
-    pub received: EnumString<ResponseType>,
+    pub fn received(&self) -> &EnumString<ResponseType> {
+        &self.received
+    }
+}
+
+/// Authentication token is invalid or has been revoked by the user.
+///
+/// This error is returned from the [`Authentication`](crate::service::Authentication) service when
+/// `authenticated` is false in an [`AuthenticationResponse`](crate::data::AuthenticationResponse).
+#[derive(thiserror::Error, Debug, Clone, PartialEq)]
+#[error("{reason}")]
+pub struct InvalidTokenError {
+    pub(crate) reason: String,
+}
+
+impl InvalidTokenError {
+    pub(crate) fn new(reason: String) -> Self {
+        Self { reason }
+    }
+
+    /// The reason for the error.
+    pub fn reason(&self) -> &str {
+        self.reason.as_str()
+    }
 }
 
 impl From<serde_json::Error> for Error {
@@ -69,6 +102,12 @@ impl From<ApiError> for Error {
 impl From<UnexpectedResponseError> for Error {
     fn from(error: UnexpectedResponseError) -> Self {
         Self::new(ErrorKind::UnexpectedResponse).with_source(error)
+    }
+}
+
+impl From<InvalidTokenError> for Error {
+    fn from(error: InvalidTokenError) -> Self {
+        Self::new(ErrorKind::InvalidToken).with_source(error)
     }
 }
 

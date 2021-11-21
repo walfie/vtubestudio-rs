@@ -1,7 +1,7 @@
 use crate::data::{
     AuthenticationRequest, AuthenticationTokenRequest, RequestEnvelope, ResponseEnvelope,
 };
-use crate::error::{Error, ErrorKind};
+use crate::error::{Error, ErrorKind, InvalidTokenError};
 use crate::service::send_request;
 
 use futures_util::TryFutureExt;
@@ -168,9 +168,9 @@ where
     };
 
     loop {
-        let is_authenticated = send_request(service, &auth_req).await?.authenticated;
+        let resp = send_request(service, &auth_req).await?;
 
-        if is_authenticated {
+        if resp.authenticated {
             return Ok(is_new_token.then(|| auth_req.authentication_token.clone()));
         } else if retry_on_fail {
             let new_token = send_request(service, token_request)
@@ -180,7 +180,7 @@ where
             auth_req.authentication_token = new_token;
             retry_on_fail = false;
         } else {
-            return Ok(None);
+            return Err(InvalidTokenError::new(resp.reason).into());
         }
     }
 }
@@ -241,8 +241,8 @@ where
         let mut this = self.clone();
 
         let f = async move {
-            // Attempt to authenticate if we aren't already (on initial connection, after
-            // disconnects, after unrecoverable auth failures, etc)
+            // Attempt to authenticate if we aren't already authenticated (on initial connection,
+            // after disconnects, after unrecoverable auth failures, etc)
             let mut new_token = if !this.is_authenticated.load(Ordering::Relaxed) {
                 this.authenticate().await?
             } else {
