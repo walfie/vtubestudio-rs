@@ -81,7 +81,7 @@ macro_rules! define_request_response_pairs {
         $(#[doc = $req_doc:expr])+
         req = { $($req:tt)* },
         $(#[doc = $resp_doc:expr])+
-        resp = $(( $resp_inner:ident ))? $({ $($resp_fields:tt)* })?,
+        resp = $(( pub $resp_inner:ident ))? $({ $($resp_fields:tt)* })?,
     },)*) => {
         paste! {
             /// Known message types for [`EnumString<RequestType>`].
@@ -134,7 +134,7 @@ macro_rules! define_request_response_pairs {
                 #[doc = concat!("This is the return value of [`", stringify!($rust_name), "Request`].")]
                 #[derive(Default, Debug, Clone, PartialEq, Serialize, Deserialize)]
                 #[serde(rename_all = "camelCase")]
-                pub struct [<$rust_name Response>] $(($resp_inner);)? $({ $($resp_fields)* })?
+                pub struct [<$rust_name Response>] $((pub $resp_inner);)? $({ $($resp_fields)* })?
 
                 impl Response for [<$rust_name Response>] {
                     #[doc = concat!("[`ResponseType::", stringify!($rust_name), "Response`]")]
@@ -434,7 +434,7 @@ define_request_response_pairs!(
             pub name: String,
         },
         /// The requested parameter.
-        resp = (Parameter),
+        resp = (pub Parameter),
     },
 
     {
