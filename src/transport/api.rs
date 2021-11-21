@@ -53,6 +53,13 @@ where
     }
 }
 
+impl<T, C> ApiTransport<T, C> {
+    /// Consumes `self`, returning the inner transport.
+    pub fn into_inner(self) -> T {
+        self.transport
+    }
+}
+
 impl<T, C> Sink<RequestEnvelope> for ApiTransport<T, C>
 where
     T: Sink<C::Output>,
