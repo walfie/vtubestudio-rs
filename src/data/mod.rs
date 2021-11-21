@@ -580,6 +580,7 @@ pub struct ColorTint {
     pub color_a: u8,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub mix_with_scene_lighting_color: Option<f64>,
+    #[serde(rename = "jeb_")]
     pub jeb_: bool,
 }
 
