@@ -293,7 +293,6 @@ define_request_response_pairs!(
         },
     },
 
-
     {
         rust_name = MoveModel,
         /// Moving the currently loaded VTS model.
