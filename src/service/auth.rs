@@ -204,16 +204,21 @@ where
                     *self.token.lock().unwrap() = maybe_token.clone();
                 }
 
-                self.is_authenticated.store(true, Ordering::Relaxed);
+                self.set_authentication_status(true);
                 maybe_token
             }
             Err(e) => {
-                self.is_authenticated.store(false, Ordering::Relaxed);
+                self.set_authentication_status(false);
                 return Err(e);
             }
         };
 
         Ok(new_token)
+    }
+
+    fn set_authentication_status(&mut self, is_authenticated: bool) {
+        self.is_authenticated
+            .store(is_authenticated, Ordering::Relaxed);
     }
 }
 
@@ -249,7 +254,7 @@ where
                 Err(e) => {
                     let error = Error::from(e);
                     if error.has_kind(ErrorKind::ConnectionDropped) {
-                        this.is_authenticated.store(false, Ordering::Relaxed);
+                        this.set_authentication_status(false);
                     }
                     return Err(error);
                 }
