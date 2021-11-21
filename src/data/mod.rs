@@ -632,7 +632,7 @@ pub struct CapturePart {
 #[serde(rename_all = "camelCase")]
 pub struct Parameter {
     pub name: String,
-    pub added_by: String,
+    pub added_by: Option<String>,
     pub value: f64,
     pub min: f64,
     pub max: f64,
@@ -809,7 +809,7 @@ mod tests {
                 message_type: ParameterValueResponse::MESSAGE_TYPE.into(),
                 data: OpaqueValue::new(&ParameterValueResponse(Parameter {
                     name: "MyCustomParamName1".into(),
-                    added_by: "My Plugin Name".into(),
+                    added_by: Some("My Plugin Name".into()),
                     value: 12.4,
                     min: -30.0,
                     max: 30.0,
