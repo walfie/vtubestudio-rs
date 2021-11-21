@@ -33,6 +33,13 @@ where
     }
 }
 
+impl<M, R> MakeApiService<M, R> {
+    /// Consumes `self`, returning the inner service.
+    pub fn into_inner(self) -> M {
+        self.maker
+    }
+}
+
 impl<M, R> Service<R> for MakeApiService<M, R>
 where
     M: MakeTransport<R, RequestEnvelope, Item = ResponseEnvelope> + Send,

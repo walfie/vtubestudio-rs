@@ -90,6 +90,13 @@ where
     }
 }
 
+impl<S> Authentication<S> {
+    /// Consumes `self`, returning the inner service.
+    pub fn into_inner(self) -> S {
+        self.service
+    }
+}
+
 impl<S> fmt::Debug for Authentication<S>
 where
     S: fmt::Debug,

@@ -632,6 +632,7 @@ pub struct CapturePart {
 #[serde(rename_all = "camelCase")]
 pub struct Parameter {
     pub name: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
     pub added_by: Option<String>,
     pub value: f64,
     pub min: f64,
