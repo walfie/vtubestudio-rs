@@ -71,7 +71,7 @@ where
 /// * encountering a disconnection error
 /// * receiving an auth error from the API
 ///
-/// If no stored token is availble, or the token is invalid, it will request a new auth token by
+/// If no stored token is available, or the token is invalid, it will request a new auth token by
 /// sending an [`AuthenticationTokenRequest`] (which will require the user to accept the pop-up in
 /// the VTube Studio app).
 #[derive(Clone)]
