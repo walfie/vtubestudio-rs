@@ -1,12 +1,14 @@
 use crate::data::{
     AuthenticationRequest, AuthenticationTokenRequest, RequestEnvelope, ResponseEnvelope,
 };
-use crate::error::Error;
+use crate::error::{Error, ErrorKind};
 use crate::service::send_request;
 
+use futures_util::TryFutureExt;
 use std::fmt;
 use std::future::Future;
 use std::pin::Pin;
+use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::{Arc, Mutex};
 use std::task::{Context, Poll};
 use tower::{Layer, Service, ServiceExt};
@@ -61,12 +63,23 @@ where
     }
 }
 
-/// A [`Service`] that tries to reauthenticate when receiving an auth error.
+/// A [`Service`] that handles the VTube Studio authentication flow internally.
+///
+/// This service will try to authenticate using a stored token after:
+///
+/// * the initial connection is established
+/// * encountering a disconnection error
+/// * receiving an auth error from the API
+///
+/// If no stored token is available, or the token is invalid, it will request a new auth token by
+/// sending an [`AuthenticationTokenRequest`] (which will require the user to accept the pop-up in
+/// the VTube Studio app).
 #[derive(Clone)]
 pub struct Authentication<S> {
     service: S,
     token: Arc<Mutex<Option<String>>>,
     token_request: Arc<AuthenticationTokenRequest>,
+    is_authenticated: Arc<AtomicBool>,
 }
 
 impl<S> Authentication<S>
@@ -86,6 +99,7 @@ where
             service,
             token_request,
             token: Arc::new(Mutex::new(token)),
+            is_authenticated: Arc::new(AtomicBool::new(false)),
         }
     }
 }
@@ -107,6 +121,7 @@ where
             .field("token", &"...")
             .field("token_request", &self.token_request)
             .field("service", &self.service)
+            .field("is_authenticated", &self.is_authenticated)
             .finish()
     }
 }
@@ -121,24 +136,22 @@ pub struct ResponseWithToken {
     pub new_token: Option<String>,
 }
 
-impl ResponseWithToken {
-    fn new(response: ResponseEnvelope) -> Self {
-        ResponseWithToken {
-            response,
-            new_token: None,
-        }
-    }
+#[derive(Debug)]
+pub(crate) enum AuthenticationStatus {
+    ExistingTokenIsValid,
+    ReceivedNewValidToken { token: String },
+    InvalidToken,
 }
 
-/// Attempt to authenticate using the provided credentials.
+/// Attempt to authenticate using the provided token.
 ///
-/// Returns `Ok(_)` if the request succeeded, and `Ok(Some(new_token))` if the request succeeded
-/// and a new token was obtained.
-pub async fn authenticate<S>(
+/// If the input token is invalid, a new token will be requested. If the user allows plugin access,
+/// the authentication request will be retried with the newly received token.
+pub(crate) async fn authenticate<S>(
     service: &mut S,
     stored_token: Option<String>,
     token_request: &AuthenticationTokenRequest,
-) -> Result<Option<String>, Error>
+) -> Result<AuthenticationStatus, Error>
 where
     S: Service<RequestEnvelope, Response = ResponseEnvelope>,
     Error: From<S::Error>,
@@ -162,10 +175,16 @@ where
     };
 
     loop {
-        let is_authenticated = send_request(service, &auth_req).await?.authenticated;
+        let resp = send_request(service, &auth_req).await?;
 
-        if is_authenticated {
-            return Ok(is_new_token.then(|| auth_req.authentication_token.clone()));
+        if resp.authenticated {
+            return Ok(if is_new_token {
+                AuthenticationStatus::ReceivedNewValidToken {
+                    token: auth_req.authentication_token,
+                }
+            } else {
+                AuthenticationStatus::ExistingTokenIsValid
+            });
         } else if retry_on_fail {
             let new_token = send_request(service, token_request)
                 .await?
@@ -174,7 +193,7 @@ where
             auth_req.authentication_token = new_token;
             retry_on_fail = false;
         } else {
-            return Ok(None);
+            return Ok(AuthenticationStatus::InvalidToken);
         }
     }
 }
@@ -184,17 +203,41 @@ where
     S: Service<RequestEnvelope, Response = ResponseEnvelope>,
     Error: From<S::Error>,
 {
+    // Helper for authenticating using a stored token, and managing internal state (updating
+    // current authentication status and storing new tokens).
     async fn authenticate(&mut self) -> Result<Option<String>, Error> {
         let stored_token = (*self.token.lock().unwrap()).clone();
 
-        let new_token =
-            authenticate(&mut self.service, stored_token, self.token_request.as_ref()).await?;
+        let token_result =
+            authenticate(&mut self.service, stored_token, self.token_request.as_ref()).await;
 
-        if let Some(ref token) = new_token {
-            *self.token.lock().unwrap() = Some(token.clone());
-        }
+        use AuthenticationStatus::*;
+        let new_token = match token_result {
+            Err(e) => {
+                self.set_authentication_status(false);
+                return Err(e);
+            }
+            Ok(ExistingTokenIsValid) => {
+                self.set_authentication_status(true);
+                None
+            }
+            Ok(ReceivedNewValidToken { token }) => {
+                *self.token.lock().unwrap() = Some(token.clone());
+                self.set_authentication_status(true);
+                Some(token)
+            }
+            Ok(InvalidToken) => {
+                self.set_authentication_status(false);
+                None
+            }
+        };
 
         Ok(new_token)
+    }
+
+    fn set_authentication_status(&mut self, is_authenticated: bool) {
+        self.is_authenticated
+            .store(is_authenticated, Ordering::Relaxed);
     }
 }
 
@@ -217,16 +260,31 @@ where
         let mut this = self.clone();
 
         let f = async move {
-            let resp = this.service.ready().await?.call(req).await?;
+            // Attempt to authenticate if we aren't already authenticated (on initial connection,
+            // after disconnects, after unrecoverable auth failures, etc)
+            let mut new_token = if !this.is_authenticated.load(Ordering::Relaxed) {
+                this.authenticate().await?
+            } else {
+                None
+            };
 
-            if !resp.is_unauthenticated_error() {
-                return Ok(ResponseWithToken::new(resp));
+            let response = match this.service.ready().and_then(|s| s.call(req)).await {
+                Ok(resp) => resp,
+                Err(e) => {
+                    let error = Error::from(e);
+                    if error.has_kind(ErrorKind::ConnectionDropped) {
+                        this.set_authentication_status(false);
+                    }
+                    return Err(error);
+                }
+            };
+
+            if response.is_unauthenticated_error() {
+                new_token = this.authenticate().await?;
             }
 
-            let new_token = this.authenticate().await?;
-
             Ok(ResponseWithToken {
-                response: resp,
+                response,
                 new_token,
             })
         };

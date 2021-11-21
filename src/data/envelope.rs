@@ -261,7 +261,7 @@ impl<'de> Deserialize<'de> for ResponseEnvelope {
             })
         };
 
-        // Typically this will be "VTubeStudioPublicAPI, so we can possibly avoid allocating
+        // Typically this will be "VTubeStudioPublicAPI", so we can possibly avoid allocating
         let api_name = if raw.api_name == API_NAME {
             Cow::Borrowed(API_NAME)
         } else {
