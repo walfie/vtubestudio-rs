@@ -12,6 +12,7 @@ use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::{Arc, Mutex};
 use std::task::{Context, Poll};
 use tower::{Layer, Service, ServiceExt};
+use tracing::debug;
 
 /// A [`Layer`] that produces an [`Authentication`] service.
 #[derive(Clone)]
@@ -160,6 +161,7 @@ where
     let (authentication_token, mut retry_on_fail) = match stored_token {
         Some(token) => (token, true),
         None => {
+            debug!("Requesting new auth token");
             let new_token = send_request(service, token_request)
                 .await?
                 .authentication_token;
@@ -179,13 +181,16 @@ where
 
         if resp.authenticated {
             return Ok(if is_new_token {
+                debug!("Authentication succeeded with new auth token");
                 AuthenticationStatus::ReceivedNewValidToken {
                     token: auth_req.authentication_token,
                 }
             } else {
+                debug!("Authentication succeeded with existing token");
                 AuthenticationStatus::ExistingTokenIsValid
             });
         } else if retry_on_fail {
+            debug!("Existing auth token is invalid, attempting to request new auth token");
             let new_token = send_request(service, token_request)
                 .await?
                 .authentication_token;
@@ -193,6 +198,7 @@ where
             auth_req.authentication_token = new_token;
             retry_on_fail = false;
         } else {
+            debug!("Failed to obtain valid auth token");
             return Ok(AuthenticationStatus::InvalidToken);
         }
     }
@@ -273,6 +279,7 @@ where
                 Err(e) => {
                     let error = Error::from(e);
                     if error.has_kind(ErrorKind::ConnectionDropped) {
+                        debug!("Session has become unauthenticated due to disconnection");
                         this.set_authentication_status(false);
                     }
                     return Err(error);

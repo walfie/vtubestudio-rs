@@ -30,6 +30,7 @@ tokio = "1"
 tokio-tower = "0.6"
 tokio-tungstenite = { version = "0.15", optional = true }
 tower = { version = "0.4.11", features = ["util", "retry", "reconnect", "buffer"] }
+tracing = "0.1"
 
 [dev-dependencies]
 tokio = { version = "1", features = ["macros", "rt-multi-thread"] }
