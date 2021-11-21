@@ -67,27 +67,6 @@ impl UnexpectedResponseError {
     }
 }
 
-/// Authentication token is invalid or has been revoked by the user.
-///
-/// This error is returned from the [`Authentication`](crate::service::Authentication) service when
-/// `authenticated` is false in an [`AuthenticationResponse`](crate::data::AuthenticationResponse).
-#[derive(thiserror::Error, Debug, Clone, PartialEq)]
-#[error("{reason}")]
-pub struct InvalidTokenError {
-    pub(crate) reason: String,
-}
-
-impl InvalidTokenError {
-    pub(crate) fn new(reason: String) -> Self {
-        Self { reason }
-    }
-
-    /// The reason for the error.
-    pub fn reason(&self) -> &str {
-        self.reason.as_str()
-    }
-}
-
 impl From<serde_json::Error> for Error {
     fn from(error: serde_json::Error) -> Self {
         Self::new(ErrorKind::Json).with_source(error)
@@ -103,12 +82,6 @@ impl From<ApiError> for Error {
 impl From<UnexpectedResponseError> for Error {
     fn from(error: UnexpectedResponseError) -> Self {
         Self::new(ErrorKind::UnexpectedResponse).with_source(error)
-    }
-}
-
-impl From<InvalidTokenError> for Error {
-    fn from(error: InvalidTokenError) -> Self {
-        Self::new(ErrorKind::InvalidToken).with_source(error)
     }
 }
 

@@ -1,7 +1,7 @@
 use crate::data::{
     AuthenticationRequest, AuthenticationTokenRequest, RequestEnvelope, ResponseEnvelope,
 };
-use crate::error::{Error, ErrorKind, InvalidTokenError};
+use crate::error::{Error, ErrorKind};
 use crate::service::send_request;
 
 use futures_util::TryFutureExt;
@@ -136,15 +136,22 @@ pub struct ResponseWithToken {
     pub new_token: Option<String>,
 }
 
-/// Attempt to authenticate using the provided credentials.
+#[derive(Debug)]
+pub(crate) enum AuthenticationStatus {
+    ExistingTokenIsValid,
+    ReceivedNewValidToken { token: String },
+    InvalidToken,
+}
+
+/// Attempt to authenticate using the provided token.
 ///
-/// Returns `Ok(_)` if the request succeeded, and `Ok(Some(new_token))` if the request succeeded
-/// and a new token was obtained.
-pub async fn authenticate<S>(
+/// If the input token is invalid, a new token will be requested. If the user allows plugin access,
+/// the authentication request will be retried with the newly received token.
+pub(crate) async fn authenticate<S>(
     service: &mut S,
     stored_token: Option<String>,
     token_request: &AuthenticationTokenRequest,
-) -> Result<Option<String>, Error>
+) -> Result<AuthenticationStatus, Error>
 where
     S: Service<RequestEnvelope, Response = ResponseEnvelope>,
     Error: From<S::Error>,
@@ -171,7 +178,13 @@ where
         let resp = send_request(service, &auth_req).await?;
 
         if resp.authenticated {
-            return Ok(is_new_token.then(|| auth_req.authentication_token.clone()));
+            return Ok(if is_new_token {
+                AuthenticationStatus::ReceivedNewValidToken {
+                    token: auth_req.authentication_token,
+                }
+            } else {
+                AuthenticationStatus::ExistingTokenIsValid
+            });
         } else if retry_on_fail {
             let new_token = send_request(service, token_request)
                 .await?
@@ -180,7 +193,7 @@ where
             auth_req.authentication_token = new_token;
             retry_on_fail = false;
         } else {
-            return Err(InvalidTokenError::new(resp.reason).into());
+            return Ok(AuthenticationStatus::InvalidToken);
         }
     }
 }
@@ -198,18 +211,24 @@ where
         let token_result =
             authenticate(&mut self.service, stored_token, self.token_request.as_ref()).await;
 
+        use AuthenticationStatus::*;
         let new_token = match token_result {
-            Ok(maybe_token) => {
-                if maybe_token.is_some() {
-                    *self.token.lock().unwrap() = maybe_token.clone();
-                }
-
-                self.set_authentication_status(true);
-                maybe_token
-            }
             Err(e) => {
                 self.set_authentication_status(false);
                 return Err(e);
+            }
+            Ok(ExistingTokenIsValid) => {
+                self.set_authentication_status(true);
+                None
+            }
+            Ok(ReceivedNewValidToken { token }) => {
+                *self.token.lock().unwrap() = Some(token.clone());
+                self.set_authentication_status(true);
+                Some(token)
+            }
+            Ok(InvalidToken) => {
+                self.set_authentication_status(false);
+                None
             }
         };
 
