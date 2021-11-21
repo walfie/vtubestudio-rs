@@ -603,10 +603,15 @@ impl Default for ColorTint {
 #[serde(rename_all = "camelCase")]
 pub struct ArtMeshMatcher {
     pub tint_all: bool,
+    #[serde(skip_serializing_if = "Vec::is_empty")]
     pub art_mesh_number: Vec<i32>,
+    #[serde(skip_serializing_if = "Vec::is_empty")]
     pub name_exact: Vec<String>,
+    #[serde(skip_serializing_if = "Vec::is_empty")]
     pub name_contains: Vec<String>,
+    #[serde(skip_serializing_if = "Vec::is_empty")]
     pub tag_exact: Vec<String>,
+    #[serde(skip_serializing_if = "Vec::is_empty")]
     pub tag_contains: Vec<String>,
 }
 
