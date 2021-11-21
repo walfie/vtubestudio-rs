@@ -33,8 +33,6 @@ pub enum ErrorKind {
     ConnectionDropped,
     /// received unexpected response from server
     UnexpectedResponse,
-    /// the provided authentication token was invalid
-    InvalidToken,
     /// received server response with unexpected request ID
     Desynchronized,
     /// JSON error
