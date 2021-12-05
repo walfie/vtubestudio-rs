@@ -65,6 +65,8 @@ pub enum HotkeyAction {
     TakeScreenshot,
     /// Activates/Deactivates model screen color overlay.
     ScreenColorOverlay,
+    /// Removes all items from the scene.
+    RemoveAllItems,
 }
 
 impl Default for HotkeyAction {
@@ -566,6 +568,7 @@ pub struct Hotkey {
     pub file: String,
     #[serde(rename = "hotkeyID")]
     pub hotkey_id: String,
+    pub description: Option<String>,
 }
 
 /// Used in [`ColorTintRequest`].
