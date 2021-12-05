@@ -407,9 +407,9 @@ define_request_response_pairs!(
 
     {
         rust_name = ArtMeshList,
-        /// Requesting list of ArtMeshes in current model.
+        /// Requesting list of art meshes in current model.
         req = {},
-        /// List of ArtMeshes.
+        /// List of art meshes.
         resp = {
             /// Whether the model is loaded.
             pub model_loaded: bool,
@@ -426,16 +426,16 @@ define_request_response_pairs!(
 
     {
         rust_name = ColorTint,
-        /// Tint ArtMeshes with color
+        /// Tint art meshes with color
         req = {
             /// The color tint information.
             pub color_tint: ColorTint,
             /// Which art meshes should be tinted.
             pub art_mesh_matcher: ArtMeshMatcher,
         },
-        /// Number of matched ArtMeshes.
+        /// Number of matched art meshes.
         resp = {
-            /// Number of matched ArtMeshes.
+            /// Number of matched art meshes.
             pub matched_art_meshes: i32,
         },
     },
