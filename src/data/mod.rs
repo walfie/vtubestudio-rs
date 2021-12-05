@@ -83,7 +83,7 @@ macro_rules! define_request_response_pairs {
         $(#[doc = $req_doc:expr])+
         req = { $($req:tt)* },
         $(#[doc = $resp_doc:expr])+
-        resp = $(( pub $resp_inner:ident ))? $({ $($resp_fields:tt)* })?,
+        resp = $(( $($resp_inner:tt)+ ))? $({ $($resp_fields:tt)* })?,
     },)*) => {
         paste! {
             /// Known message types for [`EnumString<RequestType>`].
@@ -115,7 +115,6 @@ macro_rules! define_request_response_pairs {
 
         $(
             paste! {
-                #[allow(missing_docs)]
                 $(#[doc = $req_doc])+
                 ///
                 #[doc = concat!("This request returns [`", stringify!($rust_name), "Response`].")]
@@ -130,13 +129,12 @@ macro_rules! define_request_response_pairs {
                     const MESSAGE_TYPE: EnumString<RequestType> = EnumString::new(RequestType::[<$rust_name Request>]);
                 }
 
-                #[allow(missing_docs)]
                 $(#[doc = $resp_doc])+
                 ///
                 #[doc = concat!("This is the return value of [`", stringify!($rust_name), "Request`].")]
                 #[derive(Default, Debug, Clone, PartialEq, Serialize, Deserialize)]
                 #[serde(rename_all = "camelCase")]
-                pub struct [<$rust_name Response>] $((pub $resp_inner);)? $({ $($resp_fields)* })?
+                pub struct [<$rust_name Response>] $(( $($resp_inner)+ );)? $({ $($resp_fields)* })?
 
                 impl Response for [<$rust_name Response>] {
                     #[doc = concat!("[`ResponseType::", stringify!($rust_name), "Response`]")]
@@ -169,9 +167,12 @@ define_request_response_pairs!(
         req = {},
         /// The API state.
         resp = {
+            /// Whether the API is active.
             pub active: bool,
+            /// The VTube Studio version.
             #[serde(rename = "vTubeStudioVersion")]
             pub vtubestudio_version: String,
+            /// Whether the current session is authenticated.
             pub current_session_authenticated: bool,
         },
     },
@@ -180,13 +181,17 @@ define_request_response_pairs!(
         rust_name = AuthenticationToken,
         /// Request an authentication token.
         req = {
+            /// The name of the plugin.
             pub plugin_name: Cow<'static, str>,
+            /// The developer of the plugin.
             pub plugin_developer: Cow<'static, str>,
+            /// A Base64 encoded image representing the plugin icon.
             #[serde(skip_serializing_if = "Option::is_none")]
             pub plugin_icon: Option<Cow<'static, str>>,
         },
         /// Authentication token response.
         resp = {
+            /// The authentication token.
             pub authentication_token: String,
         },
     },
@@ -195,13 +200,18 @@ define_request_response_pairs!(
         rust_name = Authentication,
         /// Authenticate with the API using a token.
         req = {
+            /// The name of the plugin.
             pub plugin_name: Cow<'static, str>,
+            /// The developer of the plugin.
             pub plugin_developer: Cow<'static, str>,
+            /// The authentication token.
             pub authentication_token: String,
         },
         /// Whether the authentication request was successful.
         resp = {
+            /// Whether the session is authenticated.
             pub authenticated: bool,
+            /// A human-readable explanation of the authentication status.
             pub reason: String,
         },
     },
@@ -214,14 +224,22 @@ define_request_response_pairs!(
         resp = {
             /// Uptime in milliseconds.
             pub uptime: i64,
+            /// The frame rate.
             pub framerate: i32,
+            /// The VTube Studio version.
             #[serde(rename = "vTubeStudioVersion")]
             pub vtubestudio_version: String,
+            /// Number of plugins registered.
             pub allowed_plugins: i32,
+            /// Number of plugins currently connected.
             pub connected_plugins: i32,
+            /// Whether VTube Studio was started with Steam.
             pub started_with_steam: bool,
+            /// Width of the window.
             pub window_width: i32,
+            /// Height of the window.
             pub window_height: i32,
+            /// Whether the window is in fullscreen mode.
             pub window_is_fullscreen: bool,
         },
     },
@@ -234,11 +252,17 @@ define_request_response_pairs!(
         req = {},
         /// Names of various folders in the `StreamingAssets` directory.
         resp = {
+            /// The models folder.
             pub models: String,
+            /// The backgrounds folder.
             pub backgrounds: String,
+            /// The items folder.
             pub items: String,
+            /// The config folder.
             pub config: String,
+            /// The logs folder.
             pub logs: String,
+            /// The backup folder.
             pub backup: String,
         },
     },
@@ -249,23 +273,41 @@ define_request_response_pairs!(
         req = {},
         /// Information about the current model.
         resp = {
+            /// Whether the model is loaded.
             pub model_loaded: bool,
+            /// The name of the model.
             pub model_name: String,
+            /// The ID of the model.
             #[serde(rename = "modelID")]
             pub model_id: String,
+            /// The VTube Studio JSON file for this model.
+            ///
+            /// E.g., `"Model.vtube.json"`
             pub vts_model_name: String,
+            /// The image name of this model's VTube Studio icon.
             pub vts_model_icon_name: String,
+            /// The Live2D model JSON file.
+            ///
+            /// E.g., `"Model.model3.json"`
             #[serde(rename = "live2DModelName")]
             pub live2d_model_name: String,
+            /// How many milliseconds it took to load the model.
             pub model_load_time: i64,
+            /// Milliseconds elapsed since the model was loaded.
             pub time_since_model_loaded: i64,
+            /// Number of Live2D parameters.
             #[serde(rename = "numberOfLive2DParameters")]
             pub number_of_live2d_parameters: i32,
+            /// Number of Live2D art meshes.
             #[serde(rename = "numberOfLive2DArtmeshes")]
             pub number_of_live2d_artmeshes: i32,
+            /// Whether the model has a physics file.
             pub has_physics_file: bool,
+            /// Number of textures.
             pub number_of_textures: i32,
+            /// The resolution of the texture. E.g., `4096`
             pub texture_resolution: i32,
+            /// The position of the model.
             pub model_position: ModelPosition,
         },
     },
@@ -276,7 +318,9 @@ define_request_response_pairs!(
         req = {},
         /// List of available models.
         resp = {
+            /// Number of models.
             pub number_of_models: i32,
+            /// List of models.
             pub available_models: Vec<Model>,
         },
     },
@@ -285,11 +329,13 @@ define_request_response_pairs!(
         rust_name = ModelLoad,
         /// Loading a VTS model by its ID.
         req = {
+            /// The ID of the model to load.
             #[serde(rename = "modelID")]
             pub model_id: String,
         },
         /// Information about the loaded model ID.
         resp = {
+            /// The ID of the model loaded.
             #[serde(rename = "modelID")]
             pub model_id: String,
         },
@@ -316,7 +362,7 @@ define_request_response_pairs!(
             #[serde(skip_serializing_if = "Option::is_none")]
             pub size: Option<f64>,
         },
-        /// Empty response.
+        /// Empty response on model move success.
         resp = {},
     },
 
@@ -324,16 +370,21 @@ define_request_response_pairs!(
         rust_name = HotkeysInCurrentModel,
         /// Requesting list of hotkeys available in current or other VTS model.
         req = {
+            /// The ID of the model.
             #[serde(skip_serializing_if = "Option::is_none")]
             #[serde(rename = "modelID")]
             pub model_id: Option<String>,
         },
         /// Model info and list of hotkeys.
         resp = {
+            /// Whether the model is loaded.
             pub model_loaded: bool,
+            /// The name of the model.
             pub model_name: String,
+            /// The ID of the model.
             #[serde(rename = "modelID")]
             pub model_id: String,
+            /// List of available hotkeys.
             pub available_hotkeys: Vec<Hotkey>,
         },
     },
@@ -342,11 +393,13 @@ define_request_response_pairs!(
         rust_name = HotkeyTrigger,
         /// Requesting execution of hotkeys.
         req = {
+            /// The ID of the hotkey.
             #[serde(rename = "hotkeyID")]
             pub hotkey_id: String,
         },
         /// The hotkey that was triggered.
         resp = {
+            /// The ID of the hotkey.
             #[serde(rename = "hotkeyID")]
             pub hotkey_id: String,
         },
@@ -354,27 +407,35 @@ define_request_response_pairs!(
 
     {
         rust_name = ArtMeshList,
-        /// Requesting list of ArtMeshes in current model.
+        /// Requesting list of art meshes in current model.
         req = {},
-        /// List of ArtMeshes.
+        /// List of art meshes.
         resp = {
+            /// Whether the model is loaded.
             pub model_loaded: bool,
+            /// Number of art mesh names.
             pub number_of_art_mesh_names: i32,
+            /// Number of art mesh tags.
             pub number_of_art_mesh_tags: i32,
+            /// List of art mesh names.
             pub art_mesh_names: Vec<String>,
+            /// List of art mesh tags.
             pub art_mesh_tags: Vec<String>,
         },
     },
 
     {
         rust_name = ColorTint,
-        /// Tint ArtMeshes with color
+        /// Tint art meshes with color
         req = {
+            /// The color tint information.
             pub color_tint: ColorTint,
+            /// Which art meshes should be tinted.
             pub art_mesh_matcher: ArtMeshMatcher,
         },
-        /// Number of matched ArtMeshes.
+        /// Number of matched art meshes.
         resp = {
+            /// Number of matched art meshes.
             pub matched_art_meshes: i32,
         },
     },
@@ -385,20 +446,37 @@ define_request_response_pairs!(
         req = {},
         /// Info about the color overlay.
         resp = {
+            /// Whether the overlay is active.
             pub active: bool,
+            /// Whether items are included in the overlay.
             pub items_included: bool,
+            /// Whether the overlay is a window capture.
+            ///
+            /// If `false`, it means the entire screen is being captured.
             pub is_window_capture: bool,
+            /// Base brightness (between 0 and 100).
             pub base_brightness: i32,
+            /// Color boost (between 0 and 100).
             pub color_boost: i32,
+            /// Smoothing.(between 0 and 60).
             pub smoothing: i32,
+            /// The red component of the overlay (between 0 and 459).
             pub color_overlay_r: u8,
+            /// The green component of the overlay (between 0 and 459).
             pub color_overlay_g: u8,
+            /// The blue component of the overlay (between 0 and 459).
             pub color_overlay_b: u8,
+            /// The average red component of the overlay.
             pub color_avg_r: u8,
+            /// The average green component of the overlay.
             pub color_avg_g: u8,
+            /// The average blue component of the overlay.
             pub color_avg_b: u8,
+            /// The left capture part.
             pub left_capture_part: CapturePart,
+            /// The middle capture part.
             pub middle_capture_part: CapturePart,
+            /// The right capture part.
             pub right_capture_part: CapturePart,
         },
     },
@@ -409,6 +487,7 @@ define_request_response_pairs!(
         req = {},
         /// Whether the face was found.
         resp = {
+            /// Whether the face was found.
             pub found: bool,
         },
     },
@@ -419,11 +498,16 @@ define_request_response_pairs!(
         req = {},
         /// List of available parameters.
         resp = {
+            /// Whether the model is loaded.
             pub model_loaded: bool,
+            /// The name of the model.
             pub model_name: String,
+            /// The ID of the model.
             #[serde(rename = "modelID")]
             pub model_id: String,
+            /// List of custom parameters.
             pub custom_parameters: Vec<Parameter>,
+            /// List of default parameters.
             pub default_parameters: Vec<Parameter>,
         },
     },
@@ -432,10 +516,14 @@ define_request_response_pairs!(
         rust_name = ParameterValue,
         /// Get the value for one specific parameter, default or custom.
         req = {
+            /// The name of the parameter.
             pub name: String,
         },
         /// The requested parameter.
-        resp = (pub Parameter),
+        resp = (
+            /// The requested parameter.
+            pub Parameter
+        ),
     },
 
     {
@@ -444,10 +532,14 @@ define_request_response_pairs!(
         req = {},
         /// Info about the current model and list of parameters.
         resp = {
+            /// Whether the model is loaded.
             pub model_loaded: bool,
+            /// The name of the model.
             pub model_name: String,
+            /// The ID of the model.
             #[serde(rename = "modelID")]
             pub model_id: String,
+            /// List of parameters.
             pub parameters: Vec<Parameter>,
         },
     },
@@ -456,15 +548,21 @@ define_request_response_pairs!(
         rust_name = ParameterCreation,
         /// Adding new tracking parameters ("custom parameters").
         req = {
+            /// Name of the parameter.
             pub parameter_name: String,
+            /// A description of the parameter.
             #[serde(skip_serializing_if = "Option::is_none")]
             pub explanation: Option<String>,
+            /// The minimum value.
             pub min: f64,
+            /// The maximum value.
             pub max: f64,
+            /// The default value.
             pub default_value: f64,
         },
         /// Name of the created parameter.
         resp = {
+            /// Name of the created parameter.
             pub parameter_name: String,
         },
     },
@@ -473,10 +571,12 @@ define_request_response_pairs!(
         rust_name = ParameterDeletion,
         /// Delete custom parameters.
         req = {
+            /// The name of the parameter to delete.
             pub parameter_name: String,
         },
         /// Name of the deleted parameter.
         resp = {
+            /// Name of the deleted parameter.
             pub parameter_name: String,
         },
     },
@@ -485,9 +585,10 @@ define_request_response_pairs!(
         rust_name = InjectParameterData,
         /// Feeding in data for default or custom parameters.
         req = {
+            /// The parameter values to inject.
             pub parameter_values: Vec<ParameterValue>,
         },
-        /// Empty response.
+        /// Empty response on parameter injection success.
         resp = {},
     },
 
@@ -516,15 +617,18 @@ impl ApiError {
     }
 }
 
-/// API Server Discovery (UDP).
-#[allow(missing_docs)]
+/// API server discovery message (sent over UDP).
 #[derive(Default, Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct VTubeStudioApiStateBroadcast {
+    /// Whether the API is active.
     pub active: bool,
+    /// The websocket port.
     pub port: i32,
+    /// The ID of the VTube Studio instance.
     #[serde(rename = "instanceID")]
     pub instance_id: String,
+    /// The title of the VTube Studio window.
     pub window_title: String,
 }
 
@@ -534,54 +638,75 @@ impl Response for VTubeStudioApiStateBroadcast {
 }
 
 /// Used in [`CurrentModelResponse`].
-#[allow(missing_docs)]
 #[derive(Default, Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct ModelPosition {
+    /// The X position of the model.
     pub position_x: f64,
+    /// The Y position of the model.
     pub position_y: f64,
+    /// The rotation of the model in degrees.
     pub rotation: f64,
+    /// The size of the model (between -100 and 100).
     pub size: f64,
 }
 
 /// Used in [`AvailableModelsResponse`].
-#[allow(missing_docs)]
 #[derive(Default, Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct Model {
+    /// Whether the model is loaded.
     pub model_loaded: bool,
+    /// The name of the model.
     pub model_name: String,
+    /// The ID of the model.
     #[serde(rename = "modelID")]
     pub model_id: String,
+    /// The VTube Studio JSON file for this model.
     pub vts_model_name: String,
+    /// The image name of this model's VTube Studio icon.
     pub vts_model_icon_name: String,
 }
 
 /// Used in [`HotkeysInCurrentModelResponse`].
-#[allow(missing_docs)]
 #[derive(Default, Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct Hotkey {
+    /// The name of the hotkey.
     pub name: String,
+    /// The hotkey type.
     #[serde(rename = "type")]
     pub type_: EnumString<HotkeyAction>,
+    /// The JSON file associated with this hotkey, if any (possibly an empty string).
+    ///
+    /// E.g., `"myExpression_1.exp3.json"`, `"myAnimation.motion3.json"`, `"someOtherModel.vtube.json"`.
     pub file: String,
+    /// Unique ID of the hotkey.
     #[serde(rename = "hotkeyID")]
     pub hotkey_id: String,
+    /// Human-readable description of the hotkey type.
     pub description: Option<String>,
 }
 
 /// Used in [`ColorTintRequest`].
-#[allow(missing_docs)]
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct ColorTint {
+    /// The red component of the color.
     pub color_r: u8,
+    /// The green component of the color.
     pub color_g: u8,
+    /// The blue component of the color.
     pub color_b: u8,
+    /// The alpha component of the color.
     pub color_a: u8,
+    /// The weight of this color tint relative to the scene lighting.
+    ///
+    /// This should be a value between 0 and 1 (where 0 means the scene lighting takes full
+    /// priority, and 1 means this color tint takes full priority), with the default being 1.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub mix_with_scene_lighting_color: Option<f64>,
+    /// Enable rainbow mode.
     #[serde(rename = "jeb_")]
     pub jeb_: bool,
 }
@@ -600,55 +725,73 @@ impl Default for ColorTint {
 }
 
 /// Used in [`ColorTintRequest`].
-#[allow(missing_docs)]
 #[derive(Default, Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct ArtMeshMatcher {
+    /// Whether to tint all art meshes.
     pub tint_all: bool,
+    /// The number of this art mesh.
     #[serde(skip_serializing_if = "Vec::is_empty")]
     pub art_mesh_number: Vec<i32>,
+    /// Match art meshes with these exact names.
     #[serde(skip_serializing_if = "Vec::is_empty")]
     pub name_exact: Vec<String>,
+    /// Match art meshes that contain these strings.
     #[serde(skip_serializing_if = "Vec::is_empty")]
     pub name_contains: Vec<String>,
+    /// Match art meshes with these exact tags.
     #[serde(skip_serializing_if = "Vec::is_empty")]
     pub tag_exact: Vec<String>,
+    /// Match art meshes that have tags that contain these strings.
     #[serde(skip_serializing_if = "Vec::is_empty")]
     pub tag_contains: Vec<String>,
 }
 
 /// Used in [`SceneColorOverlayInfoResponse`].
-#[allow(missing_docs)]
 #[derive(Default, Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct CapturePart {
+    /// Whether this capture part is active.
     pub active: bool,
+    /// The red component of the color.
     pub color_r: u8,
+    /// The green component of the color.
     pub color_g: u8,
+    /// The blue component of the color.
     pub color_b: u8,
 }
 
 /// Used in [`InputParameterListResponse`], [`ParameterValueResponse`], [`Live2DParameterListResponse`].
-#[allow(missing_docs)]
 #[derive(Default, Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct Parameter {
+    /// The name of the parameter.
     pub name: String,
+    /// The plugin that created this parameter.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub added_by: Option<String>,
+    /// The current value.
     pub value: f64,
+    /// The minimum value.
     pub min: f64,
+    /// The maximum value.
     pub max: f64,
+    /// The default value.
     pub default_value: f64,
 }
 
 /// Used in [`InjectParameterDataRequest`].
-#[allow(missing_docs)]
 #[derive(Default, Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct ParameterValue {
+    /// The ID (name) of the parameter.
     pub id: String,
+    /// The value of the parameter.
     pub value: f64,
+    /// The weight of this parameter injection value compared to values provided by facial
+    /// tracking.
+    ///
+    /// This value should be between 0 and 1 (with 1 being the default).
     #[serde(skip_serializing_if = "Option::is_none")]
     pub weight: Option<f64>,
 }
