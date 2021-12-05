@@ -461,11 +461,11 @@ define_request_response_pairs!(
             /// Smoothing.(between 0 and 60).
             pub smoothing: i32,
             /// The red component of the overlay (between 0 and 459).
-            pub color_overlay_r: u8,
+            pub color_overlay_r: i32,
             /// The green component of the overlay (between 0 and 459).
-            pub color_overlay_g: u8,
+            pub color_overlay_g: i32,
             /// The blue component of the overlay (between 0 and 459).
-            pub color_overlay_b: u8,
+            pub color_overlay_b: i32,
             /// The average red component of the overlay.
             pub color_avg_r: u8,
             /// The average green component of the overlay.
