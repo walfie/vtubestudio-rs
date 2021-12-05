@@ -534,54 +534,75 @@ impl Response for VTubeStudioApiStateBroadcast {
 }
 
 /// Used in [`CurrentModelResponse`].
-#[allow(missing_docs)]
 #[derive(Default, Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct ModelPosition {
+    /// The X position of the model.
     pub position_x: f64,
+    /// The Y position of the model.
     pub position_y: f64,
+    /// The rotation of the model in degrees.
     pub rotation: f64,
+    /// The size of the model (between -100 and 100).
     pub size: f64,
 }
 
 /// Used in [`AvailableModelsResponse`].
-#[allow(missing_docs)]
 #[derive(Default, Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct Model {
+    /// Whether the model is loaded.
     pub model_loaded: bool,
+    /// The name of the model.
     pub model_name: String,
+    /// The ID of the model.
     #[serde(rename = "modelID")]
     pub model_id: String,
+    /// The VTube Studio JSON file for this model.
     pub vts_model_name: String,
+    /// The image name of this model's VTube Studio icon.
     pub vts_model_icon_name: String,
 }
 
 /// Used in [`HotkeysInCurrentModelResponse`].
-#[allow(missing_docs)]
 #[derive(Default, Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct Hotkey {
+    /// The name of the hotkey.
     pub name: String,
+    /// The hotkey type.
     #[serde(rename = "type")]
     pub type_: EnumString<HotkeyAction>,
+    /// The JSON file associated with this hotkey, if any (possibly an empty string).
+    ///
+    /// E.g., `"myExpression_1.exp3.json"`, `"myAnimation.motion3.json"`, `"someOtherModel.vtube.json"`.
     pub file: String,
+    /// Unique ID of the hotkey.
     #[serde(rename = "hotkeyID")]
     pub hotkey_id: String,
+    /// Human-readable description of the hotkey type.
     pub description: Option<String>,
 }
 
 /// Used in [`ColorTintRequest`].
-#[allow(missing_docs)]
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct ColorTint {
+    /// The red component of the color.
     pub color_r: u8,
+    /// The green component of the color.
     pub color_g: u8,
+    /// The blue component of the color.
     pub color_b: u8,
+    /// The alpha component of the color.
     pub color_a: u8,
+    /// The strength of this color tint relative to the scene lighting.
+    ///
+    /// This should be a value between 0 and 1 (where 0 means the scene lighting takes full
+    /// priority, and 1 means this color tint takes full priority), with the default being 1.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub mix_with_scene_lighting_color: Option<f64>,
+    /// Enable rainbow mode.
     #[serde(rename = "jeb_")]
     pub jeb_: bool,
 }
@@ -600,19 +621,24 @@ impl Default for ColorTint {
 }
 
 /// Used in [`ColorTintRequest`].
-#[allow(missing_docs)]
 #[derive(Default, Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct ArtMeshMatcher {
+    /// Whether to tint all art meshes.
     pub tint_all: bool,
+    /// The number of this art mesh.
     #[serde(skip_serializing_if = "Vec::is_empty")]
     pub art_mesh_number: Vec<i32>,
+    /// Match art meshes with these exact names.
     #[serde(skip_serializing_if = "Vec::is_empty")]
     pub name_exact: Vec<String>,
+    /// Match art meshes that contain these strings.
     #[serde(skip_serializing_if = "Vec::is_empty")]
     pub name_contains: Vec<String>,
+    /// Match art meshes with these exact tags.
     #[serde(skip_serializing_if = "Vec::is_empty")]
     pub tag_exact: Vec<String>,
+    /// Match art meshes that have tags that contain these strings.
     #[serde(skip_serializing_if = "Vec::is_empty")]
     pub tag_contains: Vec<String>,
 }
