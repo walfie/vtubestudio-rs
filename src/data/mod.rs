@@ -592,6 +592,48 @@ define_request_response_pairs!(
         resp = {},
     },
 
+    {
+        rust_name = ExpressionState,
+        /// Requesting current expression state list.
+        req = {
+            /// Whether to return more details in the response.
+            ///
+            /// This affects whether items are returned in the `used_in_hotkeys` and `parameters`
+            /// fields
+            pub details: bool,
+            /// If specified, return only the state of this expression.
+            #[serde(skip_serializing_if = "Option::is_none")]
+            pub expression_file: Option<String>,
+        },
+        /// Data about the requested expressions.
+        resp = {
+            /// Whether the model is loaded.
+            pub model_loaded: bool,
+            /// The name of the model.
+            pub model_name: String,
+            /// The ID of the model.
+            #[serde(rename = "modelID")]
+            pub model_id: String,
+            /// List of expressions.
+            pub expressions: Vec<Expression>,
+        },
+    },
+
+    {
+        rust_name = ExpressionActivation,
+        /// Requesting activation or deactivation of expressions.
+        req = {
+            /// File name of the expression file.
+            ///
+            /// E.g., `myExpression_1.exp3.json`.
+            pub expression_file: String,
+            /// Whether the expression should be active.
+            pub active: bool,
+        },
+        /// Empty response on successful expression activation/deactivation.
+        resp = {},
+    },
+
 );
 
 /// Error returned by the VTube Studio API.
@@ -794,6 +836,54 @@ pub struct ParameterValue {
     /// This value should be between 0 and 1 (with 1 being the default).
     #[serde(skip_serializing_if = "Option::is_none")]
     pub weight: Option<f64>,
+}
+
+/// Used in [`ExpressionStateResponse`].
+#[derive(Default, Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct Expression {
+    /// Name of the expression.
+    ///
+    /// E.g., `myExpression_optional_1`.
+    pub name: String,
+    /// File name of the expression.
+    ///
+    /// E.g., `myExpression_optional_1.exp3.json`.
+    pub file: String,
+    /// Whether the expression is active.
+    pub active: bool,
+    /// Whether the expression deactivates when let go.
+    pub deactivate_when_key_is_let_go: bool,
+    /// Whether the expression auto-deactivates after some time.
+    pub auto_deactivate_after_seconds: bool,
+    /// Seconds remaining until the expression deactivates.
+    ///
+    /// This will be `0` if `auto_deactivate_after_seconds` is `false`.
+    pub seconds_remaining: f64,
+    /// Which hotkeys this expression is used in.
+    pub used_in_hotkeys: Vec<ExpressionUsedInHotkey>,
+    /// The Live2D parameter IDs and target values of all parameters used in the expression.
+    pub parameters: Vec<ExpressionParameter>,
+}
+
+/// Used in [`Expression`].
+#[derive(Default, Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct ExpressionParameter {
+    /// Live2D parameter ID of the expression.
+    pub id: String,
+    /// Target value of the expression.
+    pub target: i32,
+}
+
+/// Used in [`Expression`].
+#[derive(Default, Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct ExpressionUsedInHotkey {
+    /// Name of the hotkey.
+    pub name: String,
+    /// ID of the hotkey.
+    pub id: String,
 }
 
 #[cfg(test)]
