@@ -599,7 +599,7 @@ define_request_response_pairs!(
             /// Whether to return more details in the response.
             ///
             /// This affects whether items are returned in the `used_in_hotkeys` and `parameters`
-            /// fields
+            /// fields.
             pub details: bool,
             /// If specified, return only the state of this expression.
             #[serde(skip_serializing_if = "Option::is_none")]
