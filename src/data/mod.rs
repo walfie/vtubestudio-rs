@@ -870,10 +870,10 @@ pub struct Expression {
 #[derive(Default, Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct ExpressionParameter {
-    /// Live2D parameter ID of the expression.
-    pub id: String,
-    /// Target value of the expression.
-    pub target: i32,
+    /// Live2D parameter name of the expression.
+    pub name: String,
+    /// Value of the expression.
+    pub value: i32,
 }
 
 /// Used in [`Expression`].
