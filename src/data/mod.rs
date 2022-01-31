@@ -15,7 +15,7 @@ pub use crate::data::error_id::ErrorId;
 
 use paste::paste;
 use serde::de::DeserializeOwned;
-use serde::{Deserialize, Serialize};
+use serde::{Deserialize, Serialize, Serializer};
 use std::borrow::Cow;
 
 /// Trait describing a VTube Studio request.
@@ -634,7 +634,66 @@ define_request_response_pairs!(
         resp = {},
     },
 
+    {
+        rust_name = NdiConfigRequest,
+        req_name = "NDIConfigRequest",
+        resp_name = "NDIConfigResponse",
+        /// Get and set NDI settings.
+        req = {
+            /// Set to `false` to only return existing config (other fields will be ignored).
+            pub set_new_config: bool,
+            /// Whether NDI should be active.
+            pub ndi_active: bool,
+            /// Whether NDI 5 should be used.
+            #[serde(rename = "useNDI5")]
+            pub use_ndi5: bool,
+            /// Whether a custom resolution should be used.
+            ///
+            /// Setting this to `true` means the NDI stream will no longer have
+            /// the same resolution as the VTube Studio window, but instead use
+            /// the custom resolution set via the UI or the `custom_width`
+            /// fields of this request.
+            pub use_custom_resolution: bool,
+            /// Custom NDI width if `use_custom_resolution` is specified.
+            ///
+            /// Must be a multiple of 16 and be between `256` and `8192`.
+            #[serde(rename = "customWidthNDI", serialize_with = "ndi_default_size")]
+            pub custom_width_ndi: Option<i32>,
+            /// Custom NDI height if `use_custom_resolution` is specified.
+            ///
+            /// Must be a multiple of 8 and be between `256` and `8192`.
+            #[serde(rename = "customHeightNDI", serialize_with = "ndi_default_size")]
+            pub custom_height_ndi: Option<i32>,
+        },
+        /// Data about the requested expressions.
+        resp = {
+            /// This field has no significance in the response.
+            pub set_new_config: bool,
+            /// Whether NDI is active.
+            pub ndi_active: bool,
+            /// Whether NDI 5 is being used.
+            #[serde(rename = "useNDI5")]
+            pub use_ndi5: bool,
+            /// Whether a custom resolution is being used.
+            pub use_custom_resolution: bool,
+            /// The NDI width.
+            #[serde(rename = "customWidthNDI")]
+            pub custom_width_ndi: i64,
+            /// The NDI height.
+            #[serde(rename = "customHeightNDI")]
+            pub custom_height_ndi: i64,
+        },
+    },
+
 );
+
+// Per the docs, we should send `-1` if the user doesn't want to change the NDI width or height.
+fn ndi_default_size<S>(value: &Option<i32>, serializer: S) -> Result<S::Ok, S::Error>
+where
+    S: Serializer,
+{
+    serializer.serialize_i32(value.unwrap_or(-1))
+}
 
 /// Error returned by the VTube Studio API.
 #[derive(thiserror::Error, Debug, Clone, PartialEq, Serialize, Deserialize)]
