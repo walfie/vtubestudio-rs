@@ -635,25 +635,31 @@ define_request_response_pairs!(
     },
 
     {
-        rust_name = NdiConfigRequest,
+        rust_name = NdiConfig,
         req_name = "NDIConfigRequest",
         resp_name = "NDIConfigResponse",
         /// Get and set NDI settings.
+        ///
+        /// Note that the boolean fields (`ndi_optional`, `use_ndi5`, etc) are optional in this
+        /// library since they're not strictly required by the API, but the API currently treats
+        /// them the same as `false` if unspecified.
         req = {
             /// Set to `false` to only return existing config (other fields will be ignored).
             pub set_new_config: bool,
             /// Whether NDI should be active.
-            pub ndi_active: bool,
+            #[serde(skip_serializing_if = "Option::is_none")]
+            pub ndi_active: Option<bool>,
             /// Whether NDI 5 should be used.
-            #[serde(rename = "useNDI5")]
-            pub use_ndi5: bool,
+            #[serde(rename = "useNDI5", skip_serializing_if = "Option::is_none")]
+            pub use_ndi5: Option<bool>,
             /// Whether a custom resolution should be used.
             ///
             /// Setting this to `true` means the NDI stream will no longer have
             /// the same resolution as the VTube Studio window, but instead use
             /// the custom resolution set via the UI or the `custom_width`
             /// fields of this request.
-            pub use_custom_resolution: bool,
+            #[serde(skip_serializing_if = "Option::is_none")]
+            pub use_custom_resolution: Option<bool>,
             /// Custom NDI width if `use_custom_resolution` is specified.
             ///
             /// Must be a multiple of 16 and be between `256` and `8192`.
