@@ -170,4 +170,17 @@ define_error_ids! {
 
     // Errors related to ParameterValueRequest
     (500, PARAMETER_VALUE_REQUEST_PARAMETER_NOT_FOUND, ParameterValueRequestParameterNotFound),
+
+    // Errors related to NDIConfigRequest
+    (550, NDI_CONFIG_COOLDOWN_NOT_OVER, NDIConfigCooldownNotOver),
+    (551, NDI_CONFIG_RESOLUTION_INVALID, NDIConfigResolutionInvalid),
+
+    // Errors related to ExpressionStateRequest
+    (600, EXPRESSION_STATE_REQUEST_INVALID_FILENAME, ExpressionStateRequestInvalidFilename),
+    (601, EXPRESSION_STATE_REQUEST_FILE_NOT_FOUND, ExpressionStateRequestFileNotFound),
+
+    // Errors related to ExpressionActivationRequest
+    (650, EXPRESSION_ACTIVATION_REQUEST_INVALID_FILENAME, ExpressionActivationRequestInvalidFilename),
+    (651, EXPRESSION_ACTIVATION_REQUEST_FILE_NOT_FOUND, ExpressionActivationRequestFileNotFound),
+    (652, EXPRESSION_ACTIVATION_REQUEST_NO_MODEL_LOADED, ExpressionActivationRequestNoModelLoaded),
 }

@@ -15,7 +15,7 @@ pub use crate::data::error_id::ErrorId;
 
 use paste::paste;
 use serde::de::DeserializeOwned;
-use serde::{Deserialize, Serialize};
+use serde::{Deserialize, Serialize, Serializer};
 use std::borrow::Cow;
 
 /// Trait describing a VTube Studio request.
@@ -592,7 +592,114 @@ define_request_response_pairs!(
         resp = {},
     },
 
+    {
+        rust_name = ExpressionState,
+        /// Requesting current expression state list.
+        req = {
+            /// Whether to return more details in the response.
+            ///
+            /// This affects whether items are returned in the `used_in_hotkeys` and `parameters`
+            /// fields.
+            pub details: bool,
+            /// If specified, return only the state of this expression.
+            #[serde(skip_serializing_if = "Option::is_none")]
+            pub expression_file: Option<String>,
+        },
+        /// Data about the requested expressions.
+        resp = {
+            /// Whether the model is loaded.
+            pub model_loaded: bool,
+            /// The name of the model.
+            pub model_name: String,
+            /// The ID of the model.
+            #[serde(rename = "modelID")]
+            pub model_id: String,
+            /// List of expressions.
+            pub expressions: Vec<Expression>,
+        },
+    },
+
+    {
+        rust_name = ExpressionActivation,
+        /// Requesting activation or deactivation of expressions.
+        req = {
+            /// File name of the expression file.
+            ///
+            /// E.g., `myExpression_1.exp3.json`.
+            pub expression_file: String,
+            /// Whether the expression should be active.
+            pub active: bool,
+        },
+        /// Empty response on successful expression activation/deactivation.
+        resp = {},
+    },
+
+    {
+        rust_name = NdiConfig,
+        req_name = "NDIConfigRequest",
+        resp_name = "NDIConfigResponse",
+        /// Get and set NDI settings.
+        ///
+        /// Note that the boolean fields (`ndi_optional`, `use_ndi5`, etc) are optional in this
+        /// library since they're not strictly required by the API, but the API currently treats
+        /// them the same as `false` if unspecified.
+        req = {
+            /// Set to `false` to only return existing config (other fields will be ignored).
+            pub set_new_config: bool,
+            /// Whether NDI should be active.
+            #[serde(skip_serializing_if = "Option::is_none")]
+            pub ndi_active: Option<bool>,
+            /// Whether NDI 5 should be used.
+            #[serde(rename = "useNDI5", skip_serializing_if = "Option::is_none")]
+            pub use_ndi5: Option<bool>,
+            /// Whether a custom resolution should be used.
+            ///
+            /// Setting this to `true` means the NDI stream will no longer have
+            /// the same resolution as the VTube Studio window, but instead use
+            /// the custom resolution set via the UI or the `custom_width`
+            /// fields of this request.
+            #[serde(skip_serializing_if = "Option::is_none")]
+            pub use_custom_resolution: Option<bool>,
+            /// Custom NDI width if `use_custom_resolution` is specified.
+            ///
+            /// Must be a multiple of 16 and be between `256` and `8192`.
+            #[serde(rename = "customWidthNDI", serialize_with = "ndi_default_size")]
+            pub custom_width_ndi: Option<i32>,
+            /// Custom NDI height if `use_custom_resolution` is specified.
+            ///
+            /// Must be a multiple of 8 and be between `256` and `8192`.
+            #[serde(rename = "customHeightNDI", serialize_with = "ndi_default_size")]
+            pub custom_height_ndi: Option<i32>,
+        },
+        /// Data about the requested expressions.
+        resp = {
+            /// This field has no significance in the response.
+            pub set_new_config: bool,
+            /// Whether NDI is active.
+            pub ndi_active: bool,
+            /// Whether NDI 5 is being used.
+            #[serde(rename = "useNDI5")]
+            pub use_ndi5: bool,
+            /// Whether a custom resolution is being used.
+            pub use_custom_resolution: bool,
+            /// The NDI width.
+            #[serde(rename = "customWidthNDI")]
+            pub custom_width_ndi: i64,
+            /// The NDI height.
+            #[serde(rename = "customHeightNDI")]
+            pub custom_height_ndi: i64,
+        },
+    },
+
 );
+
+// Per the docs, we should send `-1` if the user doesn't want to change the NDI width or height.
+fn ndi_default_size<S>(value: &Option<i32>, serializer: S) -> Result<S::Ok, S::Error>
+where
+    S: Serializer,
+{
+    serializer.serialize_i32(value.unwrap_or(-1))
+}
 
 /// Error returned by the VTube Studio API.
 #[derive(thiserror::Error, Debug, Clone, PartialEq, Serialize, Deserialize)]
@@ -794,6 +901,54 @@ pub struct ParameterValue {
     /// This value should be between 0 and 1 (with 1 being the default).
     #[serde(skip_serializing_if = "Option::is_none")]
     pub weight: Option<f64>,
+}
+
+/// Used in [`ExpressionStateResponse`].
+#[derive(Default, Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct Expression {
+    /// Name of the expression.
+    ///
+    /// E.g., `myExpression_optional_1`.
+    pub name: String,
+    /// File name of the expression.
+    ///
+    /// E.g., `myExpression_optional_1.exp3.json`.
+    pub file: String,
+    /// Whether the expression is active.
+    pub active: bool,
+    /// Whether the expression deactivates when let go.
+    pub deactivate_when_key_is_let_go: bool,
+    /// Whether the expression auto-deactivates after some time.
+    pub auto_deactivate_after_seconds: bool,
+    /// Seconds remaining until the expression deactivates.
+    ///
+    /// This will be `0` if `auto_deactivate_after_seconds` is `false`.
+    pub seconds_remaining: f64,
+    /// Which hotkeys this expression is used in.
+    pub used_in_hotkeys: Vec<ExpressionUsedInHotkey>,
+    /// The Live2D parameter IDs and target values of all parameters used in the expression.
+    pub parameters: Vec<ExpressionParameter>,
+}
+
+/// Used in [`Expression`].
+#[derive(Default, Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct ExpressionParameter {
+    /// Live2D parameter name of the expression.
+    pub name: String,
+    /// Value of the expression.
+    pub value: f64,
+}
+
+/// Used in [`Expression`].
+#[derive(Default, Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct ExpressionUsedInHotkey {
+    /// Name of the hotkey.
+    pub name: String,
+    /// ID of the hotkey.
+    pub id: String,
 }
 
 #[cfg(test)]
