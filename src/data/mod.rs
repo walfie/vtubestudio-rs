@@ -938,7 +938,7 @@ pub struct ExpressionParameter {
     /// Live2D parameter name of the expression.
     pub name: String,
     /// Value of the expression.
-    pub value: i32,
+    pub value: f64,
 }
 
 /// Used in [`Expression`].
