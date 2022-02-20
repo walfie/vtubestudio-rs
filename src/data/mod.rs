@@ -700,7 +700,7 @@ define_request_response_pairs!(
             /// Whether the model is loaded.
             ///
             /// If no model is loaded, this will be false. All other values do
-            /// not have any significance in that case and the `physicsGroups`
+            /// not have any significance in that case and the `physics_groups`
             /// array will be empty.
             pub model_loaded: bool,
             /// The name of the model.
