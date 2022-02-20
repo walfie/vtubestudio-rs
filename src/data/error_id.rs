@@ -95,7 +95,7 @@ macro_rules! define_error_ids {
     }
 }
 
-// https://github.com/DenchiSoft/VTubeStudio/blob/08681904e285d37b8c22d17d7d3a36c8c6834425/Files/ErrorID.cs#L15
+// https://github.com/DenchiSoft/VTubeStudio/blob/3bda900ddc24ee51e2179b81e0418e8278362783/Files/ErrorID.cs
 define_error_ids! {
     // General errors
     (0, INTERNAL_SERVER_ERROR, InternalServerError),
@@ -183,4 +183,13 @@ define_error_ids! {
     (650, EXPRESSION_ACTIVATION_REQUEST_INVALID_FILENAME, ExpressionActivationRequestInvalidFilename),
     (651, EXPRESSION_ACTIVATION_REQUEST_FILE_NOT_FOUND, ExpressionActivationRequestFileNotFound),
     (652, EXPRESSION_ACTIVATION_REQUEST_NO_MODEL_LOADED, ExpressionActivationRequestNoModelLoaded),
+
+    // Errors related to SetCurrentModelPhysicsRequest
+    (700, SET_CURRENT_MODEL_PHYSICS_REQUEST_NO_MODEL_LOADED, SetCurrentModelPhysicsRequestNoModelLoaded),
+    (701, SET_CURRENT_MODEL_PHYSICS_REQUEST_MODEL_HAS_NO_PHYSICS, SetCurrentModelPhysicsRequestModelHasNoPhysics),
+    (702, SET_CURRENT_MODEL_PHYSICS_REQUEST_PHYSICS_CONTROLLED_BY_OTHER_PLUGIN, SetCurrentModelPhysicsRequestPhysicsControlledByOtherPlugin),
+    (703, SET_CURRENT_MODEL_PHYSICS_REQUEST_NO_OVERRIDES_PROVIDED, SetCurrentModelPhysicsRequestNoOverridesProvided),
+    (704, SET_CURRENT_MODEL_PHYSICS_REQUEST_PHYSICS_GROUP_ID_NOT_FOUND, SetCurrentModelPhysicsRequestPhysicsGroupIDNotFound),
+    (705, SET_CURRENT_MODEL_PHYSICS_REQUEST_NO_OVERRIDE_VALUE_PROVIDED, SetCurrentModelPhysicsRequestNoOverrideValueProvided),
+    (706, SET_CURRENT_MODEL_PHYSICS_REQUEST_DUPLICATE_PHYSICS_GROUP_ID, SetCurrentModelPhysicsRequestDuplicatePhysicsGroupID),
 }

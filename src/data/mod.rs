@@ -691,6 +691,84 @@ define_request_response_pairs!(
         },
     },
 
+    {
+        rust_name = GetCurrentModelPhysics,
+        /// Get the physics settings of the current model.
+        req = {},
+        /// Data about the requested physics settings.
+        resp = {
+            /// Whether the model is loaded.
+            ///
+            /// If no model is loaded, this will be false. All other values do
+            /// not have any significance in that case and the `physicsGroups`
+            /// array will be empty.
+            pub model_loaded: bool,
+            /// The name of the model.
+            pub model_name: String,
+            /// The ID of the model.
+            #[serde(rename = "modelID")]
+            pub model_id: String,
+            /// Whether the model has physics.
+            ///
+            /// If a model is loaded, this field will tell you whether or not
+            /// the model has a valid physics setup. Some models don't have
+            /// physics set up or have a broken physics file which will cause the
+            /// physics system to not start correctly.
+            pub model_has_physics: bool,
+            /// Whether physics is enabled.
+            ///
+            /// This will be `true` if the "Use Physics" toggle has been
+            /// activated for this model by the user in VTube Studio.
+            pub physics_switched_on: bool,
+            /// Whether legacy physics is enabled.
+            ///
+            /// This corresponds to the "Legacy Physics" toggle in the VTube Studio UI.
+            pub using_legacy_physics: bool,
+            /// The physics FPS setting for this model.
+            ///
+            /// Can be 30, 60, 120, or -1, which indicates that the user has
+            /// selected "Use same FPS as app" in the UI.
+            #[serde(rename = "physicsFPSSetting")]
+            pub physics_fps_setting: i32,
+            /// Base physics strength for this model (between 0 and 100, default 50).
+            pub base_strength: i32,
+            /// Base wind strength for this model (between 0 and 100, default 0).
+            pub base_wind: i32,
+            /// Whether a plugin is currently overriding the physics settings of this model.
+            pub api_physics_override_active: bool,
+            /// The name of the plugin that is currently overriding physics settings, if any.
+            pub api_physics_override_plugin_name: String,
+            /// Physics groups for this model.
+            pub physics_groups: Vec<PhysicsGroup>,
+        },
+    },
+
+    {
+        rust_name = SetCurrentModelPhysics,
+        /// Overriding physics settings of currently loaded VTS model.
+        ///
+        /// If the user has turned off physics for the currently loaded model, you cannot turn
+        /// physics on using this API. You can only use this API to override physics/wind base
+        /// values and multipliers.
+        ///
+        /// Generally, the values set using this API are used to override the values set by the
+        /// user in the app. They're not actually shown to the user on the UI and are not saved.
+        /// Override values set using this API are automatically unset when their timer runs out
+        /// (the value you set using `override_seconds`). If you want to keep overriding values,
+        /// you have to repeatedly send this request.
+        ///
+        /// When all timers run out, the API will no longer consider your plugin as controlling the
+        /// physics system so another plugin could start controlling the physics system.
+        req = {
+            /// Strength overrides.
+            pub strength_overrides: Vec<PhysicsOverride>,
+            /// Wind overrides.
+            pub wind_overrides: Vec<PhysicsOverride>,
+        },
+        /// Empty response on successful physics override.
+        resp = {},
+    },
+
 );
 
 // Per the docs, we should send `-1` if the user doesn't want to change the NDI width or height.
@@ -949,6 +1027,46 @@ pub struct ExpressionUsedInHotkey {
     pub name: String,
     /// ID of the hotkey.
     pub id: String,
+}
+
+/// Used in [`GetCurrentModelPhysicsResponse`].
+#[derive(Default, Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct PhysicsGroup {
+    /// The physics group ID.
+    #[serde(rename = "groupID")]
+    pub group_id: String,
+    /// The physics group name.
+    pub group_name: String,
+    /// Strength multipler (between 0 and 2, default 1).
+    pub strength_multiplier: f64,
+    /// Wind multipler (between 0 and 2, default 1).
+    pub wind_multiplier: f64,
+}
+
+/// Used in [`SetCurrentModelPhysicsRequest`].
+#[derive(Default, Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct PhysicsOverride {
+    /// Group ID of the physics override.
+    ///
+    /// This is only relevant if `set_base_value` is `false`.
+    pub id: String,
+    /// The physics override value.
+    ///
+    /// If `set_base_value` is `true`, this should be an integer between 0 and
+    /// 100. If `set_base_value` is `false`, this should be a floating point
+    /// value between 0 and 2.
+    pub value: f64,
+    /// Whether this override should set the base value for the entire model.
+    ///
+    /// If `true`, sets base value (`id` can be omitted). If `false`, sets
+    /// multiplier value for the specific group ID.
+    pub set_base_value: bool,
+    /// How long the physics should be overridden for.
+    ///
+    /// Values outside the range of 0.5 and 5 will be clamped.
+    pub override_seconds: f64,
 }
 
 #[cfg(test)]
