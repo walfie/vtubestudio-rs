@@ -67,6 +67,10 @@ pub enum HotkeyAction {
     ScreenColorOverlay,
     /// Removes all items from the scene.
     RemoveAllItems,
+    /// Loads an item scene.
+    ToggleItemScene,
+    /// Downloads a random item from the Steam Workshop and attempts to load it into the scene.
+    DownloadRandomWorkshopItem,
 }
 
 impl Default for HotkeyAction {
@@ -587,6 +591,10 @@ define_request_response_pairs!(
         req = {
             /// The parameter values to inject.
             pub parameter_values: Vec<ParameterValue>,
+            /// Whether to consider the user's face as found.
+            ///
+            /// Allows controlling the model when the "tracking lost" animation is played.
+            pub face_found: bool,
         },
         /// Empty response on parameter injection success.
         resp = {},
