@@ -71,6 +71,10 @@ pub enum HotkeyAction {
     ToggleItemScene,
     /// Downloads a random item from the Steam Workshop and attempts to load it into the scene.
     DownloadRandomWorkshopItem,
+    /// Executes a hotkey in the given Live2D item.
+    ExecuteItemAction,
+    /// Loads the recorded ArtMesh multiply/screen color preset.
+    ArtMeshColorPreset,
 }
 
 impl Default for HotkeyAction {
