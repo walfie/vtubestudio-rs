@@ -626,7 +626,7 @@ define_request_response_pairs!(
             /// aren't used in that case. Any number of plugins can use the `add` mode for a given
             /// parameter at the same time. This can be useful for bonk/throwing type plugins and
             /// other use-cases.
-            pub mode: EnumString<InjectParameterDataMode>,
+            pub mode: Option<EnumString<InjectParameterDataMode>>,
         },
         /// Empty response on parameter injection success.
         resp = {},
