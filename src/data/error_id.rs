@@ -135,8 +135,8 @@ define_error_ids! {
     (204, HOTKEY_ID_FOUND_BUT_HOTKEY_DATA_INVALID, HotkeyIDFoundButHotkeyDataInvalid),
     (205, HOTKEY_EXECUTION_FAILED_BECAUSE_BAD_STATE, HotkeyExecutionFailedBecauseBadState),
     (206, HOTKEY_UNKNOWN_EXECUTION_FAILURE, HotkeyUnknownExecutionFailure),
-    (207, HOTKEY_EXECUTION_FAILED_BECAUSE_LIVE2_D_ITEM_NOT_FOUND, HotkeyExecutionFailedBecauseLive2DItemNotFound),
-    (208, HOTKEY_EXECUTION_FAILED_BECAUSE_LIVE2_D_ITEMS_DO_NOT_SUPPORT_THIS_HOTKEY_TYPE, HotkeyExecutionFailedBecauseLive2DItemsDoNotSupportThisHotkeyType),
+    (207, HOTKEY_EXECUTION_FAILED_BECAUSE_LIVE2D_ITEM_NOT_FOUND, HotkeyExecutionFailedBecauseLive2DItemNotFound),
+    (208, HOTKEY_EXECUTION_FAILED_BECAUSE_LIVE2D_ITEMS_DO_NOT_SUPPORT_THIS_HOTKEY_TYPE, HotkeyExecutionFailedBecauseLive2DItemsDoNotSupportThisHotkeyType),
 
     // Errors related to ColorTintRequest
     (250, COLOR_TINT_REQUEST_NO_MODEL_LOADED, ColorTintRequestNoModelLoaded),
