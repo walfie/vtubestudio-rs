@@ -1114,7 +1114,7 @@ impl Default for ItemType {
     }
 }
 
-/// Used in [`UnloadItemResponse`].
+/// Used in [`ItemUnloadResponse`].
 #[derive(Default, Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct UnloadedItem {
@@ -1125,7 +1125,7 @@ pub struct UnloadedItem {
     pub file_name: String,
 }
 
-/// Used in [`ItemInstancesInSceneResponse`].
+/// Used in [`ItemListResponse`].
 #[derive(Default, Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct ItemInstanceInScene {
@@ -1169,7 +1169,7 @@ pub struct ItemInstanceInScene {
     pub from_workshop: bool,
 }
 
-/// Used in [`ItemInstancesInSceneResponse`].
+/// Used in [`ItemListResponse`].
 #[derive(Default, Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct AvailableItemFile {
