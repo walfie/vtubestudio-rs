@@ -724,10 +724,10 @@ define_request_response_pairs!(
             pub use_custom_resolution: bool,
             /// The NDI width.
             #[serde(rename = "customWidthNDI")]
-            pub custom_width_ndi: i64,
+            pub custom_width_ndi: i32,
             /// The NDI height.
             #[serde(rename = "customHeightNDI")]
-            pub custom_height_ndi: i64,
+            pub custom_height_ndi: i32,
         },
     },
 
