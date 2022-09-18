@@ -953,6 +953,57 @@ define_request_response_pairs!(
             pub unloaded_items: Vec<UnloadedItem>,
         },
     },
+
+    {
+        rust_name = ItemAnimationControl,
+        /// Controling items and item animations.
+        ///
+        /// You can control certain aspects of items in the scene. This request allows you to make
+        /// items darker (black overlay), change the opacity, and control the animation of animated
+        /// items. This request does not work with Live2D items and will return an error of type
+        /// `ItemAnimationControlUnsupportedItemType` if you try. This can be useful for "reactive
+        /// PNG"-type plugins and more.
+        req = {
+            /// Item instance ID.
+            #[serde(rename = "itemInstanceID")]
+            pub item_instance_id: String,
+            /// Frame rate for animated items, clamped between `0.1` and `120`.
+            pub framerate: Option<f64>,
+            /// Jump to a specific frame, zero-indexed.
+            ///
+            /// May return an error if the frame index is invalid, or if the item type does not
+            /// support animation.
+            pub frame: Option<i32>,
+            /// Brightness.
+            pub brightness: Option<f64>,
+            /// Opacity.
+            pub opacity: Option<f64>,
+            /// Whether to set auto-stop frames.
+            pub set_auto_stop_frames: bool,
+            /// List of frame indices that the animation will automatically stop playing on.
+            ///
+            /// Once the animation reaches one of those frames, it will stop playing and can only
+            /// be started again via the API using this request to set the animation play state to
+            /// `true`.
+            ///
+            /// This only takes effect if `set_auto_stop_frames` is `true`. You can have a maximum
+            /// of 1024 auto-stop frames.
+            pub auto_stop_frames: Vec<i32>,
+            /// Whether to set the animation play state.
+            pub set_animation_play_state: bool,
+            /// The animation play state (set to `false` to stop the animation).
+            ///
+            /// This only takes effect if `set_animation_play_state` is `true`.
+            pub animation_play_state: bool,
+        },
+        /// Item animation updated successfully.
+        resp = {
+            /// Current frame index.
+            pub frame: i32,
+            /// Whether the animation is playing (only relevant for animated items).
+            pub animation_playing: bool,
+        },
+    },
 );
 
 #[allow(missing_docs)]
