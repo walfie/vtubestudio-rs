@@ -1018,6 +1018,54 @@ define_request_response_pairs!(
             pub moved_items: Vec<MovedItem>,
         },
     },
+
+    {
+        rust_name = ArtMeshSelection,
+        /// Asking user to select ArtMeshes.
+        ///
+        /// You can use this request to show a list in VTube Studio containing all ArtMeshes of the
+        /// currently loaded main Live2D model and have the user select one or more of them. Once
+        /// the user is done selecting ArtMeshes, the ArtMesh IDs will be returned. You can use
+        /// those ArtMesh IDs in various other API requests, for example to apply a color tint to
+        /// them or make them invisible.
+        ///
+        /// If no model is currently loaded or there are currently other windows open, the request
+        /// will return an error.
+        ///
+        /// The user can hover over ArtMeshes to show their ID and click them to filter the shown
+        /// list for all ArtMeshes under on the click position.
+        req = {
+            /// This text is shown over the ArtMesh selection list.
+            ///
+            /// Must be between 4 and 1024 characters long, otherwise the default will be used.
+            pub text_override: Option<String>,
+            /// This text is shown when the user presses the `?` button.
+            ///
+            /// Must be between 4 and 1024 characters long, otherwise the default will be used.
+            pub help_override: Option<String>,
+            /// How many art meshes must be selected by the user.
+            ///
+            /// The "OK" button will be unavailable until exactly this many ArtMeshes are
+            /// activated. If you set this to 0 or lower, the user will be asked to choose any
+            /// arbitrary number of ArtMeshes (but at least one).
+            pub requested_art_mesh_count: i32,
+            /// List of ArtMeshes to be pre-selected.
+            ///
+            /// If any of these IDs are not contained in the current model, an error will be
+            /// returned.
+            pub active_art_meshes: Vec<String>,
+        },
+        /// ArtMesh selection response.
+        resp = {
+            /// This will be `true` if the user clicked "OK", and `false` if the user clicked
+            /// "Cancel".
+            pub success: bool,
+            /// ArtMeshes that were selected.
+            pub active_art_meshes: Vec<String>,
+            /// ArtMeshes that were not selected.
+            pub inactive_art_meshes: Vec<String>,
+        },
+    },
 );
 
 #[allow(missing_docs)]
