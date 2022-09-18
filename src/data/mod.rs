@@ -926,6 +926,33 @@ define_request_response_pairs!(
             pub instance_id: String,
         },
     },
+
+    {
+        rust_name = ItemUnload,
+        /// Removing item from the scene.
+        ///
+        /// This may return an error of type `CannotCurrentlyUnloadItem` if the user currently has
+        /// menus open that prevent VTS from loading/unloading items.
+        req = {
+            /// Whether to unload all items in the scene.
+            pub unload_all_in_scene: bool,
+            /// Whether to unload all items loaded by this plugin.
+            pub unload_all_loaded_by_this_plugin: bool,
+            /// Whether to allow unloading items that have been loaded by the user or other
+            /// plugins.
+            pub allow_unloading_items_loaded_by_user_or_other_plugins: bool,
+            /// Request specific instance IDs to be unloaded.
+            #[serde(rename = "instanceIDs")]
+            pub instance_ids: Vec<String>,
+            /// Request specific file names to be unloaded.
+            pub file_names: Vec<String>,
+        },
+        /// Items unloaded successfully.
+        resp = {
+            /// List of unloaded items.
+            pub unloaded_items: Vec<UnloadedItem>,
+        },
+    },
 );
 
 #[allow(missing_docs)]
@@ -966,6 +993,17 @@ impl Default for ItemType {
     fn default() -> Self {
         Self::Unknown
     }
+}
+
+/// Used in [`UnloadItemResponse`].
+#[derive(Default, Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct UnloadedItem {
+    /// Instance ID.
+    #[serde(rename = "instanceID")]
+    pub instance_id: String,
+    /// File name.
+    pub file_name: String,
 }
 
 /// Used in [`ItemInstancesInSceneResponse`].
