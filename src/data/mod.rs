@@ -897,6 +897,8 @@ define_request_response_pairs!(
             /// Y position.
             pub position_y: f64,
             /// Item size. Should be between `0` and `1`.
+            ///
+            /// `0.32` is roughly the "default" size that items will have when the user loads them manually.
             pub size: f64,
             /// Rotation, in degrees.
             pub rotation: i32,
@@ -968,15 +970,19 @@ define_request_response_pairs!(
             #[serde(rename = "itemInstanceID")]
             pub item_instance_id: String,
             /// Frame rate for animated items, clamped between `0.1` and `120`.
+            #[serde(skip_serializing_if = "Option::is_none")]
             pub framerate: Option<f64>,
             /// Jump to a specific frame, zero-indexed.
             ///
             /// May return an error if the frame index is invalid, or if the item type does not
             /// support animation.
+            #[serde(skip_serializing_if = "Option::is_none")]
             pub frame: Option<i32>,
             /// Brightness.
+            #[serde(skip_serializing_if = "Option::is_none")]
             pub brightness: Option<f64>,
             /// Opacity.
+            #[serde(skip_serializing_if = "Option::is_none")]
             pub opacity: Option<f64>,
             /// Whether to set auto-stop frames.
             pub set_auto_stop_frames: bool,
