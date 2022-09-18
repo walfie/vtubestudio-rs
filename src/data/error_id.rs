@@ -135,6 +135,8 @@ define_error_ids! {
     (204, HOTKEY_ID_FOUND_BUT_HOTKEY_DATA_INVALID, HotkeyIDFoundButHotkeyDataInvalid),
     (205, HOTKEY_EXECUTION_FAILED_BECAUSE_BAD_STATE, HotkeyExecutionFailedBecauseBadState),
     (206, HOTKEY_UNKNOWN_EXECUTION_FAILURE, HotkeyUnknownExecutionFailure),
+    (207, HOTKEY_EXECUTION_FAILED_BECAUSE_LIVE2_D_ITEM_NOT_FOUND, HotkeyExecutionFailedBecauseLive2DItemNotFound),
+    (208, HOTKEY_EXECUTION_FAILED_BECAUSE_LIVE2_D_ITEMS_DO_NOT_SUPPORT_THIS_HOTKEY_TYPE, HotkeyExecutionFailedBecauseLive2DItemsDoNotSupportThisHotkeyType),
 
     // Errors related to ColorTintRequest
     (250, COLOR_TINT_REQUEST_NO_MODEL_LOADED, ColorTintRequestNoModelLoaded),
@@ -167,6 +169,7 @@ define_error_ids! {
     (452, INJECT_DATA_WEIGHT_INVALID, InjectDataWeightInvalid),
     (453, INJECT_DATA_PARAM_NAME_NOT_FOUND, InjectDataParamNameNotFound),
     (454, INJECT_DATA_PARAM_CONTROLLED_BY_OTHER_PLUGIN, InjectDataParamControlledByOtherPlugin),
+    (455, INJECT_DATA_MODE_UNKNOWN, InjectDataModeUnknown),
 
     // Errors related to ParameterValueRequest
     (500, PARAMETER_VALUE_REQUEST_PARAMETER_NOT_FOUND, ParameterValueRequestParameterNotFound),
@@ -192,4 +195,37 @@ define_error_ids! {
     (704, SET_CURRENT_MODEL_PHYSICS_REQUEST_PHYSICS_GROUP_ID_NOT_FOUND, SetCurrentModelPhysicsRequestPhysicsGroupIDNotFound),
     (705, SET_CURRENT_MODEL_PHYSICS_REQUEST_NO_OVERRIDE_VALUE_PROVIDED, SetCurrentModelPhysicsRequestNoOverrideValueProvided),
     (706, SET_CURRENT_MODEL_PHYSICS_REQUEST_DUPLICATE_PHYSICS_GROUP_ID, SetCurrentModelPhysicsRequestDuplicatePhysicsGroupID),
+
+    // Errors related to ItemLoadRequest
+    (750, ITEM_FILE_NAME_MISSING, ItemFileNameMissing),
+    (751, ITEM_FILE_NAME_NOT_FOUND, ItemFileNameNotFound),
+    (752, ITEM_LOAD_LOAD_COOLDOWN_NOT_OVER, ItemLoadLoadCooldownNotOver),
+    (753, CANNOT_CURRENTLY_LOAD_ITEM, CannotCurrentlyLoadItem),
+    (754, CANNOT_LOAD_ITEM_SCENE_FULL, CannotLoadItemSceneFull),
+    (755, ITEM_ORDER_INVALID, ItemOrderInvalid),
+    (756, ITEM_ORDER_ALREADY_TAKEN, ItemOrderAlreadyTaken),
+    (757, ITEM_LOAD_VALUES_INVALID, ItemLoadValuesInvalid),
+
+    // Errors related to ItemUnloadRequest
+    (800, CANNOT_CURRENTLY_UNLOAD_ITEM, CannotCurrentlyUnloadItem),
+
+    // Errors related to ItemAnimationControlRequest
+    (850, ITEM_ANIMATION_CONTROL_INSTANCE_ID_NOT_FOUND, ItemAnimationControlInstanceIDNotFound),
+    (851, ITEM_ANIMATION_CONTROL_UNSUPPORTED_ITEM_TYPE, ItemAnimationControlUnsupportedItemType),
+    (852, ITEM_ANIMATION_CONTROL_AUTO_STOP_FRAMES_INVALID, ItemAnimationControlAutoStopFramesInvalid),
+    (853, ITEM_ANIMATION_CONTROL_TOO_MANY_AUTO_STOP_FRAMES, ItemAnimationControlTooManyAutoStopFrames),
+    (854, ITEM_ANIMATION_CONTROL_SIMPLE_IMAGE_DOES_NOT_SUPPORT_ANIM, ItemAnimationControlSimpleImageDoesNotSupportAnim),
+
+    // Errors related to ItemMoveRequest
+    (900, ITEM_MOVE_REQUEST_INSTANCE_ID_NOT_FOUND, ItemMoveRequestInstanceIDNotFound),
+    (901, ITEM_MOVE_REQUEST_INVALID_FADE_MODE, ItemMoveRequestInvalidFadeMode),
+    (902, ITEM_MOVE_REQUEST_ITEM_ORDER_TAKEN_OR_INVALID, ItemMoveRequestItemOrderTakenOrInvalid),
+    (903, ITEM_MOVE_REQUEST_CANNOT_CURRENTLY_CHANGE_ORDER, ItemMoveRequestCannotCurrentlyChangeOrder),
+
+    // Errors related to EventSubscriptionRequest
+    (950, EVENT_SUBSCRIPTION_REQUEST_EVENT_TYPE_UNKNOWN, EventSubscriptionRequestEventTypeUnknown),
+
+    // Event config errors
+    (100_000, EVENT_TEST_EVENT_TEST_MESSAGE_TOO_LONG, Event_TestEvent_TestMessageTooLong),
+    (100_050, EVENT_MODEL_LOADED_EVENT_MODEL_ID_INVALID, Event_ModelLoadedEvent_ModelIDInvalid),
 }
