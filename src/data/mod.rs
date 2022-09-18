@@ -809,6 +809,82 @@ define_request_response_pairs!(
         resp = {},
     },
 
+    {
+        rust_name = ItemList,
+        /// Requesting list of available items or items in scene.
+        ///
+        /// This request lets you request a list of items that are currently in the scene. It also
+        /// lets you request a list of item files that are available to be loaded on the user's PC,
+        /// including Live2D items, animation folders, etc.
+        ///
+        /// If you want to know which order-spots are available to load items into right now, set
+        /// `"includeAvailableSpots"` to `true`. Otherwise, the `"availableSpots"` array in the
+        /// response will be empty.
+        ///
+        /// If you want to know which items are loaded in the scene right now, set
+        /// `"includeItemInstancesInScene"` to `true`. Otherwise, the `"itemInstancesInScene"`
+        /// array in the response will be empty.
+        ///
+        /// If you want to know which item files are available to be loaded, set
+        /// `"includeAvailableItemFiles"` to `true`. Otherwise, the `"availableItemFiles"` array in
+        /// the response will be empty.
+        ///
+        /// **IMPORTANT:** This reads the full list of item files from the user's PC. This may lag
+        /// the app for a small moment, so do not use this request with
+        /// `"includeAvailableItemFiles"` set to `true` often. Only use it if you really need to
+        /// refresh the list of available item files. Set it to `false` in any other case.
+        ///
+        /// ## Filtering for specific items
+        ///
+        /// If you only want the item lists to contain items with a certain item instance ID or a
+        /// certain filename, you can provide them in the `"onlyItemsWithInstanceID"` and
+        /// `"onlyItemsWithFileName"` fields respectively.
+        ///
+        /// There will only ever be at most one item with a certain instance ID in the scene, but
+        /// there could be many items with the same filename because you can load many item
+        /// instances based on the same item file.
+        ///
+        /// Please also note that item filenames are unique, meaning there cannot be two item files
+        /// with the same filename. They are also case-sensitive, so if you want to refer to one
+        /// specific file, make sure to not change the capitalization.
+        req = {
+            /// Include available spots.
+            pub include_available_spots: bool,
+            /// Include item instances in scene.
+            pub include_item_instances_in_scene: bool,
+            /// Include available item files.
+            pub include_available_item_files: bool,
+            /// Include only items with file name. E.g., `my_item_filename.png`.
+            ///
+            /// The filename is the name of the item file. This is the name you can use to load an
+            /// instance of the item into the scene. For JPG/PNG/GIF items, this is the full
+            /// filename (without path) including the file extension (for example "my_item.jpg").
+            /// For animation folders, it's the folder name. For Live2D items, it is also the
+            /// folder name.
+            pub only_items_with_file_name: Option<String>,
+            /// Include only items with instance ID. E.g., `IONAL_InstanceIdOfItemInScene`
+            #[serde(rename = "onlyItemsWithInstanceID")]
+            pub only_items_with_instance_id: Option<String>,
+        },
+        /// Item data.
+        resp = {
+            /// Number of items in scene.
+            pub items_in_scene_count: i32,
+            /// Total items allowed.
+            pub total_items_allowed_count: i32,
+            /// Whether item loading is allowed.
+            ///
+            /// May be `false` if the user has certain menus or dialogs open in VTube Studio. This
+            /// generally prevents actions such as loading items, using hotkeys and more.
+            pub can_load_items_right_now: bool,
+            /// Available spots.
+            pub available_spots: Vec<i32>,
+            /// Item instances in scene.
+            pub item_instances_in_scene: Vec<ItemInstanceInScene>,
+            /// Available item files.
+            pub available_item_files: Vec<AvailableItemFile>,
+        },
+    },
 );
 
 #[allow(missing_docs)]
@@ -826,6 +902,86 @@ impl Default for InjectParameterDataMode {
     fn default() -> Self {
         Self::Set
     }
+}
+
+#[allow(missing_docs)]
+#[derive(Deserialize, Serialize, Debug, PartialEq, Clone)]
+#[non_exhaustive]
+/// Known message types for [`EnumString<ItemType>`].
+pub enum ItemType {
+    #[serde(rename = "PNG")]
+    Png,
+    #[serde(rename = "JPG")]
+    Jpg,
+    #[serde(rename = "GIF")]
+    Gif,
+    AnimationFolder,
+    #[serde(rename = "Live2D")]
+    Live2D,
+    Unknown,
+}
+
+impl Default for ItemType {
+    fn default() -> Self {
+        Self::Unknown
+    }
+}
+
+/// Used in [`ItemInstancesInSceneResponse`].
+#[derive(Default, Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct ItemInstanceInScene {
+    /// File name
+    pub file_name: String,
+    /// Instance ID.
+    #[serde(rename = "instanceID")]
+    pub instance_id: String,
+    /// Order.
+    pub order: i32,
+    /// Type of the item. E.g., `PNG`, `JPG`, `GIF`, `AnimationFolder` or `Live2D`.
+    #[serde(rename = "type")]
+    pub type_: EnumString<ItemType>,
+    /// Censored.
+    pub censored: bool,
+    /// Flipped.
+    pub flipped: bool,
+    /// Locked.
+    pub locked: bool,
+    /// Smoothing.
+    pub smoothing: f64,
+    /// Animation frame rate.
+    pub framerate: f64,
+    /// Animation frame count.
+    pub frame_count: i32,
+    /// Current frame.
+    pub current_frame: i32,
+    /// Pinned to model.
+    pub pinned_to_model: bool,
+    /// Pinned model ID. May be empty if `pinned_to_model` is `false`.
+    #[serde(rename = "pinnedModelID")]
+    pub pinned_model_id: String,
+    /// Pinned art mesh ID. May be empty if `pinned_to_model` is `false`.
+    #[serde(rename = "pinnedArtMeshID")]
+    pub pinned_art_mesh_id: String,
+    /// Group name.
+    pub group_name: String,
+    /// Scene name.
+    pub scene_name: String,
+    /// Whether the item is from the Steam workshop.
+    pub from_workshop: bool,
+}
+
+/// Used in [`ItemInstancesInSceneResponse`].
+#[derive(Default, Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct AvailableItemFile {
+    /// File name.
+    pub file_name: String,
+    /// Item type.
+    #[serde(rename = "type")]
+    pub type_: EnumString<ItemType>,
+    /// How many of these items are loaded.
+    pub loaded_count: i32,
 }
 
 // Per the docs, we should send `-1` if the user doesn't want to change the NDI width or height.
