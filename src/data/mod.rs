@@ -15,7 +15,7 @@ pub use crate::data::error_id::ErrorId;
 
 use paste::paste;
 use serde::de::DeserializeOwned;
-use serde::{Deserialize, Serialize, Serializer};
+use serde::{Deserialize, Deserializer, Serialize, Serializer};
 use std::borrow::Cow;
 
 /// Trait describing a VTube Studio request.
@@ -1004,6 +1004,20 @@ define_request_response_pairs!(
             pub animation_playing: bool,
         },
     },
+
+    {
+        rust_name = ItemMove,
+        /// Moving items in the scene.
+        req = {
+            /// Items to move. Entries beyond the 64th item will be ignored.
+            pub items_to_move: Vec<ItemToMove>,
+        },
+        /// Item movement requested successfully.
+        resp = {
+            /// Moved items.
+            pub moved_items: Vec<MovedItem>,
+        },
+    },
 );
 
 #[allow(missing_docs)]
@@ -1112,6 +1126,126 @@ pub struct AvailableItemFile {
     pub type_: EnumString<ItemType>,
     /// How many of these items are loaded.
     pub loaded_count: i32,
+}
+
+/// Used in [`ItemMoveRequest`]
+#[derive(Default, Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct ItemToMove {
+    /// Item instance ID.
+    #[serde(rename = "itemInstanceID")]
+    pub item_instance_id: String,
+    /// How long it takes to move the item, clamped between `0` and `30` seconds.
+    pub time_in_seconds: f64,
+    /// Fade mode, used if `time_in_seconds` is non-zero.
+    pub fade_mode: EnumString<FadeMode>,
+    /// X position.
+    ///
+    /// A value of `None` will be serialized as `-1000` as recommended by the documentation.
+    #[serde(serialize_with = "item_move_default_i32")]
+    pub position_x: Option<i32>,
+    /// Y position.
+    ///
+    /// A value of `None` will be serialized as `-1000` as recommended by the documentation.
+    #[serde(serialize_with = "item_move_default_i32")]
+    pub position_y: Option<i32>,
+    /// Size.
+    ///
+    /// A value of `None` will be serialized as `-1000` as recommended by the documentation.
+    #[serde(serialize_with = "item_move_default_f64")]
+    pub size: Option<f64>,
+    /// Rotation, in degrees.
+    ///
+    /// A value of `None` will be serialized as `-1000` as recommended by the documentation.
+    #[serde(serialize_with = "item_move_default_i32")]
+    pub rotation: Option<i32>,
+    /// Change the order of the item.
+    ///
+    /// A value of `None` will be serialized as `-1000` as recommended by the documentation.
+    #[serde(serialize_with = "item_move_default_i32")]
+    pub order: Option<i32>,
+    /// Whether to set flip.
+    pub set_flip: bool,
+    /// Flip.
+    pub flip: bool,
+    /// Whether the user can stop the item movement by clicking/dragging it.
+    pub user_can_stop: bool,
+}
+
+/// Used in [`ItemMoveResponse`].
+#[derive(Default, Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct MovedItem {
+    /// Item instance ID.
+    #[serde(rename = "itemInstanceID")]
+    pub item_instance_id: String,
+    /// Whether the item move was successful.
+    pub success: bool,
+    /// The error, if any. `None` means `-1` was returned from the API.
+    #[serde(
+        rename = "errorID",
+        serialize_with = "moved_item_error_serialize",
+        deserialize_with = "moved_item_error_deserialize"
+    )]
+    pub error_id: Option<ErrorId>,
+}
+
+fn moved_item_error_deserialize<'de, D>(deserializer: D) -> Result<Option<ErrorId>, D::Error>
+where
+    D: Deserializer<'de>,
+{
+    let id = i32::deserialize(deserializer)?;
+    if id == -1 {
+        Ok(None)
+    } else {
+        Ok(Some(ErrorId::new(id)))
+    }
+}
+
+fn moved_item_error_serialize<S>(value: &Option<ErrorId>, serializer: S) -> Result<S::Ok, S::Error>
+where
+    S: Serializer,
+{
+    serializer.serialize_i32(match value {
+        Some(v) => v.as_i32(),
+        None => -1,
+    })
+}
+
+// Per the docs, we should send `-1000` if the user doesn't want to change the item order.
+fn item_move_default_i32<S>(value: &Option<i32>, serializer: S) -> Result<S::Ok, S::Error>
+where
+    S: Serializer,
+{
+    serializer.serialize_i32(value.unwrap_or(-1000))
+}
+
+// Per the docs, we should send `-1000` if the user doesn't want to change the item order.
+fn item_move_default_f64<S>(value: &Option<f64>, serializer: S) -> Result<S::Ok, S::Error>
+where
+    S: Serializer,
+{
+    serializer.serialize_f64(value.unwrap_or(-1000.0f64))
+}
+
+#[allow(missing_docs)]
+#[derive(Deserialize, Serialize, Debug, PartialEq, Clone)]
+#[serde(rename_all = "camelCase")]
+#[non_exhaustive]
+/// Known message types for [`EnumString<FadeMode>`].
+pub enum FadeMode {
+    Linear,
+    EaseIn,
+    EaseOut,
+    EaseBoth,
+    Overshoot,
+    Zip,
+}
+
+impl Default for FadeMode {
+    fn default() -> Self {
+        Self::Linear
+    }
 }
 
 // Per the docs, we should send `-1` if the user doesn't want to change the NDI width or height.
