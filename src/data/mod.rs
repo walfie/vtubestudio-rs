@@ -885,6 +885,47 @@ define_request_response_pairs!(
             pub available_item_files: Vec<AvailableItemFile>,
         },
     },
+
+    {
+        rust_name = ItemLoad,
+        /// Loading item into the scene.
+        req = {
+            /// File name. E.g., `some_item_name.jpg`.
+            pub file_name: String,
+            /// X position.
+            pub position_x: f64,
+            /// Y position.
+            pub position_y: f64,
+            /// Item size. Should be between `0` and `1`.
+            pub size: f64,
+            /// Rotation, in degrees.
+            pub rotation: i32,
+            /// Fade time, in seconds. Should be between `0` and `2`.
+            pub fade_time: f64,
+            /// Item order. If the order is taken, VTube Studio will automatically try to find the
+            /// next available order, unless `fail_if_order_taken` is `true`.
+            pub order: Option<i32>,
+            /// Set to `true` to fail with an `ItemOrderAlreadyTaken` error if the desired `order`
+            /// is already taken.
+            pub fail_if_order_taken: bool,
+            /// Smoothing, between `0` and `1`.
+            pub smoothing: f64,
+            /// Whether the item is censored.
+            pub censored: bool,
+            /// Whether the item is flipped.
+            pub flipped: bool,
+            /// Whether the item is locked.
+            pub locked: bool,
+            /// Unload item when plugin disconnects.
+            pub unload_when_plugin_disconnects: bool,
+        },
+        /// Item loaded successfully.
+        resp = {
+            /// Instance ID of the loaded item.
+            #[serde(rename = "instanceID")]
+            pub instance_id: String,
+        },
+    },
 );
 
 #[allow(missing_docs)]
