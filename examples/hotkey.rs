@@ -16,7 +16,10 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     loop {
         let resp = client
-            .send(&HotkeysInCurrentModelRequest { model_id: None })
+            .send(&HotkeysInCurrentModelRequest {
+                model_id: None,
+                live2d_item_file_name: None,
+            })
             .await?;
 
         if resp.available_hotkeys.len() == 0 {
@@ -49,6 +52,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                     client
                         .send(&HotkeyTriggerRequest {
                             hotkey_id: hotkey.hotkey_id.clone(),
+                            item_instance_id: None,
                         })
                         .await?;
                 }

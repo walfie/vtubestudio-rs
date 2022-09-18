@@ -377,11 +377,20 @@ define_request_response_pairs!(
     {
         rust_name = HotkeysInCurrentModel,
         /// Requesting list of hotkeys available in current or other VTS model.
+        ///
+        /// If `model_id` is absent, hotkeys for the current model are returned.
+        ///
+        /// If both `model_id` and `live2d_item_file_name` are provided, only `model_id` is used
+        /// and the other field will be ignored.
         req = {
             /// The ID of the model.
             #[serde(skip_serializing_if = "Option::is_none")]
             #[serde(rename = "modelID")]
             pub model_id: Option<String>,
+            /// Set this field to request hotkeys for a Live2D item.
+            #[serde(skip_serializing_if = "Option::is_none")]
+            #[serde(rename = "live2DItemFileName")]
+            pub live2d_item_file_name: Option<String>,
         },
         /// Model info and list of hotkeys.
         resp = {
@@ -404,6 +413,11 @@ define_request_response_pairs!(
             /// The ID of the hotkey.
             #[serde(rename = "hotkeyID")]
             pub hotkey_id: String,
+            /// If present, trigger the hotkey for the given Live2D item. If absent, the hotkey
+            /// will be triggered for the currently loaded model.
+            #[serde(skip_serializing_if = "Option::is_none")]
+            #[serde(rename = "itemInstanceID")]
+            pub item_instance_id: Option<String>,
         },
         /// The hotkey that was triggered.
         resp = {
@@ -599,6 +613,20 @@ define_request_response_pairs!(
             ///
             /// Allows controlling the model when the "tracking lost" animation is played.
             pub face_found: bool,
+            /// Whether to set or add the parameter data (default is `set`).
+            ///
+            /// Generally, if another plugin is already controlling one (default or custom)
+            /// parameter, an error will be returned. This happens because only one plugin can
+            /// `set` (override) a given parameter at a time, which is the default mode for this
+            /// request. This is the mode that is used when you don't provide a value in the `mode`
+            /// field or set the value to `set`.
+            ///
+            /// Alternatively, you can set the `"mode"` field to `"add"`. This will instead add the
+            /// values you send to whatever the current parameter values are. The `weight` values
+            /// aren't used in that case. Any number of plugins can use the `add` mode for a given
+            /// parameter at the same time. This can be useful for bonk/throwing type plugins and
+            /// other use-cases.
+            pub mode: EnumString<InjectParameterDataMode>,
         },
         /// Empty response on parameter injection success.
         resp = {},
@@ -783,6 +811,23 @@ define_request_response_pairs!(
 
 );
 
+#[allow(missing_docs)]
+#[derive(Deserialize, Serialize, Debug, PartialEq, Clone)]
+#[non_exhaustive]
+/// Known message types for [`EnumString<InjectParameterDataMode>`].
+pub enum InjectParameterDataMode {
+    #[serde(rename = "set")]
+    Set,
+    #[serde(rename = "add")]
+    Add,
+}
+
+impl Default for InjectParameterDataMode {
+    fn default() -> Self {
+        Self::Set
+    }
+}
+
 // Per the docs, we should send `-1` if the user doesn't want to change the NDI width or height.
 fn ndi_default_size<S>(value: &Option<i32>, serializer: S) -> Result<S::Ok, S::Error>
 where
@@ -883,6 +928,16 @@ pub struct Hotkey {
     pub hotkey_id: String,
     /// Human-readable description of the hotkey type.
     pub description: Option<String>,
+    /// Keyboard/mouse key combination that will trigger this hotkey.
+    ///
+    /// According to the documentation, at the moment this array will always be empty, but may be
+    /// reintroduced in a future update.
+    pub key_combination: Vec<String>,
+    /// On-screen button ID.
+    ///
+    /// `1` (top) to `8` (bottom), or `-1` if no on-screen button has been set for this hotkey.,
+    #[serde(rename = "onScreenButtonID")]
+    pub on_screen_button_id: i32,
 }
 
 /// Used in [`ColorTintRequest`].
