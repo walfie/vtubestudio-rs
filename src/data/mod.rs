@@ -1077,7 +1077,8 @@ define_request_response_pairs!(
 #[allow(missing_docs)]
 #[derive(Deserialize, Serialize, Debug, PartialEq, Clone)]
 #[non_exhaustive]
-/// Known message types for [`EnumString<InjectParameterDataMode>`].
+/// Known message types for [`EnumString<InjectParameterDataMode>`] (used in
+/// [`InjectParameterDataRequest`]).
 pub enum InjectParameterDataMode {
     #[serde(rename = "set")]
     Set,
@@ -1094,7 +1095,7 @@ impl Default for InjectParameterDataMode {
 #[allow(missing_docs)]
 #[derive(Deserialize, Serialize, Debug, PartialEq, Clone)]
 #[non_exhaustive]
-/// Known message types for [`EnumString<ItemType>`].
+/// Known message types for [`EnumString<ItemType>`] (used in [`ItemInstanceInScene`]).
 pub enum ItemType {
     #[serde(rename = "PNG")]
     Png,
@@ -1182,7 +1183,7 @@ pub struct AvailableItemFile {
     pub loaded_count: i32,
 }
 
-/// Used in [`ItemMoveRequest`]
+/// Used in [`ItemMoveRequest`].
 #[derive(Default, Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct ItemToMove {
@@ -1286,7 +1287,7 @@ where
 #[derive(Deserialize, Serialize, Debug, PartialEq, Clone)]
 #[serde(rename_all = "camelCase")]
 #[non_exhaustive]
-/// Known message types for [`EnumString<FadeMode>`].
+/// Known message types for [`EnumString<FadeMode>`]. Used in [`ItemToMove`].
 pub enum FadeMode {
     Linear,
     EaseIn,
