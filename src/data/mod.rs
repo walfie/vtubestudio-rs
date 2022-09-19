@@ -15,7 +15,7 @@ pub use crate::data::error_id::ErrorId;
 
 use paste::paste;
 use serde::de::DeserializeOwned;
-use serde::{Deserialize, Serialize, Serializer};
+use serde::{Deserialize, Deserializer, Serialize, Serializer};
 use std::borrow::Cow;
 
 /// Trait describing a VTube Studio request.
@@ -377,11 +377,20 @@ define_request_response_pairs!(
     {
         rust_name = HotkeysInCurrentModel,
         /// Requesting list of hotkeys available in current or other VTS model.
+        ///
+        /// If `model_id` is absent, hotkeys for the current model are returned.
+        ///
+        /// If both `model_id` and `live2d_item_file_name` are provided, only `model_id` is used
+        /// and the other field will be ignored.
         req = {
             /// The ID of the model.
             #[serde(skip_serializing_if = "Option::is_none")]
             #[serde(rename = "modelID")]
             pub model_id: Option<String>,
+            /// Set this field to request hotkeys for a Live2D item.
+            #[serde(skip_serializing_if = "Option::is_none")]
+            #[serde(rename = "live2DItemFileName")]
+            pub live2d_item_file_name: Option<String>,
         },
         /// Model info and list of hotkeys.
         resp = {
@@ -404,6 +413,11 @@ define_request_response_pairs!(
             /// The ID of the hotkey.
             #[serde(rename = "hotkeyID")]
             pub hotkey_id: String,
+            /// If present, trigger the hotkey for the given Live2D item. If absent, the hotkey
+            /// will be triggered for the currently loaded model.
+            #[serde(skip_serializing_if = "Option::is_none")]
+            #[serde(rename = "itemInstanceID")]
+            pub item_instance_id: Option<String>,
         },
         /// The hotkey that was triggered.
         resp = {
@@ -599,6 +613,20 @@ define_request_response_pairs!(
             ///
             /// Allows controlling the model when the "tracking lost" animation is played.
             pub face_found: bool,
+            /// Whether to set or add the parameter data (default is `set`).
+            ///
+            /// Generally, if another plugin is already controlling one (default or custom)
+            /// parameter, an error will be returned. This happens because only one plugin can
+            /// `set` (override) a given parameter at a time, which is the default mode for this
+            /// request. This is the mode that is used when you don't provide a value in the `mode`
+            /// field or set the value to `set`.
+            ///
+            /// Alternatively, you can set the `"mode"` field to `"add"`. This will instead add the
+            /// values you send to whatever the current parameter values are. The `weight` values
+            /// aren't used in that case. Any number of plugins can use the `add` mode for a given
+            /// parameter at the same time. This can be useful for bonk/throwing type plugins and
+            /// other use-cases.
+            pub mode: Option<EnumString<InjectParameterDataMode>>,
         },
         /// Empty response on parameter injection success.
         resp = {},
@@ -696,10 +724,10 @@ define_request_response_pairs!(
             pub use_custom_resolution: bool,
             /// The NDI width.
             #[serde(rename = "customWidthNDI")]
-            pub custom_width_ndi: i64,
+            pub custom_width_ndi: i32,
             /// The NDI height.
             #[serde(rename = "customHeightNDI")]
-            pub custom_height_ndi: i64,
+            pub custom_height_ndi: i32,
         },
     },
 
@@ -781,7 +809,499 @@ define_request_response_pairs!(
         resp = {},
     },
 
+    {
+        rust_name = ItemList,
+        /// Requesting list of available items or items in scene.
+        ///
+        /// This request lets you request a list of items that are currently in the scene. It also
+        /// lets you request a list of item files that are available to be loaded on the user's PC,
+        /// including Live2D items, animation folders, etc.
+        ///
+        /// If you want to know which order-spots are available to load items into right now, set
+        /// `"includeAvailableSpots"` to `true`. Otherwise, the `"availableSpots"` array in the
+        /// response will be empty.
+        ///
+        /// If you want to know which items are loaded in the scene right now, set
+        /// `"includeItemInstancesInScene"` to `true`. Otherwise, the `"itemInstancesInScene"`
+        /// array in the response will be empty.
+        ///
+        /// If you want to know which item files are available to be loaded, set
+        /// `"includeAvailableItemFiles"` to `true`. Otherwise, the `"availableItemFiles"` array in
+        /// the response will be empty.
+        ///
+        /// **IMPORTANT:** This reads the full list of item files from the user's PC. This may lag
+        /// the app for a small moment, so do not use this request with
+        /// `"includeAvailableItemFiles"` set to `true` often. Only use it if you really need to
+        /// refresh the list of available item files. Set it to `false` in any other case.
+        ///
+        /// ## Filtering for specific items
+        ///
+        /// If you only want the item lists to contain items with a certain item instance ID or a
+        /// certain filename, you can provide them in the `"onlyItemsWithInstanceID"` and
+        /// `"onlyItemsWithFileName"` fields respectively.
+        ///
+        /// There will only ever be at most one item with a certain instance ID in the scene, but
+        /// there could be many items with the same filename because you can load many item
+        /// instances based on the same item file.
+        ///
+        /// Please also note that item filenames are unique, meaning there cannot be two item files
+        /// with the same filename. They are also case-sensitive, so if you want to refer to one
+        /// specific file, make sure to not change the capitalization.
+        req = {
+            /// Include available spots.
+            pub include_available_spots: bool,
+            /// Include item instances in scene.
+            pub include_item_instances_in_scene: bool,
+            /// Include available item files.
+            pub include_available_item_files: bool,
+            /// Include only items with file name. E.g., `my_item_filename.png`.
+            ///
+            /// The filename is the name of the item file. This is the name you can use to load an
+            /// instance of the item into the scene. For JPG/PNG/GIF items, this is the full
+            /// filename (without path) including the file extension (for example "my_item.jpg").
+            /// For animation folders, it's the folder name. For Live2D items, it is also the
+            /// folder name.
+            pub only_items_with_file_name: Option<String>,
+            /// Include only items with instance ID. E.g., `IONAL_InstanceIdOfItemInScene`
+            #[serde(rename = "onlyItemsWithInstanceID")]
+            pub only_items_with_instance_id: Option<String>,
+        },
+        /// Item data.
+        resp = {
+            /// Number of items in scene.
+            pub items_in_scene_count: i32,
+            /// Total items allowed.
+            pub total_items_allowed_count: i32,
+            /// Whether item loading is allowed.
+            ///
+            /// May be `false` if the user has certain menus or dialogs open in VTube Studio. This
+            /// generally prevents actions such as loading items, using hotkeys and more.
+            pub can_load_items_right_now: bool,
+            /// Available spots.
+            pub available_spots: Vec<i32>,
+            /// Item instances in scene.
+            pub item_instances_in_scene: Vec<ItemInstanceInScene>,
+            /// Available item files.
+            pub available_item_files: Vec<AvailableItemFile>,
+        },
+    },
+
+    {
+        rust_name = ItemLoad,
+        /// Loading item into the scene.
+        req = {
+            /// File name. E.g., `some_item_name.jpg`.
+            pub file_name: String,
+            /// X position.
+            pub position_x: f64,
+            /// Y position.
+            pub position_y: f64,
+            /// Item size. Should be between `0` and `1`.
+            ///
+            /// `0.32` is roughly the "default" size that items will have when the user loads them manually.
+            pub size: f64,
+            /// Rotation, in degrees.
+            pub rotation: i32,
+            /// Fade time, in seconds. Should be between `0` and `2`.
+            pub fade_time: f64,
+            /// Item order. If the order is taken, VTube Studio will automatically try to find the
+            /// next available order, unless `fail_if_order_taken` is `true`.
+            pub order: Option<i32>,
+            /// Set to `true` to fail with an `ItemOrderAlreadyTaken` error if the desired `order`
+            /// is already taken.
+            pub fail_if_order_taken: bool,
+            /// Smoothing, between `0` and `1`.
+            pub smoothing: f64,
+            /// Whether the item is censored.
+            pub censored: bool,
+            /// Whether the item is flipped.
+            pub flipped: bool,
+            /// Whether the item is locked.
+            pub locked: bool,
+            /// Unload item when plugin disconnects.
+            pub unload_when_plugin_disconnects: bool,
+        },
+        /// Item loaded successfully.
+        resp = {
+            /// Instance ID of the loaded item.
+            #[serde(rename = "instanceID")]
+            pub instance_id: String,
+        },
+    },
+
+    {
+        rust_name = ItemUnload,
+        /// Removing item from the scene.
+        ///
+        /// This may return an error of type `CannotCurrentlyUnloadItem` if the user currently has
+        /// menus open that prevent VTS from loading/unloading items.
+        req = {
+            /// Whether to unload all items in the scene.
+            pub unload_all_in_scene: bool,
+            /// Whether to unload all items loaded by this plugin.
+            pub unload_all_loaded_by_this_plugin: bool,
+            /// Whether to allow unloading items that have been loaded by the user or other
+            /// plugins.
+            pub allow_unloading_items_loaded_by_user_or_other_plugins: bool,
+            /// Request specific instance IDs to be unloaded.
+            #[serde(rename = "instanceIDs")]
+            pub instance_ids: Vec<String>,
+            /// Request specific file names to be unloaded.
+            pub file_names: Vec<String>,
+        },
+        /// Items unloaded successfully.
+        resp = {
+            /// List of unloaded items.
+            pub unloaded_items: Vec<UnloadedItem>,
+        },
+    },
+
+    {
+        rust_name = ItemAnimationControl,
+        /// Controling items and item animations.
+        ///
+        /// You can control certain aspects of items in the scene. This request allows you to make
+        /// items darker (black overlay), change the opacity, and control the animation of animated
+        /// items. This request does not work with Live2D items and will return an error of type
+        /// `ItemAnimationControlUnsupportedItemType` if you try. This can be useful for "reactive
+        /// PNG"-type plugins and more.
+        req = {
+            /// Item instance ID.
+            #[serde(rename = "itemInstanceID")]
+            pub item_instance_id: String,
+            /// Frame rate for animated items, clamped between `0.1` and `120`.
+            #[serde(skip_serializing_if = "Option::is_none")]
+            pub framerate: Option<f64>,
+            /// Jump to a specific frame, zero-indexed.
+            ///
+            /// May return an error if the frame index is invalid, or if the item type does not
+            /// support animation.
+            #[serde(skip_serializing_if = "Option::is_none")]
+            pub frame: Option<i32>,
+            /// Brightness.
+            #[serde(skip_serializing_if = "Option::is_none")]
+            pub brightness: Option<f64>,
+            /// Opacity.
+            #[serde(skip_serializing_if = "Option::is_none")]
+            pub opacity: Option<f64>,
+            /// Whether to set auto-stop frames.
+            pub set_auto_stop_frames: bool,
+            /// List of frame indices that the animation will automatically stop playing on.
+            ///
+            /// Once the animation reaches one of those frames, it will stop playing and can only
+            /// be started again via the API using this request to set the animation play state to
+            /// `true`.
+            ///
+            /// This only takes effect if `set_auto_stop_frames` is `true`. You can have a maximum
+            /// of 1024 auto-stop frames.
+            pub auto_stop_frames: Vec<i32>,
+            /// Whether to set the animation play state.
+            pub set_animation_play_state: bool,
+            /// The animation play state (set to `false` to stop the animation).
+            ///
+            /// This only takes effect if `set_animation_play_state` is `true`.
+            pub animation_play_state: bool,
+        },
+        /// Item animation updated successfully.
+        resp = {
+            /// Current frame index.
+            pub frame: i32,
+            /// Whether the animation is playing (only relevant for animated items).
+            pub animation_playing: bool,
+        },
+    },
+
+    {
+        rust_name = ItemMove,
+        /// Moving items in the scene.
+        req = {
+            /// Items to move. Entries beyond the 64th item will be ignored.
+            pub items_to_move: Vec<ItemToMove>,
+        },
+        /// Item movement requested successfully.
+        resp = {
+            /// Moved items.
+            pub moved_items: Vec<MovedItem>,
+        },
+    },
+
+    {
+        rust_name = ArtMeshSelection,
+        /// Asking user to select ArtMeshes.
+        ///
+        /// You can use this request to show a list in VTube Studio containing all ArtMeshes of the
+        /// currently loaded main Live2D model and have the user select one or more of them. Once
+        /// the user is done selecting ArtMeshes, the ArtMesh IDs will be returned. You can use
+        /// those ArtMesh IDs in various other API requests, for example to apply a color tint to
+        /// them or make them invisible.
+        ///
+        /// If no model is currently loaded or there are currently other windows open, the request
+        /// will return an error.
+        ///
+        /// The user can hover over ArtMeshes to show their ID and click them to filter the shown
+        /// list for all ArtMeshes under on the click position.
+        req = {
+            /// This text is shown over the ArtMesh selection list.
+            ///
+            /// Must be between 4 and 1024 characters long, otherwise the default will be used.
+            pub text_override: Option<String>,
+            /// This text is shown when the user presses the `?` button.
+            ///
+            /// Must be between 4 and 1024 characters long, otherwise the default will be used.
+            pub help_override: Option<String>,
+            /// How many art meshes must be selected by the user.
+            ///
+            /// The "OK" button will be unavailable until exactly this many ArtMeshes are
+            /// activated. If you set this to 0 or lower, the user will be asked to choose any
+            /// arbitrary number of ArtMeshes (but at least one).
+            pub requested_art_mesh_count: i32,
+            /// List of ArtMeshes to be pre-selected.
+            ///
+            /// If any of these IDs are not contained in the current model, an error will be
+            /// returned.
+            pub active_art_meshes: Vec<String>,
+        },
+        /// ArtMesh selection response.
+        resp = {
+            /// This will be `true` if the user clicked "OK", and `false` if the user clicked
+            /// "Cancel".
+            pub success: bool,
+            /// ArtMeshes that were selected.
+            pub active_art_meshes: Vec<String>,
+            /// ArtMeshes that were not selected.
+            pub inactive_art_meshes: Vec<String>,
+        },
+    },
 );
+
+#[allow(missing_docs)]
+#[derive(Deserialize, Serialize, Debug, PartialEq, Clone)]
+#[non_exhaustive]
+/// Known message types for [`EnumString<InjectParameterDataMode>`] (used in
+/// [`InjectParameterDataRequest`]).
+pub enum InjectParameterDataMode {
+    #[serde(rename = "set")]
+    Set,
+    #[serde(rename = "add")]
+    Add,
+}
+
+impl Default for InjectParameterDataMode {
+    fn default() -> Self {
+        Self::Set
+    }
+}
+
+#[allow(missing_docs)]
+#[derive(Deserialize, Serialize, Debug, PartialEq, Clone)]
+#[non_exhaustive]
+/// Known message types for [`EnumString<ItemType>`] (used in [`ItemInstanceInScene`]).
+pub enum ItemType {
+    #[serde(rename = "PNG")]
+    Png,
+    #[serde(rename = "JPG")]
+    Jpg,
+    #[serde(rename = "GIF")]
+    Gif,
+    AnimationFolder,
+    #[serde(rename = "Live2D")]
+    Live2D,
+    Unknown,
+}
+
+impl Default for ItemType {
+    fn default() -> Self {
+        Self::Unknown
+    }
+}
+
+/// Used in [`ItemUnloadResponse`].
+#[derive(Default, Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct UnloadedItem {
+    /// Instance ID.
+    #[serde(rename = "instanceID")]
+    pub instance_id: String,
+    /// File name.
+    pub file_name: String,
+}
+
+/// Used in [`ItemListResponse`].
+#[derive(Default, Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct ItemInstanceInScene {
+    /// File name
+    pub file_name: String,
+    /// Instance ID.
+    #[serde(rename = "instanceID")]
+    pub instance_id: String,
+    /// Order.
+    pub order: i32,
+    /// Type of the item. E.g., `PNG`, `JPG`, `GIF`, `AnimationFolder` or `Live2D`.
+    #[serde(rename = "type")]
+    pub type_: EnumString<ItemType>,
+    /// Censored.
+    pub censored: bool,
+    /// Flipped.
+    pub flipped: bool,
+    /// Locked.
+    pub locked: bool,
+    /// Smoothing.
+    pub smoothing: f64,
+    /// Animation frame rate.
+    pub framerate: f64,
+    /// Animation frame count.
+    pub frame_count: i32,
+    /// Current frame.
+    pub current_frame: i32,
+    /// Pinned to model.
+    pub pinned_to_model: bool,
+    /// Pinned model ID. May be empty if `pinned_to_model` is `false`.
+    #[serde(rename = "pinnedModelID")]
+    pub pinned_model_id: String,
+    /// Pinned art mesh ID. May be empty if `pinned_to_model` is `false`.
+    #[serde(rename = "pinnedArtMeshID")]
+    pub pinned_art_mesh_id: String,
+    /// Group name.
+    pub group_name: String,
+    /// Scene name.
+    pub scene_name: String,
+    /// Whether the item is from the Steam workshop.
+    pub from_workshop: bool,
+}
+
+/// Used in [`ItemListResponse`].
+#[derive(Default, Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct AvailableItemFile {
+    /// File name.
+    pub file_name: String,
+    /// Item type.
+    #[serde(rename = "type")]
+    pub type_: EnumString<ItemType>,
+    /// How many of these items are loaded.
+    pub loaded_count: i32,
+}
+
+/// Used in [`ItemMoveRequest`].
+#[derive(Default, Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct ItemToMove {
+    /// Item instance ID.
+    #[serde(rename = "itemInstanceID")]
+    pub item_instance_id: String,
+    /// How long it takes to move the item, clamped between `0` and `30` seconds.
+    pub time_in_seconds: f64,
+    /// Fade mode, used if `time_in_seconds` is non-zero.
+    pub fade_mode: EnumString<FadeMode>,
+    /// X position.
+    ///
+    /// A value of `None` will be serialized as `-1000` as recommended by the documentation.
+    #[serde(serialize_with = "item_move_default_i32")]
+    pub position_x: Option<i32>,
+    /// Y position.
+    ///
+    /// A value of `None` will be serialized as `-1000` as recommended by the documentation.
+    #[serde(serialize_with = "item_move_default_i32")]
+    pub position_y: Option<i32>,
+    /// Size.
+    ///
+    /// A value of `None` will be serialized as `-1000` as recommended by the documentation.
+    #[serde(serialize_with = "item_move_default_f64")]
+    pub size: Option<f64>,
+    /// Rotation, in degrees.
+    ///
+    /// A value of `None` will be serialized as `-1000` as recommended by the documentation.
+    #[serde(serialize_with = "item_move_default_i32")]
+    pub rotation: Option<i32>,
+    /// Change the order of the item.
+    ///
+    /// A value of `None` will be serialized as `-1000` as recommended by the documentation.
+    #[serde(serialize_with = "item_move_default_i32")]
+    pub order: Option<i32>,
+    /// Whether to set flip.
+    pub set_flip: bool,
+    /// Flip.
+    pub flip: bool,
+    /// Whether the user can stop the item movement by clicking/dragging it.
+    pub user_can_stop: bool,
+}
+
+/// Used in [`ItemMoveResponse`].
+#[derive(Default, Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct MovedItem {
+    /// Item instance ID.
+    #[serde(rename = "itemInstanceID")]
+    pub item_instance_id: String,
+    /// Whether the item move was successful.
+    pub success: bool,
+    /// The error, if any. `None` means `-1` was returned from the API.
+    #[serde(
+        rename = "errorID",
+        serialize_with = "moved_item_error_serialize",
+        deserialize_with = "moved_item_error_deserialize"
+    )]
+    pub error_id: Option<ErrorId>,
+}
+
+fn moved_item_error_deserialize<'de, D>(deserializer: D) -> Result<Option<ErrorId>, D::Error>
+where
+    D: Deserializer<'de>,
+{
+    let id = i32::deserialize(deserializer)?;
+    if id == -1 {
+        Ok(None)
+    } else {
+        Ok(Some(ErrorId::new(id)))
+    }
+}
+
+fn moved_item_error_serialize<S>(value: &Option<ErrorId>, serializer: S) -> Result<S::Ok, S::Error>
+where
+    S: Serializer,
+{
+    serializer.serialize_i32(match value {
+        Some(v) => v.as_i32(),
+        None => -1,
+    })
+}
+
+// Per the docs, we should send `-1000` if the user doesn't want to change the item order.
+fn item_move_default_i32<S>(value: &Option<i32>, serializer: S) -> Result<S::Ok, S::Error>
+where
+    S: Serializer,
+{
+    serializer.serialize_i32(value.unwrap_or(-1000))
+}
+
+// Per the docs, we should send `-1000` if the user doesn't want to change the item order.
+fn item_move_default_f64<S>(value: &Option<f64>, serializer: S) -> Result<S::Ok, S::Error>
+where
+    S: Serializer,
+{
+    serializer.serialize_f64(value.unwrap_or(-1000.0f64))
+}
+
+#[allow(missing_docs)]
+#[derive(Deserialize, Serialize, Debug, PartialEq, Clone)]
+#[serde(rename_all = "camelCase")]
+#[non_exhaustive]
+/// Known message types for [`EnumString<FadeMode>`]. Used in [`ItemToMove`].
+pub enum FadeMode {
+    Linear,
+    EaseIn,
+    EaseOut,
+    EaseBoth,
+    Overshoot,
+    Zip,
+}
+
+impl Default for FadeMode {
+    fn default() -> Self {
+        Self::Linear
+    }
+}
 
 // Per the docs, we should send `-1` if the user doesn't want to change the NDI width or height.
 fn ndi_default_size<S>(value: &Option<i32>, serializer: S) -> Result<S::Ok, S::Error>
@@ -883,6 +1403,16 @@ pub struct Hotkey {
     pub hotkey_id: String,
     /// Human-readable description of the hotkey type.
     pub description: Option<String>,
+    /// Keyboard/mouse key combination that will trigger this hotkey.
+    ///
+    /// According to the documentation, at the moment this array will always be empty, but may be
+    /// reintroduced in a future update.
+    pub key_combination: Vec<String>,
+    /// On-screen button ID.
+    ///
+    /// `1` (top) to `8` (bottom), or `-1` if no on-screen button has been set for this hotkey.,
+    #[serde(rename = "onScreenButtonID")]
+    pub on_screen_button_id: i32,
 }
 
 /// Used in [`ColorTintRequest`].
