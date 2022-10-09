@@ -1,3 +1,4 @@
+use crate::data::ResponseType;
 use serde::ser::{Impossible, SerializeTupleVariant};
 use serde::{Deserialize, Serialize, Serializer};
 use std::borrow::Cow;
@@ -12,6 +13,15 @@ enum Enum<T, Repr> {
 }
 
 type EnumStringInner<T> = Enum<T, Cow<'static, str>>;
+
+impl EnumString<ResponseType> {
+    pub(crate) fn is_event(&self) -> bool {
+        match &self.0 {
+            Enum::Known(t) => t.is_event(),
+            Enum::Unknown(s) => s.ends_with("Event"),
+        }
+    }
+}
 
 /// Wrapper type for an `enum` with a serialized string representation.
 ///
@@ -515,6 +525,23 @@ mod tests {
         assert_eq!(
             serde_json::from_value::<Nijisanji>(json!("Oliver"))?,
             Nijisanji::new_from_str("Oliver"),
+        );
+
+        Ok(())
+    }
+
+    #[test]
+    fn is_event() -> Result {
+        assert!(EnumString::new(ResponseType::TestEvent).is_event());
+        assert!(EnumString::new_from_str("CoolNewEvent").is_event());
+
+        assert_eq!(
+            EnumString::new(ResponseType::VtsFolderInfoResponse).is_event(),
+            false
+        );
+        assert_eq!(
+            EnumString::new_from_str("ExampleResponse").is_event(),
+            false
         );
 
         Ok(())

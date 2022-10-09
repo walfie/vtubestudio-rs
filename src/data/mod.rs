@@ -147,17 +147,17 @@ macro_rules! define_request_response {
                     [<$rust_name Response>],
                 )*
 
+                #[serde(rename = "VTubeStudioAPIStateBroadcast")]
+                VTubeStudioApiStateBroadcast,
+
                 $(
                     $(#[serde(rename = $event_name)])?
                     [<$rust_event_name Event>],
                 )*
-
-                #[serde(rename = "VTubeStudioAPIStateBroadcast")]
-                VTubeStudioApiStateBroadcast,
             }
 
             impl ResponseType {
-                /// Whether this response type corresponds to an event.
+                /// Whether this response type corresponds to an [`Event`].
                 pub fn is_event(&self) -> bool {
                     match self {
                         $( Self::[<$rust_event_name Event>] => true, )*
