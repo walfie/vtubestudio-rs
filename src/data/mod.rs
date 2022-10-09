@@ -83,16 +83,30 @@ impl Default for HotkeyAction {
     }
 }
 
-macro_rules! define_request_response_pairs {
-    ($({
-        rust_name = $rust_name:ident,
-        $(req_name = $req_name:literal,)?
-        $(resp_name = $resp_name:literal,)?
-        $(#[doc = $req_doc:expr])+
-        req = { $($req:tt)* },
-        $(#[doc = $resp_doc:expr])+
-        resp = $(( $($resp_inner:tt)+ ))? $({ $($resp_fields:tt)* })?,
-    },)*) => {
+macro_rules! define_request_response {
+    (
+        req_resp = [
+            $({
+                rust_name = $rust_name:ident,
+                $(req_name = $req_name:literal,)?
+                $(resp_name = $resp_name:literal,)?
+                $(#[doc = $req_doc:expr])+
+                req = { $($req:tt)* },
+                $(#[doc = $resp_doc:expr])+
+                resp = $(( $($resp_inner:tt)+ ))? $({ $($resp_fields:tt)* })?,
+            },)*
+        ],
+        events = [
+            $({
+                rust_name = $rust_event_name:ident,
+                $(event_name = $event_name:literal,)?
+                $(#[doc = $event_config_doc:expr])*
+                config = { $($event_config_fields:tt)* },
+                $(#[doc = $event_data_doc:expr])+
+                data = { $($event_data_fields:tt)* },
+            },)*
+        ],
+    ) => {
         paste! {
             /// Known message types for [`EnumString<RequestType>`].
             #[allow(missing_docs)]
@@ -116,8 +130,83 @@ macro_rules! define_request_response_pairs {
                     $(#[serde(rename = $resp_name)])?
                     [<$rust_name Response>],
                 )*
+
+                $(
+                    $(#[serde(rename = $event_name)])?
+                    [<$rust_event_name Event>],
+                )*
+
                 #[serde(rename = "VTubeStudioAPIStateBroadcast")]
                 VTubeStudioApiStateBroadcast,
+            }
+
+            impl ResponseType {
+                /// Whether this response type corresponds to an event.
+                pub fn is_event(&self) -> bool {
+                    match self {
+                        $( Self::[<$rust_event_name Event>] => true, )*
+                        _ => false
+                    }
+                }
+            }
+        }
+
+        $(
+            paste! {
+                $(#[doc = $event_data_doc])+
+                ///
+                #[doc = concat!("This event can be configured using [`", stringify!($rust_event_name), "EventConfig`].")]
+                #[derive(Default, Debug, Clone, PartialEq, Serialize, Deserialize)]
+                #[serde(rename_all = "camelCase")]
+                pub struct [<$rust_event_name Event>] { $($event_data_fields)* }
+            }
+
+            // TODO: Trait for events
+        )*
+
+        paste! {
+            #[allow(missing_docs)]
+            #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+            #[non_exhaustive]
+            /// Known message types for [`EnumString<EventType>`].
+            pub enum EventType {
+                $(
+                    $(#[serde(rename = $event_name)])?
+                    [<$rust_event_name Event>],
+                )*
+            }
+
+            #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+            #[non_exhaustive]
+            #[allow(missing_docs)]
+            #[serde(tag = "eventName")]
+            /// Configuration for event subscriptions. Used in [`EventSubscriptionRequest`].
+            pub enum EventConfig {
+                $(
+                    $(#[serde(rename = $event_name)])?
+                    [<$rust_event_name Event>]( [<$rust_event_name EventConfig>] ),
+                )*
+            }
+
+            $(
+                #[doc = concat!("Config for [`", stringify!($rust_event_name), "Event`].")]
+                ///
+                $(#[doc = $event_config_doc])*
+                #[derive(Default, Debug, Clone, PartialEq, Serialize, Deserialize)]
+                #[serde(rename_all = "camelCase")]
+                pub struct [<$rust_event_name EventConfig>] { $($event_config_fields)* }
+
+                impl From<[<$rust_event_name EventConfig>]> for EventConfig {
+                    fn from(config: [<$rust_event_name EventConfig>]) -> Self {
+                        Self::[<$rust_event_name Event>](config)
+                    }
+                }
+            )*
+
+            impl Default for EventConfig {
+                fn default() -> Self {
+                    Self::TestEvent(TestEventConfig::default())
+                }
             }
         }
 
@@ -166,8 +255,8 @@ impl Default for ResponseType {
     }
 }
 
-define_request_response_pairs!(
-    {
+define_request_response!(
+    req_resp = [{
         rust_name = ApiState,
         req_name = "APIStateRequest",
         resp_name = "APIStateResponse",
@@ -182,6 +271,25 @@ define_request_response_pairs!(
             pub vtubestudio_version: String,
             /// Whether the current session is authenticated.
             pub current_session_authenticated: bool,
+        },
+    },
+
+    {
+        rust_name = EventSubscription,
+        /// Subscribe or unsubscribe from events.
+        req = {
+            /// Set to `true` to subscribe, `false` to unsubscribe.
+            pub subscribe: bool,
+            #[serde(flatten)]
+            /// Config for the event subscription.
+            pub config: EventConfig,
+        },
+        /// Information about subscriptions.
+        resp = {
+            /// Number of event types that are subscribed to.
+            subscribed_event_count: i32,
+            /// Subscribed event types.
+            subscribed_events: Vec<EnumString<EventType>>,
         },
     },
 
@@ -1071,7 +1179,114 @@ define_request_response_pairs!(
             /// ArtMeshes that were not selected.
             pub inactive_art_meshes: Vec<String>,
         },
-    },
+    },],
+
+    events = [
+        {
+            rust_name = Test,
+            config = {
+                /// Message to be returned every second.
+                test_message_for_event: String,
+            },
+            /// An event for testing the event API.
+            data = {
+                /// Test message specified in [`TestEventConfig`].
+                your_test_message: String,
+                /// Number of seconds since VTube Studio has been started.
+                counter: i32,
+            },
+        },
+
+        {
+            rust_name = ModelLoaded,
+            /// You can pass in one or more model IDs in the `modelID` array (optional). If you do,
+            /// an event will only be sent every time the model with one of the specific IDs is
+            /// loaded or unloaded. If you pass in model IDs, they all have to have the correct
+            /// format (32 characters, only hex characters), otherwise an error is returned.
+            config = {
+                /// Optional model IDs to filter for.
+                #[serde(rename = "modelID")]
+                model_id: Vec<String>
+            },
+            /// An event that is triggered every time a VTube Studio model is loaded or unloaded.
+            data = {
+                /// Whether the model is loaded.
+                model_loaded: bool,
+                /// Name of the model.
+                model_name: String,
+                /// Model ID.
+                ///
+                /// E.g., `165131471d8a4e42aae01a9738f255ef`.
+                #[serde(rename = "modelID")]
+                model_id: String,
+            },
+        },
+
+        {
+            rust_name = TrackingStatusChanged,
+            config = {},
+            /// An event that is triggered every time the face tracker finds/loses the face or
+            /// hands.
+            data = {
+                /// Whether the face is found.
+                face_found: bool,
+                /// Whether the left hand is found.
+                left_hand_found: bool,
+                /// Whether the right hand is found.
+                right_hand_found: bool,
+            },
+        },
+
+        {
+            rust_name = BackgroundChanged,
+            config = {},
+            /// An event that is triggered every time the background is changed by the user
+            /// (manually or via hotkey).
+            data = {
+                /// Background name, as shown in the background selection list.
+                ///
+                /// This is typically the file name without the file extension.
+                background_name: String,
+            },
+        },
+
+        {
+            rust_name = ModelConfigChanged,
+            config = {},
+            /// An event that is triggered every time the user manually changes the the
+            /// settings/config of the currently loaded VTube Studio model.
+            data = {
+                /// Model ID.
+                #[serde(rename = "modelID")]
+                pub model_id: String,
+                /// Model name.
+                pub model_name: String,
+                /// Whether the changed config is related to hotkeys.
+                pub hotkey_config_changed: bool,
+            },
+        },
+
+        {
+            rust_name = ModelMoved,
+            config = {},
+            /// An event that is triggered every time a model is moved, resized or rotated.
+            ///
+            /// This will also be triggered right after subscribing, so it will send you the
+            /// current position/scale/rotation of the currently loaded model the moment you
+            /// subscribe (unless no model is loaded) and then send the current
+            /// position/scale/rotation in every frame when there's a change.
+            data = {
+                /// Model ID.
+                #[serde(rename = "modelID")]
+                pub model_id: String,
+                /// Model name.
+                pub model_name: String,
+                /// Model position.
+                pub model_position: ModelPosition,
+            },
+        },
+
+    ],
 );
 
 #[allow(missing_docs)]
