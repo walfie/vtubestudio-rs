@@ -7,7 +7,7 @@ use std::borrow::Cow;
 // unknown values for enums.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(untagged)]
-enum Enum<T, Repr> {
+pub(crate) enum Enum<T, Repr> {
     Known(T),
     Unknown(Repr),
 }
@@ -47,7 +47,7 @@ impl EnumString<ResponseType> {
 /// assert_eq!(resp_str.as_str(), "VTSFolderInfoResponse");
 /// ```
 #[derive(Default, Debug, Clone, serde::Serialize, serde::Deserialize)]
-pub struct EnumString<T>(EnumStringInner<T>);
+pub struct EnumString<T>(pub(crate) EnumStringInner<T>);
 
 impl<T> EnumString<T> {
     /// Creates a new value from a known variant.

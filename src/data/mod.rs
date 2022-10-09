@@ -14,10 +14,12 @@ pub use crate::data::envelope::{
 };
 pub use crate::data::error_id::ErrorId;
 
+use crate::data::enumeration::Enum;
 use paste::paste;
 use serde::de::DeserializeOwned;
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
 use std::borrow::Cow;
+use std::convert::TryFrom;
 
 /// Trait describing a VTube Studio request.
 pub trait Request: Serialize {
@@ -179,13 +181,29 @@ macro_rules! define_request_response {
         )*
 
         paste! {
-            #[derive(Debug, Clone, PartialEq)]
+            #[derive(Debug, Clone)]
             #[non_exhaustive]
             #[allow(missing_docs)]
             /// Event types. Events can be requested via [`EventSubscriptionRequest`].
             pub enum Event {
                 $( $rust_event_name( [<$rust_event_name Event>] ), )*
-                Unknown(UnknownEvent),
+                Unknown(ResponseData),
+            }
+
+            impl TryFrom<ResponseData> for Event {
+                type Error = serde_json::Error;
+
+                fn try_from(data: ResponseData) -> Result<Self, Self::Error> {
+                    Ok(match data.message_type.0 {
+                        $(
+                            Enum::Known(ResponseType::[<$rust_event_name Event>]) =>
+                                Event::$rust_event_name(
+                                    data.data.deserialize::<[<$rust_event_name Event>]>()?
+                                ),
+                        )*
+                        _ => Event::Unknown(data),
+                    })
+                }
             }
 
             // TODO: Absent/empty eventName to unsubscribe from all events.
