@@ -1577,11 +1577,6 @@ pub struct VTubeStudioApiStateBroadcast {
     pub window_title: String,
 }
 
-impl Response for VTubeStudioApiStateBroadcast {
-    const MESSAGE_TYPE: EnumString<ResponseType> =
-        EnumString::new(ResponseType::VTubeStudioApiStateBroadcast);
-}
-
 /// Used in [`CurrentModelResponse`] and [`ModelMovedEvent`].
 #[derive(Default, Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
