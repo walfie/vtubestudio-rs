@@ -21,7 +21,7 @@ use serde::{Deserialize, Deserializer, Serialize, Serializer};
 use std::borrow::Cow;
 use std::convert::TryFrom;
 
-/// Trait describing a VTube Studio request.
+/// Trait describing a VTube Studio request. Used to set data in [`RequestEnvelope`].
 pub trait Request: Serialize {
     /// The message type of this request.
     const MESSAGE_TYPE: EnumString<RequestType>;
@@ -30,10 +30,7 @@ pub trait Request: Serialize {
     type Response: Response;
 }
 
-/// Trait describing a VTube Studio response.
-///
-/// This trait is specifically for responses that have a 1-to-1 correspondence to [`Request`]s. For
-/// events, see [`Event`].
+/// Trait describing a VTube Studio response. Typically parsed from [`ResponseEnvelope`].
 pub trait Response: DeserializeOwned + Send + 'static {
     /// The message type of this response.
     const MESSAGE_TYPE: EnumString<ResponseType>;
@@ -177,6 +174,12 @@ macro_rules! define_request_response {
                 #[derive(Default, Debug, Clone, PartialEq, Serialize, Deserialize)]
                 #[serde(rename_all = "camelCase")]
                 pub struct [<$rust_event_name Event>] { $($event_data_fields)* }
+
+                impl Response for [<$rust_event_name Event>] {
+                    #[doc = concat!("[`ResponseType::", stringify!($rust_event_name), "Event`]")]
+                    const MESSAGE_TYPE: EnumString<ResponseType> =
+                        EnumString::new(ResponseType::[<$rust_event_name Event>]);
+                }
             }
         )*
 
@@ -1598,6 +1601,11 @@ pub struct VTubeStudioApiStateBroadcast {
     pub window_title: String,
 }
 
+impl Response for VTubeStudioApiStateBroadcast {
+    const MESSAGE_TYPE: EnumString<ResponseType> =
+        EnumString::new(ResponseType::VTubeStudioApiStateBroadcast);
+}
+
 /// Used in [`CurrentModelResponse`] and [`ModelMovedEvent`].
 #[derive(Default, Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
@@ -2058,7 +2066,7 @@ mod tests {
         .with_id(Some("SomeID".into()));
 
         // https://github.com/DenchiSoft/VTubeStudio/tree/5e45a961/Events#test-event
-        let req_json = json!({
+        let expected = json!({
             "apiName": "VTubeStudioPublicAPI",
             "apiVersion": "1.0",
             "requestID": "SomeID",
@@ -2073,10 +2081,38 @@ mod tests {
         });
 
         assert_eq!(
-            serde_json::from_value::<RequestEnvelope>(req_json.clone())?,
+            serde_json::from_value::<RequestEnvelope>(expected.clone())?,
             req
         );
-        assert_eq!(serde_json::to_value(&req)?, req_json);
+        assert_eq!(serde_json::to_value(&req)?, expected);
+
+        Ok(())
+    }
+
+    #[test]
+    fn parse_response_as_event() -> Result {
+        // https://github.com/DenchiSoft/VTubeStudio/tree/5e45a961/Events#test-event
+        let json = json!({
+            "apiName": "VTubeStudioPublicAPI",
+            "apiVersion": "1.0",
+            "timestamp": 1625405710728i64,
+            "requestID": "SomeID",
+            "messageType": "TestEvent",
+            "data": {
+                "yourTestMessage": "text the event will return",
+                "counter": 672
+            }
+        });
+
+        let resp = serde_json::from_value::<ResponseEnvelope>(json)?;
+        let parsed = resp.parse_event()?;
+
+        let expected = TestEvent {
+            your_test_message: "text the event will return".to_owned(),
+            counter: 672,
+        };
+
+        assert!(matches!(parsed, Event::Test(event) if event == expected));
 
         Ok(())
     }
