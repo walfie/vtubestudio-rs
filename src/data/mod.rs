@@ -188,10 +188,11 @@ macro_rules! define_request_response {
                 Unknown(UnknownEvent),
             }
 
+            // TODO: Absent/empty eventName to unsubscribe from all events.
             #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
             #[non_exhaustive]
             #[allow(missing_docs)]
-            #[serde(tag = "eventName")]
+            #[serde(tag = "eventName", content = "config")]
             /// Configuration for event subscriptions. Used in [`EventSubscriptionRequest`].
             pub enum EventConfig {
                 $(
@@ -295,6 +296,8 @@ define_request_response!(
             pub subscribe: bool,
             #[serde(flatten)]
             /// Config for the event subscription.
+            // TODO: Consider making this optional, in case the user wants to unsubscribe from all
+            // events.
             pub config: EventConfig,
         },
         /// Information about subscriptions.
@@ -2021,6 +2024,41 @@ mod tests {
         let parsed = resp.parse::<ApiStateResponse>()?;
 
         assert_eq!(parsed, data);
+
+        Ok(())
+    }
+
+    #[test]
+    fn serialize_event_request() -> Result {
+        let req = RequestEnvelope::new(&EventSubscriptionRequest {
+            subscribe: true,
+            config: TestEventConfig {
+                test_message_for_event: "text the event will return".to_owned(),
+            }
+            .into(),
+        })?
+        .with_id(Some("SomeID".into()));
+
+        // https://github.com/DenchiSoft/VTubeStudio/tree/5e45a961/Events#test-event
+        let req_json = json!({
+            "apiName": "VTubeStudioPublicAPI",
+            "apiVersion": "1.0",
+            "requestID": "SomeID",
+            "messageType": "EventSubscriptionRequest",
+            "data": {
+                "eventName": "TestEvent",
+                "subscribe": true,
+                "config": {
+                    "testMessageForEvent": "text the event will return"
+                }
+            }
+        });
+
+        assert_eq!(
+            serde_json::from_value::<RequestEnvelope>(req_json.clone())?,
+            req
+        );
+        assert_eq!(serde_json::to_value(&req)?, req_json);
 
         Ok(())
     }
