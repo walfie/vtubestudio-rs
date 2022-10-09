@@ -17,8 +17,8 @@ type EnumStringInner<T> = Enum<T, Cow<'static, str>>;
 impl EnumString<ResponseType> {
     /// Whether this response type is an event.
     ///
-    /// More specifically, it returns `true` if the underlying event type enum is a known [`Event`]
-    /// type, or if the string ends with `"Event"`.
+    /// More specifically, it returns `true` if the underlying event type enum is a known
+    /// [`Event`](crate::data::Event) type, or if the string ends with `"Event"`.
     pub fn is_event(&self) -> bool {
         match &self.0 {
             Enum::Known(t) => t.is_event(),

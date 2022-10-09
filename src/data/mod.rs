@@ -209,7 +209,6 @@ macro_rules! define_request_response {
                 }
             }
 
-            // TODO: Absent/empty eventName to unsubscribe from all events.
             #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
             #[non_exhaustive]
             #[allow(missing_docs)]
@@ -278,6 +277,43 @@ macro_rules! define_request_response {
     };
 }
 
+impl EventSubscriptionRequest {
+    /// Subscribe to a specific event type.
+    pub fn subscribe<T>(config: T) -> Self
+    where
+        T: Into<EventConfig>,
+    {
+        Self {
+            subscribe: true,
+            config: Some(config.into()),
+        }
+    }
+
+    // TODO: Have this accept T as TestEvent rather than TestEventConfig.
+    /// Unsubscribe from a specific event type.
+    ///
+    /// ```
+    /// EventSubscriptionRequest::unsubscribe::<TestEventConfig>()
+    /// ```
+    pub fn unsubscribe<T>() -> Self
+    where
+        T: Default + Into<EventConfig>,
+    {
+        Self {
+            subscribe: false,
+            config: Some(T::default().into()),
+        }
+    }
+
+    /// Unsubscribe from all events.
+    pub fn unsubscribe_all() -> Self {
+        Self {
+            subscribe: false,
+            config: None,
+        }
+    }
+}
+
 impl Default for RequestType {
     fn default() -> Self {
         Self::ApiStateRequest
@@ -317,9 +353,7 @@ define_request_response!(
             pub subscribe: bool,
             #[serde(flatten)]
             /// Config for the event subscription.
-            // TODO: Consider making this optional, in case the user wants to unsubscribe from all
-            // events.
-            pub config: EventConfig,
+            pub config: Option<EventConfig>,
         },
         /// Information about subscriptions.
         resp = {
@@ -2056,13 +2090,9 @@ mod tests {
 
     #[test]
     fn serialize_event_request() -> Result {
-        let req = RequestEnvelope::new(&EventSubscriptionRequest {
-            subscribe: true,
-            config: TestEventConfig {
-                test_message_for_event: "text the event will return".to_owned(),
-            }
-            .into(),
-        })?
+        let req = RequestEnvelope::new(&EventSubscriptionRequest::subscribe(TestEventConfig {
+            test_message_for_event: "text the event will return".to_owned(),
+        }))?
         .with_id(Some("SomeID".into()));
 
         // https://github.com/DenchiSoft/VTubeStudio/tree/5e45a961/Events#test-event
