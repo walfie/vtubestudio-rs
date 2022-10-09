@@ -29,6 +29,9 @@ pub trait Request: Serialize {
 }
 
 /// Trait describing a VTube Studio response.
+///
+/// This trait is specifically for responses that have a 1-to-1 correspondence to [`Request`]s. For
+/// events, see [`Event`].
 pub trait Response: DeserializeOwned + Send + 'static {
     /// The message type of this response.
     const MESSAGE_TYPE: EnumString<ResponseType>;
@@ -1579,7 +1582,7 @@ impl Response for VTubeStudioApiStateBroadcast {
         EnumString::new(ResponseType::VTubeStudioApiStateBroadcast);
 }
 
-/// Used in [`CurrentModelResponse`].
+/// Used in [`CurrentModelResponse`] and [`ModelMovedEvent`].
 #[derive(Default, Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct ModelPosition {
