@@ -2,7 +2,7 @@
 //!
 //! * For a list of all request types, see the implementors for [`Request`].
 //! * For the corresponding response types, see [`Response`].
-//! * For event types specifically, see [`EventData`] and [`EventConfig`].
+//! * For event types specifically, see [`Event`] and [`EventConfig`].
 
 mod enumeration;
 mod envelope;
@@ -38,8 +38,8 @@ pub trait Response: DeserializeOwned + Send + 'static {
 
 /// Trait describing VTube Studio event data.
 ///
-/// See [`Event`] for an enum of known event types.
-pub trait EventData: Response {
+/// See [`EventData`] for an enum of known event types.
+pub trait Event: Response {
     /// The config for this event.
     type Config: EventConfig;
 }
@@ -47,7 +47,7 @@ pub trait EventData: Response {
 /// Trait describing a VTube Studio event's config.
 pub trait EventConfig: Serialize {
     /// The corresponding event for this config.
-    type Event: EventData;
+    type Event: Event;
 }
 
 // https://github.com/DenchiSoft/VTubeStudio/blob/08681904e285d37b8c22d17d7d3a36c8c6834425/Files/HotkeyAction.cs
@@ -184,7 +184,7 @@ macro_rules! define_request_response {
                         EnumString::new(ResponseType::[<$rust_event_name Event>]);
                 }
 
-                impl EventData for [<$rust_event_name Event>] {
+                impl Event for [<$rust_event_name Event>] {
                     #[doc = concat!("[`", stringify!($rust_event_name), "EventConfig`]")]
                     type Config = [<$rust_event_name EventConfig>];
                 }
@@ -196,23 +196,23 @@ macro_rules! define_request_response {
             #[non_exhaustive]
             #[allow(missing_docs)]
             /// Event types. Events can be requested via [`EventSubscriptionRequest`].
-            pub enum Event {
+            pub enum EventData {
                 $( $rust_event_name( [<$rust_event_name Event>] ), )*
                 Unknown(ResponseData),
             }
 
-            impl TryFrom<ResponseData> for Event {
+            impl TryFrom<ResponseData> for EventData {
                 type Error = serde_json::Error;
 
                 fn try_from(data: ResponseData) -> Result<Self, Self::Error> {
                     Ok(match data.message_type.0 {
                         $(
                             Enum::Known(ResponseType::[<$rust_event_name Event>]) =>
-                                Event::$rust_event_name(
+                                EventData::$rust_event_name(
                                     data.data.deserialize::<[<$rust_event_name Event>]>()?
                                 ),
                         )*
-                        _ => Event::Unknown(data),
+                        _ => EventData::Unknown(data),
                     })
                 }
             }
@@ -294,7 +294,7 @@ impl EventSubscriptionRequest {
     /// ```
     pub fn unsubscribe<T>() -> Self
     where
-        T: EventData,
+        T: Event,
     {
         Self {
             subscribe: false,
@@ -2174,7 +2174,7 @@ mod tests {
             counter: 672,
         };
 
-        assert!(matches!(parsed, Event::Test(event) if event == expected));
+        assert!(matches!(parsed, EventData::Test(event) if event == expected));
 
         Ok(())
     }
