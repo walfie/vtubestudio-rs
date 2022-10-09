@@ -1,7 +1,8 @@
 //! Request/response types for the VTube Studio API.
 //!
-//! For a list of all request types, see the implementors for [`Request`].
-//! For the corresponding response types, see [`Response`].
+//! * For a list of all request types, see the implementors for [`Request`].
+//! * For the corresponding response types, see [`Response`].
+//! * For event types, see [`Event`].
 
 mod enumeration;
 mod envelope;
@@ -31,6 +32,18 @@ pub trait Request: Serialize {
 pub trait Response: DeserializeOwned + Send + 'static {
     /// The message type of this response.
     const MESSAGE_TYPE: EnumString<ResponseType>;
+}
+
+/// An unknown [`Event`].
+///
+/// This may be received if you manually derive your own [`Request`] to subscribe to an event type
+/// that isn't yet implemented in this library.
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+pub struct UnknownEvent {
+    /// Message type.
+    pub message_type: String,
+    /// Raw JSON data.
+    pub data: serde_json::Value,
 }
 
 // https://github.com/DenchiSoft/VTubeStudio/blob/08681904e285d37b8c22d17d7d3a36c8c6834425/Files/HotkeyAction.cs
@@ -160,20 +173,16 @@ macro_rules! define_request_response {
                 #[serde(rename_all = "camelCase")]
                 pub struct [<$rust_event_name Event>] { $($event_data_fields)* }
             }
-
-            // TODO: Trait for events
         )*
 
         paste! {
-            #[allow(missing_docs)]
-            #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+            #[derive(Debug, Clone, PartialEq)]
             #[non_exhaustive]
-            /// Known message types for [`EnumString<EventType>`].
-            pub enum EventType {
-                $(
-                    $(#[serde(rename = $event_name)])?
-                    [<$rust_event_name Event>],
-                )*
+            #[allow(missing_docs)]
+            /// Event types. Events can be requested via [`EventSubscriptionRequest`].
+            pub enum Event {
+                $( $rust_event_name( [<$rust_event_name Event>] ), )*
+                Unknown(UnknownEvent),
             }
 
             #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
@@ -190,6 +199,7 @@ macro_rules! define_request_response {
 
             $(
                 #[doc = concat!("Config for [`", stringify!($rust_event_name), "Event`].")]
+                /// Used in [`EventSubscriptionRequest`].
                 ///
                 $(#[doc = $event_config_doc])*
                 #[derive(Default, Debug, Clone, PartialEq, Serialize, Deserialize)]
@@ -289,7 +299,7 @@ define_request_response!(
             /// Number of event types that are subscribed to.
             subscribed_event_count: i32,
             /// Subscribed event types.
-            subscribed_events: Vec<EnumString<EventType>>,
+            subscribed_events: Vec<EnumString<ResponseType>>,
         },
     },
 
@@ -1186,14 +1196,14 @@ define_request_response!(
             rust_name = Test,
             config = {
                 /// Message to be returned every second.
-                test_message_for_event: String,
+                pub test_message_for_event: String,
             },
             /// An event for testing the event API.
             data = {
                 /// Test message specified in [`TestEventConfig`].
-                your_test_message: String,
+                pub your_test_message: String,
                 /// Number of seconds since VTube Studio has been started.
-                counter: i32,
+                pub counter: i32,
             },
         },
 
@@ -1206,19 +1216,19 @@ define_request_response!(
             config = {
                 /// Optional model IDs to filter for.
                 #[serde(rename = "modelID")]
-                model_id: Vec<String>
+                pub model_id: Vec<String>
             },
             /// An event that is triggered every time a VTube Studio model is loaded or unloaded.
             data = {
                 /// Whether the model is loaded.
-                model_loaded: bool,
+                pub model_loaded: bool,
                 /// Name of the model.
-                model_name: String,
+                pub model_name: String,
                 /// Model ID.
                 ///
                 /// E.g., `165131471d8a4e42aae01a9738f255ef`.
                 #[serde(rename = "modelID")]
-                model_id: String,
+                pub model_id: String,
             },
         },
 
@@ -1229,11 +1239,11 @@ define_request_response!(
             /// hands.
             data = {
                 /// Whether the face is found.
-                face_found: bool,
+                pub face_found: bool,
                 /// Whether the left hand is found.
-                left_hand_found: bool,
+                pub left_hand_found: bool,
                 /// Whether the right hand is found.
-                right_hand_found: bool,
+                pub right_hand_found: bool,
             },
         },
 
@@ -1246,7 +1256,7 @@ define_request_response!(
                 /// Background name, as shown in the background selection list.
                 ///
                 /// This is typically the file name without the file extension.
-                background_name: String,
+                pub background_name: String,
             },
         },
 
