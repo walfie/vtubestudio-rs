@@ -2,7 +2,7 @@ crate::cfg_feature! {
     #![feature = "tokio-tungstenite"]
 
     use crate::transport::TungsteniteApiTransport;
-    use futures_util::TryFutureExt;
+    use futures_util::FutureExt;
     use std::future::Future;
     use std::pin::Pin;
     use std::task::{Context, Poll};
@@ -36,9 +36,10 @@ mod tungstenite {
         }
 
         fn call(&mut self, request: R) -> Self::Future {
-            let transport = tokio_tungstenite::connect_async(request)
-                .map_err(|e| Error::new(ErrorKind::ConnectionRefused).with_source(e))
-                .map_ok(|(transport, _resp)| TungsteniteApiTransport::new_tungstenite(transport));
+            let transport = tokio_tungstenite::connect_async(request).map(|result| match result {
+                Ok((transport, _resp)) => Ok(TungsteniteApiTransport::new_tungstenite(transport)),
+                Err(e) => Err(Error::new(ErrorKind::ConnectionRefused).with_source(e)),
+            });
             Box::pin(transport)
         }
     }
