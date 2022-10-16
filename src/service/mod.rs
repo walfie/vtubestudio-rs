@@ -10,7 +10,7 @@ use tower::{Service, ServiceExt};
 
 pub use crate::service::api::ApiService;
 pub use crate::service::auth::{Authentication, AuthenticationLayer, ResponseWithToken};
-pub use crate::service::maker::MakeApiService;
+pub use crate::service::maker::{MakeApiService, TungsteniteConnector};
 pub use crate::service::retry::RetryPolicy;
 
 crate::cfg_feature! {
