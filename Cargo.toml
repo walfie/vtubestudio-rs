@@ -25,6 +25,7 @@ pin-project-lite = "0.2"
 serde = { version = "1", features = ["derive"] }
 serde_json = { version = "1", features = ["raw_value"] }
 smol_str = { version = "0.1", features = ["serde"] }
+split-stream-by = "0.1"
 thiserror = "1"
 tokio = "1"
 tokio-tower = "0.6"

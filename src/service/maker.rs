@@ -1,9 +1,9 @@
-use crate::data::{RequestEnvelope, ResponseEnvelope};
+use crate::data::{EventData, RequestEnvelope, ResponseEnvelope};
 use crate::error::BoxError;
 use crate::service::api::ApiService;
 
 use futures_util::future::MapOk;
-use futures_util::TryFutureExt;
+use futures_util::{Sink, TryFutureExt};
 use std::marker::PhantomData;
 use std::task::{Context, Poll};
 use tokio_tower::MakeTransport;
@@ -15,36 +15,40 @@ use tower::Service;
 /// a websocket sink/stream. This is used for as the inner service for the
 /// [`Reconnect`](tower::reconnect::Reconnect) middleware.
 #[derive(Clone, Debug)]
-pub struct MakeApiService<M, R> {
+pub struct MakeApiService<M, S, R> {
     maker: M,
+    event_sink: S,
     _req: PhantomData<fn(R)>,
 }
 
-impl<M, R> MakeApiService<M, R>
+impl<M, S, R> MakeApiService<M, S, R>
 where
     M: MakeTransport<R, RequestEnvelope, Item = ResponseEnvelope>,
+    S: Sink<EventData, Error = Error> + Send + Unpin + 'static,
 {
     /// Creates a new [`MakeApiService`].
-    pub fn new(maker: M) -> Self {
+    pub fn new(maker: M, event_sink: S) -> Self {
         Self {
             maker,
+            event_sink,
             _req: PhantomData,
         }
     }
 }
 
-impl<M, R> MakeApiService<M, R> {
-    /// Consumes `self`, returning the inner service.
-    pub fn into_inner(self) -> M {
-        self.maker
+impl<M, S, R> MakeApiService<M, S, R> {
+    /// Consumes `self`, returning the inner service and event sink.
+    pub fn into_inner(self) -> (M, S) {
+        (self.maker, self.event_sink)
     }
 }
 
-impl<M, R> Service<R> for MakeApiService<M, R>
+impl<M, S, R> Service<R> for MakeApiService<M, S, R>
 where
     M: MakeTransport<R, RequestEnvelope, Item = ResponseEnvelope> + Send,
     M::Future: Send + 'static,
     M::Transport: Send + 'static,
+    S: Sink<EventData, Error = Error> + Send + Unpin + 'static,
     BoxError: From<M::Error>,
     BoxError: From<M::SinkError>,
 {
@@ -57,7 +61,9 @@ where
     }
 
     fn call(&mut self, request: R) -> Self::Future {
-        self.maker.make_transport(request).map_ok(ApiService::new)
+        self.maker
+            .make_transport(request)
+            .map_ok(|transport| ApiService::new(transport, self.event_sink))
     }
 }
 
@@ -82,13 +88,14 @@ crate::cfg_feature! {
     #![feature = "tokio-tungstenite"]
     use crate::{Error, ErrorKind};
 
-    impl<R> MakeApiService<TungsteniteConnector, R>
+    impl<S, R> MakeApiService<TungsteniteConnector, S, R>
     where
+        S: Sink<EventData, Error = Error> + Send + Unpin + 'static,
         R: Send + IntoClientRequest + Unpin + 'static,
     {
         /// Creates a new [`MakeApiService`] using [`tokio_tungstenite`] as the underlying transport.
-        pub fn new_tungstenite() -> Self {
-            MakeApiService::new(TungsteniteConnector)
+        pub fn new_tungstenite(event_sink: S) -> Self {
+            MakeApiService::new(TungsteniteConnector, event_sink)
         }
     }
 
