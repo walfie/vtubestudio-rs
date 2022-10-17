@@ -1,4 +1,5 @@
 pub(crate) mod api;
+pub(crate) mod event;
 
 pub use crate::transport::api::ApiTransport;
 
