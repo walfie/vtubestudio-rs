@@ -12,8 +12,10 @@ use std::pin::Pin;
 use std::task::{Context, Poll};
 
 pin_project! {
-    /// A transport that forwards events to a separate sink.
-    pub struct EventTransport<T, E> {
+    /// An API transport that excludes [`Event`] responses from the stream.
+    ///
+    /// [`Event`]s can be retrieved from the corresponding [`EventStream`].
+    pub struct EventlessApiTransport<T, E> {
         #[pin]
         sink: SplitSink<T, RequestEnvelope>,
         #[pin]
@@ -28,7 +30,7 @@ pin_project! {
 }
 
 pin_project! {
-    /// A stream of [`Event`]s.
+    /// A stream of [`Event`]s. Created by [`EventlessApiTransport::new`].
     pub struct EventStream<T, E> {
         #[pin]
         events: LeftSplitByMap<
@@ -41,7 +43,7 @@ pin_project! {
     }
 }
 
-impl<T, E> fmt::Debug for EventTransport<T, E>
+impl<T, E> fmt::Debug for EventlessApiTransport<T, E>
 where
     T: fmt::Debug,
 {
@@ -57,7 +59,7 @@ type SplitFn<E> = fn(
     Result<ResponseEnvelope, E>,
 ) -> Either<Result<EventData, Error>, Result<ResponseEnvelope, E>>;
 
-impl<T, E> EventTransport<T, E>
+impl<T, E> EventlessApiTransport<T, E>
 where
     T: Sink<RequestEnvelope> + Stream<Item = Result<ResponseEnvelope, E>> + Unpin + Send + 'static,
     E: Send + 'static,
@@ -83,7 +85,7 @@ where
     }
 }
 
-impl<T, E> Sink<RequestEnvelope> for EventTransport<T, E>
+impl<T, E> Sink<RequestEnvelope> for EventlessApiTransport<T, E>
 where
     T: Sink<RequestEnvelope>,
     BoxError: From<T::Error>,
@@ -123,7 +125,7 @@ where
     }
 }
 
-impl<T, E> Stream for EventTransport<T, E>
+impl<T, E> Stream for EventlessApiTransport<T, E>
 where
     T: Stream<Item = Result<ResponseEnvelope, E>>,
     E: Into<BoxError>,
