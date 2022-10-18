@@ -2,6 +2,7 @@ pub(crate) mod api;
 pub(crate) mod event;
 
 pub use crate::transport::api::ApiTransport;
+pub use crate::transport::event::{EventStream, EventTransport};
 
 crate::cfg_feature! {
     #![feature = "tokio-tungstenite"]
