@@ -61,8 +61,7 @@ type SplitFn<E> = fn(
 
 impl<T, E> EventlessApiTransport<T, E>
 where
-    T: Sink<RequestEnvelope> + Stream<Item = Result<ResponseEnvelope, E>> + Unpin + Send + 'static,
-    E: Send + 'static,
+    T: Sink<RequestEnvelope> + Stream<Item = Result<ResponseEnvelope, E>>,
 {
     /// Creates a new [`ApiTransport`].
     pub fn new<S>(transport: T) -> (Self, EventStream<T, E>) {
@@ -88,40 +87,23 @@ where
 impl<T, E> Sink<RequestEnvelope> for EventlessApiTransport<T, E>
 where
     T: Sink<RequestEnvelope>,
-    BoxError: From<T::Error>,
 {
-    type Error = BoxError;
+    type Error = T::Error;
 
     fn poll_ready(mut self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Result<(), Self::Error>> {
-        self.as_mut()
-            .project()
-            .sink
-            .poll_ready(cx)
-            .map_err(BoxError::from)
+        self.as_mut().project().sink.poll_ready(cx)
     }
 
     fn start_send(mut self: Pin<&mut Self>, item: RequestEnvelope) -> Result<(), Self::Error> {
-        self.as_mut()
-            .project()
-            .sink
-            .start_send(item)
-            .map_err(BoxError::from)
+        self.as_mut().project().sink.start_send(item)
     }
 
     fn poll_flush(mut self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Result<(), Self::Error>> {
-        self.as_mut()
-            .project()
-            .sink
-            .poll_flush(cx)
-            .map_err(BoxError::from)
+        self.as_mut().project().sink.poll_flush(cx)
     }
 
     fn poll_close(mut self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Result<(), Self::Error>> {
-        self.as_mut()
-            .project()
-            .sink
-            .poll_close(cx)
-            .map_err(BoxError::from)
+        self.as_mut().project().sink.poll_close(cx)
     }
 }
 
