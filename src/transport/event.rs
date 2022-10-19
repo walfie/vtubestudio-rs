@@ -1,5 +1,5 @@
 use crate::data::{EventData, RequestEnvelope, ResponseEnvelope};
-use crate::error::{BoxError, Error};
+use crate::error::Error;
 
 use futures_core::{Stream, TryStream};
 use futures_sink::Sink;
@@ -15,7 +15,7 @@ pin_project! {
     /// An API transport that excludes [`Event`] responses from the stream.
     ///
     /// [`Event`]s can be retrieved from the corresponding [`EventStream`].
-    pub struct EventlessApiTransport<T> where T: TryStream {
+    pub(crate) struct EventlessApiTransport<T> where T: TryStream {
         #[pin]
         sink: SplitSink<IntoStream<T>, RequestEnvelope>,
         #[pin]
@@ -110,9 +110,8 @@ where
 impl<T> Stream for EventlessApiTransport<T>
 where
     T: TryStream<Ok = ResponseEnvelope>,
-    T::Error: Into<BoxError>,
 {
-    type Item = Result<ResponseEnvelope, BoxError>;
+    type Item = Result<ResponseEnvelope, T::Error>;
 
     fn poll_next(self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Option<Self::Item>> {
         self.project().stream.try_poll_next(cx).map_err(Into::into)

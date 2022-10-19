@@ -1,5 +1,7 @@
 use crate::data::{RequestEnvelope, RequestId, ResponseEnvelope};
 use crate::error::{BoxError, Error};
+use crate::transport::event::EventlessApiTransport;
+use crate::transport::EventStream;
 
 use futures_core::TryStream;
 use futures_sink::Sink;
@@ -53,7 +55,8 @@ impl TagStore<RequestEnvelope, ResponseEnvelope> for IdTagger {
     }
 }
 
-type ServiceInner<T> = MultiplexClient<MultiplexTransport<T, IdTagger>, Error, RequestEnvelope>;
+type ServiceInner<T> =
+    MultiplexClient<MultiplexTransport<EventlessApiTransport<T>, IdTagger>, Error, RequestEnvelope>;
 
 /// A [`Service`] that assigns request IDs to [`RequestEnvelope`]s and matches them to incoming
 /// [`ResponseEnvelope`]s.
@@ -62,7 +65,7 @@ type ServiceInner<T> = MultiplexClient<MultiplexTransport<T, IdTagger>, Error, R
 #[derive(Debug)]
 pub struct ApiService<T>
 where
-    T: Sink<RequestEnvelope> + TryStream,
+    T: Sink<RequestEnvelope> + TryStream<Ok = ResponseEnvelope>,
 {
     service: ServiceInner<T>,
 }
@@ -70,16 +73,17 @@ where
 impl<T> ApiService<T>
 where
     T: Sink<RequestEnvelope> + TryStream<Ok = ResponseEnvelope> + Send + 'static,
+    <T as TryStream>::Error: Send,
     BoxError: From<<T as Sink<RequestEnvelope>>::Error>,
     BoxError: From<<T as TryStream>::Error>,
 {
-    /// Create a new [`ApiService`].
-    pub fn new(transport: T) -> Self {
+    /// Create a new [`ApiService`] and corresponding [`EventStream`].
+    pub fn new(transport: T) -> (Self, EventStream<T>) {
         Self::with_error_handler(transport, |_| ())
     }
 
-    /// Create a new [`ApiService`] with an error handler.
-    pub fn with_error_handler<F>(transport: T, on_service_error: F) -> Self
+    /// Create a new [`ApiService`] with an internal handler for transport errors.
+    pub fn with_error_handler<F>(transport: T, on_service_error: F) -> (Self, EventStream<T>)
     where
         F: FnOnce(Error) + Send + 'static,
     {
@@ -88,10 +92,12 @@ where
             buffer: String::new(),
         };
 
-        let multiplex_transport = MultiplexTransport::new(transport, tagger);
+        let (eventless_transport, event_stream) = EventlessApiTransport::new(transport);
+
+        let multiplex_transport = MultiplexTransport::new(eventless_transport, tagger);
         let service = MultiplexClient::with_error_handler(multiplex_transport, on_service_error);
 
-        Self { service }
+        (Self { service }, event_stream)
     }
 }
 

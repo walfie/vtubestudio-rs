@@ -181,7 +181,20 @@ impl ClientBuilder {
         /// [`tokio_tungstenite`] as the underlying websocket transport library.
         pub fn build_tungstenite(self) -> (Client, TokenReceiver) {
             use crate::service::MakeApiService;
-            self.build_reconnecting_service(MakeApiService::new_tungstenite())
+            use tower::ServiceExt;
+            use futures_util::StreamExt;
+
+            let maker = MakeApiService::new_tungstenite().map_response(|(service, mut events)| {
+                tokio::spawn(async move {
+                    while let Some(event) = events.next().await {
+                        let _ = dbg!(event); // TODO
+                    }
+                });
+
+                service
+            });
+
+            self.build_reconnecting_service(maker)
         }
     }
 
@@ -284,7 +297,7 @@ impl ClientBuilder {
     ///
     /// The input service should be a [`MakeService`](tower::MakeService) that satisfies the
     /// requirements of [`Reconnect`].
-    pub fn build_reconnecting_service<S>(self, service: S) -> (Client, TokenReceiver)
+    pub fn build_reconnecting_service<S>(self, maker: S) -> (Client, TokenReceiver)
     where
         S: Service<String> + Send + 'static,
         S::Error: StdError + Send + Sync,
@@ -293,7 +306,7 @@ impl ClientBuilder {
         <S::Response as Service<RequestEnvelope>>::Error: StdError + Send + Sync,
         <S::Response as Service<RequestEnvelope>>::Future: Send,
     {
-        let service = Reconnect::new::<S, String>(service, self.url.clone());
+        let service = Reconnect::new::<S, String>(maker, self.url.clone());
 
         self.build_service(service)
     }

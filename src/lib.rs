@@ -141,3 +141,4 @@ pub(crate) use cfg_feature;
 
 pub use crate::client::{Client, ClientBuilder, TokenReceiver};
 pub use crate::error::{Error, ErrorKind, Result};
+pub use crate::transport::EventStream;

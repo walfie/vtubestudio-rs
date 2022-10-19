@@ -1,7 +1,9 @@
 use crate::data::{RequestEnvelope, ResponseEnvelope};
 use crate::error::BoxError;
 use crate::service::api::ApiService;
+use crate::transport::EventStream;
 
+use futures_core::TryStream;
 use futures_util::future::MapOk;
 use futures_util::TryFutureExt;
 use std::marker::PhantomData;
@@ -9,7 +11,7 @@ use std::task::{Context, Poll};
 use tokio_tower::MakeTransport;
 use tower::Service;
 
-/// A [`Service`] that yields new [`ApiService`]s.
+/// A [`Service`] that yields new [`ApiService`]s and [`EventStream`]s.
 ///
 /// This wraps a [`MakeTransport`] (such as [`TungsteniteConnector`]), describing how to connect to
 /// a websocket sink/stream. This is used for as the inner service for the
@@ -45,10 +47,11 @@ where
     M: MakeTransport<R, RequestEnvelope, Item = ResponseEnvelope> + Send,
     M::Future: Send + 'static,
     M::Transport: Send + 'static,
+    <<M as MakeTransport<R, RequestEnvelope>>::Transport as TryStream>::Error: Send,
     BoxError: From<M::Error>,
     BoxError: From<M::SinkError>,
 {
-    type Response = ApiService<M::Transport>;
+    type Response = (ApiService<M::Transport>, EventStream<M::Transport>);
     type Error = M::MakeError;
     type Future = MapOk<M::Future, fn(M::Transport) -> Self::Response>;
 
