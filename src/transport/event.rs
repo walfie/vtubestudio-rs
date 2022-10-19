@@ -3,8 +3,8 @@ use crate::error::{BoxError, Error};
 
 use futures_core::{Stream, TryStream};
 use futures_sink::Sink;
-use futures_util::stream::{SplitSink, SplitStream};
-use futures_util::StreamExt;
+use futures_util::stream::{IntoStream, SplitSink, SplitStream};
+use futures_util::{StreamExt, TryStreamExt};
 use pin_project_lite::pin_project;
 use split_stream_by::{Either, LeftSplitByMap, RightSplitByMap, SplitStreamByMapExt};
 use std::fmt;
@@ -15,37 +15,37 @@ pin_project! {
     /// An API transport that excludes [`Event`] responses from the stream.
     ///
     /// [`Event`]s can be retrieved from the corresponding [`EventStream`].
-    pub struct EventlessApiTransport<T, E> {
+    pub struct EventlessApiTransport<T> where T: TryStream {
         #[pin]
-        sink: SplitSink<T, RequestEnvelope>,
+        sink: SplitSink<IntoStream<T>, RequestEnvelope>,
         #[pin]
         stream: RightSplitByMap<
-            Result<ResponseEnvelope, E>,
+            Result<ResponseEnvelope, T::Error>,
             Result<EventData, Error>,
-            Result<ResponseEnvelope, E>,
-            SplitStream<T>,
-            SplitFn<E>,
+            Result<ResponseEnvelope, T::Error>,
+            SplitStream<IntoStream<T>>,
+            SplitFn<T::Error>,
         >,
     }
 }
 
 pin_project! {
     /// A stream of [`Event`]s. Created by [`EventlessApiTransport::new`].
-    pub struct EventStream<T, E> {
+    pub struct EventStream<S> where S: TryStream {
         #[pin]
         events: LeftSplitByMap<
-            Result<ResponseEnvelope, E>,
+            Result<ResponseEnvelope, S::Error>,
             Result<EventData, Error>,
-            Result<ResponseEnvelope, E>,
-            SplitStream<T>,
-            SplitFn<E>,
+            Result<ResponseEnvelope, S::Error>,
+            SplitStream<IntoStream<S>>,
+            SplitFn<S::Error>,
         >,
     }
 }
 
-impl<T, E> fmt::Debug for EventlessApiTransport<T, E>
+impl<T> fmt::Debug for EventlessApiTransport<T>
 where
-    T: fmt::Debug,
+    T: TryStream + fmt::Debug,
 {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         f.debug_struct("EventTransport")
@@ -59,19 +59,19 @@ type SplitFn<E> = fn(
     Result<ResponseEnvelope, E>,
 ) -> Either<Result<EventData, Error>, Result<ResponseEnvelope, E>>;
 
-impl<T, E> EventlessApiTransport<T, E>
+impl<T> EventlessApiTransport<T>
 where
-    T: Sink<RequestEnvelope> + Stream<Item = Result<ResponseEnvelope, E>>,
+    T: Sink<RequestEnvelope> + TryStream<Ok = ResponseEnvelope>,
 {
     /// Creates a new [`ApiTransport`].
-    pub fn new<S>(transport: T) -> (Self, EventStream<T, E>) {
-        let (resp_sink, resp_stream) = transport.split();
+    pub fn new(transport: T) -> (Self, EventStream<T>) {
+        let (resp_sink, resp_stream) = transport.into_stream().split();
 
         let (events, responses) = resp_stream.split_by_map(
             (|resp| match resp {
                 Ok(r) if r.message_type().is_event() => Either::Left(r.parse_event()),
                 other => Either::Right(other),
-            }) as SplitFn<E>,
+            }) as SplitFn<<T as TryStream>::Error>,
         );
 
         let event_stream = EventStream { events };
@@ -84,11 +84,11 @@ where
     }
 }
 
-impl<T, E> Sink<RequestEnvelope> for EventlessApiTransport<T, E>
+impl<T> Sink<RequestEnvelope> for EventlessApiTransport<T>
 where
-    T: Sink<RequestEnvelope>,
+    T: Sink<RequestEnvelope> + TryStream,
 {
-    type Error = T::Error;
+    type Error = <T as Sink<RequestEnvelope>>::Error;
 
     fn poll_ready(mut self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Result<(), Self::Error>> {
         self.as_mut().project().sink.poll_ready(cx)
@@ -107,10 +107,10 @@ where
     }
 }
 
-impl<T, E> Stream for EventlessApiTransport<T, E>
+impl<T> Stream for EventlessApiTransport<T>
 where
-    T: Stream<Item = Result<ResponseEnvelope, E>>,
-    E: Into<BoxError>,
+    T: TryStream<Ok = ResponseEnvelope>,
+    T::Error: Into<BoxError>,
 {
     type Item = Result<ResponseEnvelope, BoxError>;
 
@@ -119,13 +119,13 @@ where
     }
 }
 
-impl<T, E> Stream for EventStream<T, E>
+impl<T> Stream for EventStream<T>
 where
-    T: Stream<Item = Result<ResponseEnvelope, E>>,
+    T: TryStream<Ok = ResponseEnvelope>,
 {
     type Item = Result<EventData, Error>;
 
     fn poll_next(self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Option<Self::Item>> {
-        self.project().events.poll_next(cx)
+        self.project().events.try_poll_next(cx)
     }
 }
