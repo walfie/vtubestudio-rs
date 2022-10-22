@@ -78,6 +78,7 @@ where
 
     fn start_send(mut self: Pin<&mut Self>, item: RequestEnvelope) -> Result<(), Self::Error> {
         let json_str = serde_json::to_string(&item).map_err(Box::new)?;
+        tracing::debug!(message = &json_str, "Sending message");
         self.as_mut()
             .project()
             .transport
@@ -118,6 +119,7 @@ where
             match futures_util::ready!(this.transport.as_mut().try_poll_next(cx)) {
                 Some(Ok(msg)) => {
                     if let Some(s) = C::decode(msg).map_err(Into::into)? {
+                        tracing::debug!(message = &s, "Received message");
                         break Some(serde_json::from_str(&s).map_err(Into::into));
                     }
                 }

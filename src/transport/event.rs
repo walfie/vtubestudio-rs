@@ -30,7 +30,7 @@ pin_project! {
 }
 
 pin_project! {
-    /// A stream of [`Event`]s. Created by [`EventlessApiTransport::new`].
+    /// A stream of [`Event`]s.
     pub struct EventStream<S> where S: TryStream {
         #[pin]
         events: LeftSplitByMap<
