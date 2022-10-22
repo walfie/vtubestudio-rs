@@ -1,10 +1,10 @@
 // TODO
 
-use vtubestudio::data::{EventSubscriptionRequest, TestEventConfig};
-use vtubestudio::{Client, Error};
+use vtubestudio::data::{EventSubscriptionRequest, TestEventConfig, StatisticsRequest};
+use vtubestudio::Client;
 
 #[tokio::main]
-async fn main() -> Result<(), Error> {
+async fn main() -> Result<(), Box<dyn std::error::Error>> {
     // An auth token from a previous successful authentication request
     let stored_token = Some("...".to_string());
 
@@ -21,15 +21,20 @@ async fn main() -> Result<(), Error> {
         }
     });
 
+    let mut input = String::new();
+    println!("Please accept the permission pop-up in VTube Studio");
+
     let req = EventSubscriptionRequest::subscribe(&TestEventConfig {
         test_message_for_event: "Hello from vtubestudio-rs!".to_owned(),
     })?;
+    dbg!(client.send(&req).await?);
 
-    let resp = client.send(&req).await?;
+    loop {
+        println!("Press Enter to send a StatisticsRequest.");
+        input.clear();
+        std::io::stdin().read_line(&mut input)?;
 
-    dbg!(resp);
-
-    tokio::time::sleep(std::time::Duration::from_secs(10)).await;
-
-    Ok(())
+        let resp = client.send(&StatisticsRequest {}).await?;
+        dbg!(resp);
+    }
 }
