@@ -6,7 +6,9 @@ use futures_sink::Sink;
 use futures_util::stream::{IntoStream, SplitSink, SplitStream};
 use futures_util::{StreamExt, TryStreamExt};
 use pin_project_lite::pin_project;
-use split_stream_by::{Either, LeftSplitByMap, RightSplitByMap, SplitStreamByMapExt};
+use split_stream_by::{
+    Either, LeftSplitByMapBuffered, RightSplitByMapBuffered, SplitStreamByMapExt,
+};
 use std::fmt;
 use std::pin::Pin;
 use std::task::{Context, Poll};
@@ -19,12 +21,13 @@ pin_project! {
         #[pin]
         sink: SplitSink<IntoStream<T>, RequestEnvelope>,
         #[pin]
-        stream: RightSplitByMap<
+        stream: RightSplitByMapBuffered<
             Result<ResponseEnvelope, T::Error>,
             Result<EventData, Error>,
             Result<ResponseEnvelope, T::Error>,
             SplitStream<IntoStream<T>>,
             SplitFn<T::Error>,
+            64,
         >,
     }
 }
@@ -33,12 +36,13 @@ pin_project! {
     /// A stream of [`Event`]s.
     pub struct EventStream<S> where S: TryStream {
         #[pin]
-        events: LeftSplitByMap<
+        events: LeftSplitByMapBuffered<
             Result<ResponseEnvelope, S::Error>,
             Result<EventData, Error>,
             Result<ResponseEnvelope, S::Error>,
             SplitStream<IntoStream<S>>,
             SplitFn<S::Error>,
+            64,
         >,
     }
 }
@@ -50,7 +54,7 @@ where
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         f.debug_struct("EventTransport")
             .field("sink", &self.sink)
-            .field("stream", &"Stream") // RightSplitByMap doesn't impl Debug
+            .field("stream", &"Stream") // RightSplitByMapBuffered doesn't impl Debug
             .finish()
     }
 }
@@ -67,7 +71,7 @@ where
     pub fn new(transport: T) -> (Self, EventStream<T>) {
         let (resp_sink, resp_stream) = transport.into_stream().split();
 
-        let (events, responses) = resp_stream.split_by_map(
+        let (events, responses) = resp_stream.split_by_map_buffered::<64>(
             (|resp| match resp {
                 Ok(r) if r.message_type().is_event() => Either::Left(r.parse_event()),
                 other => Either::Right(other),
