@@ -79,7 +79,7 @@ where
 {
     /// Create a new [`ApiService`] and corresponding [`EventStream`].
     pub fn new(transport: T) -> (Self, EventStream<T>) {
-        Self::with_error_handler(transport, |_| ())
+        Self::with_error_handler(transport, |error| tracing::error!(%error, "Transport error"))
     }
 
     /// Create a new [`ApiService`] with an internal handler for transport errors.
