@@ -184,15 +184,16 @@ impl ClientBuilder {
             use tower::ServiceExt;
             use futures_util::StreamExt;
 
-            let maker = MakeApiService::new_tungstenite().map_response(|(service, mut events)| {
-                tokio::spawn(async move {
-                    while let Some(event) = events.next().await {
-                        let _ = dbg!(event); // TODO
-                    }
-                });
+            let maker = MakeApiService::new_tungstenite(self.request_buffer_size)
+                .map_response(|(service, mut events)| {
+                    tokio::spawn(async move {
+                        while let Some(event) = events.next().await {
+                            let _ = dbg!(event); // TODO
+                        }
+                    });
 
-                service
-            });
+                    service
+                });
 
             self.build_reconnecting_service(maker)
         }

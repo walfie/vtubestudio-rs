@@ -81,15 +81,20 @@ where
     BoxError: From<<T as TryStream>::Error>,
 {
     /// Create a new [`ApiService`] and corresponding [`EventStream`].
-    pub fn new(transport: T) -> (Self, EventStream<T>) {
+    pub fn new(transport: T, buffer_size: usize) -> (Self, EventStream<T>) {
         Self::with_error_handler(
             transport,
+            buffer_size,
             |error| tracing::error!(%error, "Transport error"),
         )
     }
 
     /// Create a new [`ApiService`] with an internal handler for transport errors.
-    pub fn with_error_handler<F>(transport: T, on_service_error: F) -> (Self, EventStream<T>)
+    pub fn with_error_handler<F>(
+        transport: T,
+        buffer_size: usize,
+        on_service_error: F,
+    ) -> (Self, EventStream<T>)
     where
         F: FnOnce(Error) + Send + 'static,
     {
@@ -99,7 +104,6 @@ where
         };
 
         let (eventless_transport, event_stream) = EventlessApiTransport::new(transport);
-        let buffer_size = 64; // TODO
         let buffered_transport = BufferedApiTransport::new(eventless_transport, buffer_size);
 
         let multiplex_transport = MultiplexTransport::new(buffered_transport, tagger);

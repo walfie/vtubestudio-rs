@@ -19,7 +19,8 @@ async fn create_client(
     let api_transport = ApiTransport::new_tungstenite(ws_transport);
 
     // API service (matches `RequestEnvelope`s to `ResponseEnvelope`s by request ID)
-    let (service, _events) = ApiService::new(api_transport);
+    let buffer_size = 64;
+    let (service, _events) = ApiService::new(api_transport, buffer_size);
 
     // Client (deals with typed data, disregarding the envelopes)
     let client = Client::new_from_service(service);
