@@ -5,7 +5,6 @@ use crate::error::{BoxError, Error};
 use crate::service::BoxCloneApiService;
 use crate::service::{send_request, AuthenticationLayer, ResponseWithToken, RetryPolicy};
 
-use futures_sink::Sink;
 use std::borrow::Cow;
 use std::error::Error as StdError;
 use tokio::sync::mpsc;
@@ -209,26 +208,20 @@ impl ClientBuilder {
         #![feature = "tokio-tungstenite"]
         /// Consumes the builder and initializes a [`Client`] and [`EventReceiver`] using
         /// [`tokio_tungstenite`] as the underlying websocket transport library.
-        pub fn build_tungstenite<S>(self, event_sink: S) -> (Client, EventReceiver)
-        where
-            S: Sink<ClientEvent, Error = Error> + Clone + Send + 'static,
-            S::Error: Send,
+        pub fn build_tungstenite(self) -> (Client, EventReceiver)
         {
             use crate::service::MakeApiService;
             use tower::ServiceExt;
-            use futures_util::{SinkExt, StreamExt};
+            use futures_util::StreamExt;
 
             let maker = MakeApiService::new_tungstenite(self.request_buffer_size)
-                .map_response(move |(service, events)| {
-                    let mut event_sink = Box::pin(event_sink.clone());
+                .map_response(move |(service, mut events)| {
                     tokio::spawn(async move {
-                        events
-                            .map(|event| Ok(ClientEvent::ApiEvent(event)))
-                            .forward(&mut event_sink)
-                            .await?;
-
-                        Ok::<_, Error>(event_sink.send(ClientEvent::Disconnected).await?)
+                        while let Some(event) = events.next().await {
+                            let _ = dbg!(event); // TODO
+                        }
                     });
+
                     service
                 });
 

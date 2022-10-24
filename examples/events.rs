@@ -17,16 +17,17 @@ async fn main() -> Result<(), BoxError> {
 
     let plugin_name = "vtubestudio-rs example";
     let plugin_developer = "Walfie";
-    let (mut client, mut new_tokens) = Client::builder()
+    let (mut client, mut events) = Client::builder()
         .auth_token(None)
         .authentication(plugin_name, plugin_developer, None)
         .build_tungstenite();
 
     tokio::spawn(async move {
+        // TODO
         // This returns whenever the authentication middleware receives a new auth token.
         // We can handle it by saving it somewhere, etc.
-        while let Some(token) = new_tokens.next().await {
-            tracing::info!("Got new auth token: {}", token);
+        while let Some(_event) = events.next().await {
+            // TODO
         }
     });
 
