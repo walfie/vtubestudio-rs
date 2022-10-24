@@ -139,6 +139,6 @@ macro_rules! cfg_feature {
 
 pub(crate) use cfg_feature;
 
-pub use crate::client::{Client, ClientBuilder, TokenReceiver};
+pub use crate::client::{Client, ClientBuilder, ClientEvent, EventReceiver};
 pub use crate::error::{Error, ErrorKind, Result};
 pub use crate::transport::EventStream;
