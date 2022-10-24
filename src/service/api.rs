@@ -1,7 +1,7 @@
 use crate::data::{RequestEnvelope, RequestId, ResponseEnvelope};
 use crate::error::{BoxError, Error};
-use crate::transport::event::EventlessApiTransport;
-use crate::transport::EventStream;
+use crate::transport::buffered::BufferedApiTransport;
+use crate::transport::event::{EventStream, EventlessApiTransport};
 
 use futures_core::TryStream;
 use futures_sink::Sink;
@@ -55,8 +55,11 @@ impl TagStore<RequestEnvelope, ResponseEnvelope> for IdTagger {
     }
 }
 
-type ServiceInner<T> =
-    MultiplexClient<MultiplexTransport<EventlessApiTransport<T>, IdTagger>, Error, RequestEnvelope>;
+type ServiceInner<T> = MultiplexClient<
+    MultiplexTransport<BufferedApiTransport<EventlessApiTransport<T>>, IdTagger>,
+    Error,
+    RequestEnvelope,
+>;
 
 /// A [`Service`] that assigns request IDs to [`RequestEnvelope`]s and matches them to incoming
 /// [`ResponseEnvelope`]s.
@@ -79,7 +82,10 @@ where
 {
     /// Create a new [`ApiService`] and corresponding [`EventStream`].
     pub fn new(transport: T) -> (Self, EventStream<T>) {
-        Self::with_error_handler(transport, |error| tracing::error!(%error, "Transport error"))
+        Self::with_error_handler(
+            transport,
+            |error| tracing::error!(%error, "Transport error"),
+        )
     }
 
     /// Create a new [`ApiService`] with an internal handler for transport errors.
@@ -93,8 +99,10 @@ where
         };
 
         let (eventless_transport, event_stream) = EventlessApiTransport::new(transport);
+        let buffer_size = 64; // TODO
+        let buffered_transport = BufferedApiTransport::new(eventless_transport, buffer_size);
 
-        let multiplex_transport = MultiplexTransport::new(eventless_transport, tagger);
+        let multiplex_transport = MultiplexTransport::new(buffered_transport, tagger);
         let service = MultiplexClient::with_error_handler(multiplex_transport, on_service_error);
 
         (Self { service }, event_stream)
