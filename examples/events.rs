@@ -9,7 +9,8 @@ use vtubestudio::Client;
 
 #[tokio::main]
 async fn main() -> Result<(), BoxError> {
-    let filter: Targets = "vtubestudio=debug,events=info".parse()?;
+    // TODO: Don't really need tracing-subscriber here
+    let filter: Targets = "vtubestudio=info,events=info".parse()?;
     tracing_subscriber::registry()
         .with(tracing_subscriber::fmt::layer())
         .with(filter)
@@ -23,11 +24,8 @@ async fn main() -> Result<(), BoxError> {
         .build_tungstenite();
 
     tokio::spawn(async move {
-        // TODO
-        // This returns whenever the authentication middleware receives a new auth token.
-        // We can handle it by saving it somewhere, etc.
-        while let Some(_event) = events.next().await {
-            // TODO
+        while let Some(event) = events.next().await {
+            tracing::info!(?event, "Received event");
         }
     });
 

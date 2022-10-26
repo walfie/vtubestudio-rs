@@ -3,14 +3,19 @@ use crate::data::{
 };
 use crate::error::{BoxError, Error};
 use crate::service::BoxCloneApiService;
-use crate::service::{send_request, AuthenticationLayer, ResponseWithToken, RetryPolicy};
+use crate::service::{
+    send_request, AuthenticationLayer, MakeApiService, ResponseWithToken, RetryPolicy,
+    TungsteniteConnector,
+};
 
+use futures_util::StreamExt;
 use std::borrow::Cow;
 use std::error::Error as StdError;
 use tokio::sync::mpsc;
+use tokio_tower::MakeTransport;
 use tower::reconnect::Reconnect;
 use tower::util::BoxCloneService;
-use tower::{Service, ServiceBuilder};
+use tower::{Service, ServiceBuilder, ServiceExt};
 
 /// A client for interacting with the VTube Studio API.
 ///
@@ -25,14 +30,19 @@ pub struct Client<S = BoxCloneApiService> {
 #[non_exhaustive]
 #[derive(Debug)]
 pub enum ClientEvent {
-    /// Received new auth token.
-    NewAuthToken(String),
-    /// Received API event.
-    ApiEvent(Result<EventData, Error>),
+    /// The underlying event transport established a connection.
+    ///
+    /// Note that [`Client`] connects lazily, so this event might not be received until after after
+    /// making the first request.
+    Connected,
     /// The underlying event transport disconnected.
     ///
     /// You can use this as a signal to reconnect and resubscribe to events.
     Disconnected,
+    /// Received new auth token.
+    NewAuthToken(String),
+    /// Received API event.
+    ApiEvent(Result<EventData, Error>),
 }
 
 impl Client<BoxCloneApiService> {
@@ -210,22 +220,7 @@ impl ClientBuilder {
         /// [`tokio_tungstenite`] as the underlying websocket transport library.
         pub fn build_tungstenite(self) -> (Client, ClientEventStream)
         {
-            use crate::service::MakeApiService;
-            use tower::ServiceExt;
-            use futures_util::StreamExt;
-
-            let maker = MakeApiService::new_tungstenite(self.request_buffer_size)
-                .map_response(move |(service, mut events)| {
-                    tokio::spawn(async move {
-                        while let Some(event) = events.next().await {
-                            let _ = dbg!(event); // TODO
-                        }
-                    });
-
-                    service
-                });
-
-            self.build_reconnecting_service(maker)
+            self.build_connector(TungsteniteConnector)
         }
     }
 
@@ -328,6 +323,61 @@ impl ClientBuilder {
         };
 
         Client::new_from_service(service)
+    }
+
+    /// Consumes the builder and initializes a [`Client`] and [`ClientEventStream`] with a
+    /// connector.
+    ///
+    /// The input connector should be a [`MakeTransport`](tower::MakeTransport) that requirements
+    /// of [`Reconnect`].
+    pub fn build_connector<M>(self, connector: M) -> (Client, ClientEventStream)
+    where
+        M: MakeTransport<String, RequestEnvelope, Item = ResponseEnvelope> + Send + Clone + 'static,
+        M::Future: Send + 'static,
+        M::Transport: Send + 'static,
+        M::MakeError: StdError + Send + Sync + 'static,
+        M::Error: Send,
+        BoxError: From<M::Error> + From<M::SinkError>,
+    {
+        let (event_tx, event_rx) = mpsc::channel(self.event_buffer_size);
+        let event_tx_cloned = event_tx.clone();
+
+        let service = MakeApiService::<M, String>::new(connector, self.request_buffer_size)
+            .map_response(move |(service, mut events)| {
+                let event_tx = event_tx.clone();
+                tokio::spawn(async move {
+                    let _ = event_tx.send(ClientEvent::Connected).await;
+                    while let Some(event) = events.next().await {
+                        let _ = event_tx.send(ClientEvent::ApiEvent(event)).await;
+                    }
+                    let _ = event_tx.send(ClientEvent::Disconnected).await;
+                });
+
+                service
+            });
+
+        let client = self.build_reconnecting_service_internal(service, event_tx_cloned);
+
+        let event_receiver = ClientEventStream { receiver: event_rx };
+        (client, event_receiver)
+    }
+
+    fn build_reconnecting_service_internal<S>(
+        self,
+        maker: S,
+        event_tx: mpsc::Sender<ClientEvent>,
+    ) -> Client
+    where
+        S: Service<String> + Send + 'static,
+        S::Error: StdError + Send + Sync,
+        S::Future: Send + Unpin,
+        S::Response: Service<RequestEnvelope, Response = ResponseEnvelope> + Send + 'static,
+        <S::Response as Service<RequestEnvelope>>::Error: StdError + Send + Sync,
+        <S::Response as Service<RequestEnvelope>>::Future: Send,
+    {
+        let service = Reconnect::new::<S, String>(maker, self.url.clone());
+
+        self.build_service_internal(service, event_tx)
     }
 
     /// Consumes the builder and initializes a [`Client`] and [`ClientEventStream`] with a

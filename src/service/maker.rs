@@ -3,7 +3,6 @@ use crate::error::BoxError;
 use crate::service::api::ApiService;
 use crate::transport::EventStream;
 
-use futures_core::TryStream;
 use futures_util::TryFutureExt;
 use std::marker::PhantomData;
 use std::task::{Context, Poll};
@@ -48,9 +47,8 @@ where
     M: MakeTransport<R, RequestEnvelope, Item = ResponseEnvelope> + Send,
     M::Future: Send + 'static,
     M::Transport: Send + 'static,
-    <<M as MakeTransport<R, RequestEnvelope>>::Transport as TryStream>::Error: Send,
-    BoxError: From<M::Error>,
-    BoxError: From<M::SinkError>,
+    M::Error: Send,
+    BoxError: From<M::Error> + From<M::SinkError>,
 {
     type Response = (ApiService<M::Transport>, EventStream<M::Transport>);
     type Error = M::MakeError;
