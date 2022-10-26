@@ -150,11 +150,11 @@ impl Default for ClientBuilder {
 
 /// A wrapper for a [`mpsc::Receiver`] that yields client events.
 #[derive(Debug)]
-pub struct EventReceiver {
+pub struct ClientEventStream {
     receiver: mpsc::Receiver<ClientEvent>,
 }
 
-impl EventReceiver {
+impl ClientEventStream {
     /// Returns new tokens after successful authentication. If `None` is returned, it means the
     /// sender (the underlying [`Client`]) has been dropped.
     ///
@@ -206,9 +206,9 @@ impl ClientBuilder {
 
     crate::cfg_feature! {
         #![feature = "tokio-tungstenite"]
-        /// Consumes the builder and initializes a [`Client`] and [`EventReceiver`] using
+        /// Consumes the builder and initializes a [`Client`] and [`ClientEventStream`] using
         /// [`tokio_tungstenite`] as the underlying websocket transport library.
-        pub fn build_tungstenite(self) -> (Client, EventReceiver)
+        pub fn build_tungstenite(self) -> (Client, ClientEventStream)
         {
             use crate::service::MakeApiService;
             use tower::ServiceExt;
@@ -270,16 +270,16 @@ impl ClientBuilder {
         self
     }
 
-    /// The max capacity of the [`EventReceiver`] buffer. This represents the max number of
+    /// The max capacity of the [`ClientEventStream`] buffer. This represents the max number of
     /// unacknowledged new events before client stops sending. The default value is `128`.
     pub fn event_buffer_size(mut self, size: usize) -> Self {
         self.event_buffer_size = size;
         self
     }
 
-    /// Consumes the builder and initializes a [`Client`] and [`EventReceiver`] using a custom
+    /// Consumes the builder and initializes a [`Client`] and [`ClientEventStream`] using a custom
     /// [`Service`].
-    pub fn build_service<S>(self, service: S) -> (Client, EventReceiver)
+    pub fn build_service<S>(self, service: S) -> (Client, ClientEventStream)
     where
         S: Service<RequestEnvelope, Response = ResponseEnvelope> + Send + 'static,
         S::Error: Into<BoxError> + Send + Sync,
@@ -317,17 +317,17 @@ impl ClientBuilder {
             )
         };
 
-        let event_receiver = EventReceiver { receiver: event_rx };
+        let event_receiver = ClientEventStream { receiver: event_rx };
 
         return (Client::new_from_service(service), event_receiver);
     }
 
-    /// Consumes the builder and initializes a [`Client`] and [`EventReceiver`] with a reconnecting
+    /// Consumes the builder and initializes a [`Client`] and [`ClientEventStream`] with a reconnecting
     /// service.
     ///
     /// The input service should be a [`MakeService`](tower::MakeService) that satisfies the
     /// requirements of [`Reconnect`].
-    pub fn build_reconnecting_service<S>(self, maker: S) -> (Client, EventReceiver)
+    pub fn build_reconnecting_service<S>(self, maker: S) -> (Client, ClientEventStream)
     where
         S: Service<String> + Send + 'static,
         S::Error: StdError + Send + Sync,
