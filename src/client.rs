@@ -285,11 +285,21 @@ impl ClientBuilder {
         S::Error: Into<BoxError> + Send + Sync,
         S::Future: Send,
     {
+        let (event_tx, event_rx) = mpsc::channel(self.event_buffer_size);
+        let client = self.build_service_internal(service, event_tx);
+        let event_receiver = ClientEventStream { receiver: event_rx };
+        (client, event_receiver)
+    }
+
+    fn build_service_internal<S>(self, service: S, event_tx: mpsc::Sender<ClientEvent>) -> Client
+    where
+        S: Service<RequestEnvelope, Response = ResponseEnvelope> + Send + 'static,
+        S::Error: Into<BoxError> + Send + Sync,
+        S::Future: Send,
+    {
         let policy = RetryPolicy::new()
             .on_disconnect(self.retry_on_disconnect)
             .on_auth_error(self.token_request.is_some());
-
-        let (event_tx, event_rx) = mpsc::channel(self.event_buffer_size);
 
         let service = if let Some(token_req) = self.token_request {
             BoxCloneService::new(
@@ -317,13 +327,11 @@ impl ClientBuilder {
             )
         };
 
-        let event_receiver = ClientEventStream { receiver: event_rx };
-
-        return (Client::new_from_service(service), event_receiver);
+        Client::new_from_service(service)
     }
 
-    /// Consumes the builder and initializes a [`Client`] and [`ClientEventStream`] with a reconnecting
-    /// service.
+    /// Consumes the builder and initializes a [`Client`] and [`ClientEventStream`] with a
+    /// reconnecting service.
     ///
     /// The input service should be a [`MakeService`](tower::MakeService) that satisfies the
     /// requirements of [`Reconnect`].
