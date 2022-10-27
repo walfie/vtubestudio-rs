@@ -22,13 +22,15 @@ async fn main() -> Result<(), BoxError> {
     while let Some(event) = events.next().await {
         println!("Received event: {:?}", event);
 
+        // We receive a Disconnected event on startup
         if let ClientEvent::Disconnected = event {
             println!("Reconnecting...");
 
+            // Try to resubscribe to test events
             while let Err(e) = client.send(&req).await {
-                eprintln!("Failed to reconnect: {e}");
-                eprintln!("Retrying in 1s...");
-                tokio::time::sleep(std::time::Duration::from_secs(1)).await;
+                eprintln!("Failed to subscribe to test events: {e}");
+                eprintln!("Retrying in 2s...");
+                tokio::time::sleep(std::time::Duration::from_secs(2)).await;
             }
         }
     }
