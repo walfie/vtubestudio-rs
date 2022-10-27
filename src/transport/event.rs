@@ -13,6 +13,8 @@ use std::fmt;
 use std::pin::Pin;
 use std::task::{Context, Poll};
 
+const BUF_SIZE: usize = 64;
+
 pin_project! {
     /// An API transport that excludes [`Event`] responses from the stream.
     ///
@@ -27,7 +29,7 @@ pin_project! {
             Result<ResponseEnvelope, T::Error>,
             SplitStream<IntoStream<T>>,
             SplitFn<T::Error>,
-            64,
+            BUF_SIZE,
         >,
     }
 }
@@ -42,7 +44,7 @@ pin_project! {
             Result<ResponseEnvelope, S::Error>,
             SplitStream<IntoStream<S>>,
             SplitFn<S::Error>,
-            64,
+            BUF_SIZE,
         >,
     }
 }
@@ -71,7 +73,7 @@ where
     pub fn new(transport: T) -> (Self, EventStream<T>) {
         let (resp_sink, resp_stream) = transport.into_stream().split();
 
-        let (events, responses) = resp_stream.split_by_map_buffered::<64>(
+        let (events, responses) = resp_stream.split_by_map_buffered::<BUF_SIZE>(
             (|resp| match resp {
                 Ok(r) if r.message_type().is_event() => Either::Left(r.parse_event()),
                 other => Either::Right(other),

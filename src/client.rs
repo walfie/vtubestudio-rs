@@ -12,6 +12,7 @@ use futures_util::StreamExt;
 use std::borrow::Cow;
 use std::error::Error as StdError;
 use tokio::sync::mpsc;
+use tokio::sync::mpsc::error::SendError;
 use tokio_tower::MakeTransport;
 use tower::reconnect::Reconnect;
 use tower::util::BoxCloneService;
@@ -41,8 +42,10 @@ pub enum ClientEvent {
     Disconnected,
     /// Received new auth token.
     NewAuthToken(String),
-    /// Received API event.
-    ApiEvent(Result<EventData, Error>),
+    /// API event.
+    Api(EventData),
+    /// Error received outside the request/response flow.
+    Error(Error),
 }
 
 impl Client<BoxCloneApiService> {
@@ -342,15 +345,25 @@ impl ClientBuilder {
         let (event_tx, event_rx) = mpsc::channel(self.event_buffer_size);
         let event_tx_cloned = event_tx.clone();
 
+        let log_err = |result: Result<(), SendError<ClientEvent>>| {
+            if let Err(SendError(event)) = result {
+                tracing::warn!(
+                    ?event,
+                    "Failed to send event to EventStream because buffer is full"
+                );
+            }
+        };
+
         let service = MakeApiService::<M, String>::new(connector, self.request_buffer_size)
             .map_response(move |(service, mut events)| {
                 let event_tx = event_tx.clone();
                 tokio::spawn(async move {
-                    let _ = event_tx.send(ClientEvent::Connected).await;
-                    while let Some(event) = events.next().await {
-                        let _ = event_tx.send(ClientEvent::ApiEvent(event)).await;
+                    log_err(event_tx.send(ClientEvent::Connected).await);
+                    while let Some(result) = events.next().await {
+                        let event = result.map_or_else(ClientEvent::Error, ClientEvent::Api);
+                        log_err(event_tx.send(event).await);
                     }
-                    let _ = event_tx.send(ClientEvent::Disconnected).await;
+                    log_err(event_tx.send(ClientEvent::Disconnected).await);
                 });
 
                 service
