@@ -92,6 +92,8 @@ pub enum HotkeyAction {
     ExecuteItemAction,
     /// Loads the recorded ArtMesh multiply/screen color preset.
     ArtMeshColorPreset,
+    /// Toggles the tracking on/off. Can be webcam or USB/WiFi connected phone.
+    ToggleTracker,
 }
 
 impl Default for HotkeyAction {
@@ -1389,8 +1391,60 @@ define_request_response!(
             },
         },
 
+        {
+            rust_name = ModelOutline,
+            config = {
+                /// Whether to draw the model outline.
+                ///
+                /// Drawing the outline in VTube Studio may not be performant so you should only do
+                /// that for debugging purposes or to show the outline to the user for setup
+                /// purposes. The outline will be drawn if at least one subscribed plugin has set
+                /// "draw" to true.
+                pub draw: bool,
+            },
+            /// An event that is triggered at a constant 15 FPS and sends subscribed plugins the
+            /// model outline.
+            ///
+            /// Specifically, it sends an approximated convex polygon based on the bounding-box
+            /// center points of all (visible) ArtMeshes in the model. If no model is loaded, the
+            /// event isn't sent.
+            data = {
+                /// Model name. E.g., `"My VTS Model Name"`.
+                pub model_name: String,
+                /// Model ID. E.g., `"165131471d8a4e42aae01a9738f255ef"`.
+                #[serde(rename = "modelID")]
+                pub model_id: String,
+                /// 2D points describing the rough outline of the model.
+                ///
+                /// This list is ordered. The x/y coordinate of each point is it's position within
+                /// the VTube Studio window. X or Y coordinates may be bigger than 1 or smaller
+                /// than -1 if an outline point is outside of the window boundaries.
+                ///
+                /// The `convex_hull` list is guaranteed to have at least 3 entries. There is no
+                /// limit to how many entries it can have, but for most normal Live2D models, it
+                /// has between 5 and 25 entries. Please also keep in mind that the number of list
+                /// entries can (and will most likely) change between events you receive. Do not
+                /// implement your plugin expecting the number of outline points to remain
+                /// constant.
+                pub convex_hull: Vec<Vec2>,
+                /// The center/average of all the `convex_hull` points.
+                pub convex_hull_center: Vec2,
+                /// The current VTube Studio window size.
+                pub window_size: Vec2,
+            },
+        },
+
     ],
 );
+
+/// Struct representing a coordinate or dimensions.
+#[derive(Default, Deserialize, Serialize, Debug, PartialEq, Clone)]
+pub struct Vec2 {
+    /// X coordinate.
+    x: f64,
+    /// Y coordinate.
+    y: f64,
+}
 
 #[allow(missing_docs)]
 #[derive(Deserialize, Serialize, Debug, PartialEq, Clone)]
