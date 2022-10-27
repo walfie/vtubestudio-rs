@@ -295,6 +295,10 @@ impl ClientBuilder {
         S::Error: Into<BoxError> + Send + Sync,
         S::Future: Send,
     {
+        if let Err(_) = event_tx.try_send(ClientEvent::Disconnected) {
+            tracing::warn!("Failed to send Disconnected event to EventStream on startup");
+        }
+
         let policy = RetryPolicy::new()
             .on_disconnect(self.retry_on_disconnect)
             .on_auth_error(self.token_request.is_some());

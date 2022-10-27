@@ -19,8 +19,6 @@ async fn main() -> Result<(), BoxError> {
 
     println!("Please accept the permission pop-up in VTube Studio");
 
-    client.send(&req).await?;
-
     while let Some(event) = events.next().await {
         println!("Received event: {:?}", event);
 
