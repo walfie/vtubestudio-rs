@@ -1,21 +1,11 @@
-// TODO
+// Example of receiving events
 
-use tracing_subscriber::filter::Targets;
-use tracing_subscriber::layer::SubscriberExt;
-use tracing_subscriber::util::SubscriberInitExt;
-use vtubestudio::data::{EventSubscriptionRequest, StatisticsRequest, TestEventConfig};
+use vtubestudio::data::{EventSubscriptionRequest, TestEventConfig};
 use vtubestudio::error::BoxError;
-use vtubestudio::Client;
+use vtubestudio::{Client, ClientEvent};
 
 #[tokio::main]
 async fn main() -> Result<(), BoxError> {
-    // TODO: Don't really need tracing-subscriber here
-    let filter: Targets = "vtubestudio=info,events=info".parse()?;
-    tracing_subscriber::registry()
-        .with(tracing_subscriber::fmt::layer())
-        .with(filter)
-        .init();
-
     let plugin_name = "vtubestudio-rs example";
     let plugin_developer = "Walfie";
     let (mut client, mut events) = Client::builder()
@@ -23,26 +13,27 @@ async fn main() -> Result<(), BoxError> {
         .authentication(plugin_name, plugin_developer, None)
         .build_tungstenite();
 
-    tokio::spawn(async move {
-        while let Some(event) = events.next().await {
-            tracing::info!(?event, "Received event");
-        }
-    });
-
-    let mut input = String::new();
-    tracing::info!("Please accept the permission pop-up in VTube Studio");
-
     let req = EventSubscriptionRequest::subscribe(&TestEventConfig {
         test_message_for_event: "Hello from vtubestudio-rs!".to_owned(),
     })?;
+
+    println!("Please accept the permission pop-up in VTube Studio");
+
     client.send(&req).await?;
 
-    loop {
-        // TODO: This isn't really needed
-        tracing::info!("Press Enter to send a StatisticsRequest.");
-        input.clear();
-        std::io::stdin().read_line(&mut input)?;
+    while let Some(event) = events.next().await {
+        println!("Received event: {:?}", event);
 
-        client.send(&StatisticsRequest {}).await?;
+        if let ClientEvent::Disconnected = event {
+            println!("Reconnecting...");
+
+            while let Err(e) = client.send(&req).await {
+                eprintln!("Failed to reconnect: {e}");
+                eprintln!("Retrying in 1s...");
+                std::thread::sleep(std::time::Duration::from_secs(1));
+            }
+        }
     }
+
+    Ok(())
 }
