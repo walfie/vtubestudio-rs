@@ -28,7 +28,7 @@ async fn main() -> Result<(), BoxError> {
             while let Err(e) = client.send(&req).await {
                 eprintln!("Failed to reconnect: {e}");
                 eprintln!("Retrying in 1s...");
-                std::thread::sleep(std::time::Duration::from_secs(1));
+                tokio::time::sleep(std::time::Duration::from_secs(1)).await;
             }
         }
     }
