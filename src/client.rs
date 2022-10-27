@@ -262,14 +262,20 @@ impl ClientBuilder {
         self
     }
 
-    /// The max number of outstanding requests/responses. The default value is `128`.
+    /// The max number of outstanding requests/responses.
+    ///
+    /// The default value is `128`.
     pub fn request_buffer_size(mut self, size: usize) -> Self {
         self.request_buffer_size = size;
         self
     }
 
-    /// The max capacity of the [`ClientEventStream`] buffer. This represents the max number of
-    /// unacknowledged new events before client stops sending. The default value is `128`.
+    /// The max capacity of the [`ClientEventStream`] buffer.
+    ///
+    /// This represents the max number of unacknowledged new events before the client stops sending
+    /// them.
+    ///
+    /// The default value is `128`.
     pub fn event_buffer_size(mut self, size: usize) -> Self {
         self.event_buffer_size = size;
         self
@@ -277,6 +283,9 @@ impl ClientBuilder {
 
     /// Consumes the builder and initializes a [`Client`] and [`ClientEventStream`] using a custom
     /// [`Service`].
+    ///
+    /// Note the [`ClientEventStream`] will only yield [`ClientEvent::NewAuthToken`] events. To
+    /// receive all events, use [`ClientBuilder::build_connector`].
     pub fn build_service<S>(self, service: S) -> (Client, ClientEventStream)
     where
         S: Service<RequestEnvelope, Response = ResponseEnvelope> + Send + 'static,
@@ -284,19 +293,26 @@ impl ClientBuilder {
         S::Future: Send,
     {
         let (event_tx, event_rx) = mpsc::channel(self.event_buffer_size);
-        let client = self.build_service_internal(service, event_tx);
+        let client = self.build_service_internal(service, event_tx, false);
         let event_receiver = ClientEventStream { receiver: event_rx };
         (client, event_receiver)
     }
 
-    fn build_service_internal<S>(self, service: S, event_tx: mpsc::Sender<ClientEvent>) -> Client
+    fn build_service_internal<S>(
+        self,
+        service: S,
+        event_tx: mpsc::Sender<ClientEvent>,
+        send_disconnect: bool,
+    ) -> Client
     where
         S: Service<RequestEnvelope, Response = ResponseEnvelope> + Send + 'static,
         S::Error: Into<BoxError> + Send + Sync,
         S::Future: Send,
     {
-        if let Err(_) = event_tx.try_send(ClientEvent::Disconnected) {
-            tracing::warn!("Failed to send Disconnected event to EventStream on startup");
+        if send_disconnect {
+            if let Err(_) = event_tx.try_send(ClientEvent::Disconnected) {
+                tracing::warn!("Failed to send Disconnected event to EventStream on startup");
+            }
         }
 
         let policy = RetryPolicy::new()
@@ -335,8 +351,8 @@ impl ClientBuilder {
     /// Consumes the builder and initializes a [`Client`] and [`ClientEventStream`] with a
     /// connector.
     ///
-    /// The input connector should be a [`MakeTransport`](tower::MakeTransport) that requirements
-    /// of [`Reconnect`].
+    /// The input connector should be a [`MakeTransport`](tower::MakeTransport) that meets the
+    /// requirements of [`Reconnect`].
     pub fn build_connector<M>(self, connector: M) -> (Client, ClientEventStream)
     where
         M: MakeTransport<String, RequestEnvelope, Item = ResponseEnvelope> + Send + Clone + 'static,
@@ -379,6 +395,28 @@ impl ClientBuilder {
         (client, event_receiver)
     }
 
+    /// Consumes the builder and initializes a [`Client`] and [`ClientEventStream`] with a
+    /// reconnecting service.
+    ///
+    /// The input service should be a [`MakeService`](tower::MakeService) that satisfies the
+    /// requirements of [`Reconnect`].
+    ///
+    /// Note the [`ClientEventStream`] will only yield [`ClientEvent::NewAuthToken`] events. To
+    /// receive all events, use [`ClientBuilder::build_connector`].
+    pub fn build_reconnecting_service<S>(self, maker: S) -> (Client, ClientEventStream)
+    where
+        S: Service<String> + Send + 'static,
+        S::Error: StdError + Send + Sync,
+        S::Future: Send + Unpin,
+        S::Response: Service<RequestEnvelope, Response = ResponseEnvelope> + Send + 'static,
+        <S::Response as Service<RequestEnvelope>>::Error: StdError + Send + Sync,
+        <S::Response as Service<RequestEnvelope>>::Future: Send,
+    {
+        let service = Reconnect::new::<S, String>(maker, self.url.clone());
+
+        self.build_service(service)
+    }
+
     fn build_reconnecting_service_internal<S>(
         self,
         maker: S,
@@ -394,25 +432,6 @@ impl ClientBuilder {
     {
         let service = Reconnect::new::<S, String>(maker, self.url.clone());
 
-        self.build_service_internal(service, event_tx)
-    }
-
-    /// Consumes the builder and initializes a [`Client`] and [`ClientEventStream`] with a
-    /// reconnecting service.
-    ///
-    /// The input service should be a [`MakeService`](tower::MakeService) that satisfies the
-    /// requirements of [`Reconnect`].
-    pub fn build_reconnecting_service<S>(self, maker: S) -> (Client, ClientEventStream)
-    where
-        S: Service<String> + Send + 'static,
-        S::Error: StdError + Send + Sync,
-        S::Future: Send + Unpin,
-        S::Response: Service<RequestEnvelope, Response = ResponseEnvelope> + Send + 'static,
-        <S::Response as Service<RequestEnvelope>>::Error: StdError + Send + Sync,
-        <S::Response as Service<RequestEnvelope>>::Future: Send,
-    {
-        let service = Reconnect::new::<S, String>(maker, self.url.clone());
-
-        self.build_service(service)
+        self.build_service_internal(service, event_tx, true)
     }
 }
