@@ -51,7 +51,7 @@ pub trait EventConfig: Serialize {
 }
 
 // https://github.com/DenchiSoft/VTubeStudio/blob/08681904e285d37b8c22d17d7d3a36c8c6834425/Files/HotkeyAction.cs
-/// Known hotkey types for [`EnumString<HotkeyAction>`] (used in [`Hotkey`]).
+/// Known hotkey types for [`EnumString<HotkeyAction>`]. Used in [`Hotkey`].
 #[non_exhaustive]
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
 pub enum HotkeyAction {
@@ -1416,7 +1416,7 @@ define_request_response!(
                 pub model_id: String,
                 /// 2D points describing the rough outline of the model.
                 ///
-                /// This list is ordered. The x/y coordinate of each point is it's position within
+                /// This list is ordered. The x/y coordinate of each point is its position within
                 /// the VTube Studio window. X or Y coordinates may be bigger than 1 or smaller
                 /// than -1 if an outline point is outside of the window boundaries.
                 ///
@@ -1437,13 +1437,13 @@ define_request_response!(
     ],
 );
 
-/// Struct representing a coordinate or dimensions.
+/// Struct representing a coordinate or dimensions. Used in [`ModelOutlineEvent`].
 #[derive(Default, Deserialize, Serialize, Debug, PartialEq, Clone)]
 pub struct Vec2 {
     /// X coordinate.
-    x: f64,
+    pub x: f64,
     /// Y coordinate.
-    y: f64,
+    pub y: f64,
 }
 
 #[allow(missing_docs)]
@@ -1467,7 +1467,7 @@ impl Default for InjectParameterDataMode {
 #[allow(missing_docs)]
 #[derive(Deserialize, Serialize, Debug, PartialEq, Clone)]
 #[non_exhaustive]
-/// Known message types for [`EnumString<ItemType>`] (used in [`ItemInstanceInScene`]).
+/// Known message types for [`EnumString<ItemType>`]. Used in [`ItemInstanceInScene`].
 pub enum ItemType {
     #[serde(rename = "PNG")]
     Png,

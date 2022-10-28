@@ -351,8 +351,8 @@ impl ClientBuilder {
     /// Consumes the builder and initializes a [`Client`] and [`ClientEventStream`] with a
     /// connector.
     ///
-    /// The input connector should be a [`MakeTransport`](tower::MakeTransport) that meets the
-    /// requirements of [`Reconnect`].
+    /// The input connector should be a [`MakeTransport`](tokio_tower::MakeTransport) that meets
+    /// the requirements of [`Reconnect`].
     pub fn build_connector<M>(self, connector: M) -> (Client, ClientEventStream)
     where
         M: MakeTransport<String, RequestEnvelope, Item = ResponseEnvelope> + Send + Clone + 'static,
