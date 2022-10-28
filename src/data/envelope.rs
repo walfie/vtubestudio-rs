@@ -233,7 +233,7 @@ impl ResponseEnvelope {
 }
 
 /// Response data wrapper for [`ResponseEnvelope`] (typically for non-error responses).
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Serialize)]
 #[cfg_attr(test, derive(PartialEq))]
 pub struct ResponseData {
     /// The message type.

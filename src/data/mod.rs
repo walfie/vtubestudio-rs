@@ -194,7 +194,8 @@ macro_rules! define_request_response {
         )*
 
         paste! {
-            #[derive(Debug, Clone)]
+            #[derive(Debug, Clone, Serialize)]
+            #[serde(untagged)]
             #[non_exhaustive]
             #[allow(missing_docs)]
             /// Event types. Events can be requested via [`EventSubscriptionRequest`].
@@ -1257,10 +1258,12 @@ define_request_response!(
             /// This text is shown over the ArtMesh selection list.
             ///
             /// Must be between 4 and 1024 characters long, otherwise the default will be used.
+            #[serde(skip_serializing_if = "Option::is_none")]
             pub text_override: Option<String>,
             /// This text is shown when the user presses the `?` button.
             ///
             /// Must be between 4 and 1024 characters long, otherwise the default will be used.
+            #[serde(skip_serializing_if = "Option::is_none")]
             pub help_override: Option<String>,
             /// How many art meshes must be selected by the user.
             ///
@@ -1272,6 +1275,7 @@ define_request_response!(
             ///
             /// If any of these IDs are not contained in the current model, an error will be
             /// returned.
+            #[serde(skip_serializing_if = "Vec::is_empty")]
             pub active_art_meshes: Vec<String>,
         },
         /// ArtMesh selection response.
@@ -1310,7 +1314,7 @@ define_request_response!(
             /// format (32 characters, only hex characters), otherwise an error is returned.
             config = {
                 /// Optional model IDs to filter for.
-                #[serde(rename = "modelID")]
+                #[serde(rename = "modelID", skip_serializing_if = "Vec::is_empty")]
                 pub model_id: Vec<String>
             },
             /// An event that is triggered every time a VTube Studio model is loaded or unloaded.
