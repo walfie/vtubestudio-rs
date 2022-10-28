@@ -16,11 +16,8 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         .build_tungstenite();
 
     tokio::spawn(async move {
-        // TODO: Update this
-        // This returns whenever the authentication middleware receives a new auth token.
-        // We can handle it by saving it somewhere, etc.
-        while let Some(token) = events.next().await {
-            println!("Received new token: {:?}", token);
+        while let Some(event) = events.next().await {
+            println!("Received new event: {:?}", event);
         }
     });
 

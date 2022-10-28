@@ -1,6 +1,6 @@
 // This example demonstrates building a `Client` manually, without any middleware provided by the
-// builder. This doesn't handle automatic reconnects, authentication, etc, but allows for more
-// flexible control over each layer.
+// builder. This doesn't handle automatic reconnects, authentication, events, etc, but allows for
+// more flexible control over each layer.
 
 use vtubestudio::data::{
     ApiStateRequest, AuthenticationRequest, AuthenticationTokenRequest, StatisticsRequest,
