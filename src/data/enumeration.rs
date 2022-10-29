@@ -1,3 +1,4 @@
+use crate::data::ResponseType;
 use serde::ser::{Impossible, SerializeTupleVariant};
 use serde::{Deserialize, Serialize, Serializer};
 use std::borrow::Cow;
@@ -6,12 +7,25 @@ use std::borrow::Cow;
 // unknown values for enums.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(untagged)]
-enum Enum<T, Repr> {
+pub(crate) enum Enum<T, Repr> {
     Known(T),
     Unknown(Repr),
 }
 
 type EnumStringInner<T> = Enum<T, Cow<'static, str>>;
+
+impl EnumString<ResponseType> {
+    /// Whether this response type is an event.
+    ///
+    /// More specifically, it returns `true` if the underlying event type enum is a known
+    /// [`Event`](crate::data::Event) type, or if the string ends with `"Event"`.
+    pub fn is_event(&self) -> bool {
+        match &self.0 {
+            Enum::Known(t) => t.is_event(),
+            Enum::Unknown(s) => s.ends_with("Event"),
+        }
+    }
+}
 
 /// Wrapper type for an `enum` with a serialized string representation.
 ///
@@ -37,7 +51,7 @@ type EnumStringInner<T> = Enum<T, Cow<'static, str>>;
 /// assert_eq!(resp_str.as_str(), "VTSFolderInfoResponse");
 /// ```
 #[derive(Default, Debug, Clone, serde::Serialize, serde::Deserialize)]
-pub struct EnumString<T>(EnumStringInner<T>);
+pub struct EnumString<T>(pub(crate) EnumStringInner<T>);
 
 impl<T> EnumString<T> {
     /// Creates a new value from a known variant.
@@ -515,6 +529,23 @@ mod tests {
         assert_eq!(
             serde_json::from_value::<Nijisanji>(json!("Oliver"))?,
             Nijisanji::new_from_str("Oliver"),
+        );
+
+        Ok(())
+    }
+
+    #[test]
+    fn is_event() -> Result {
+        assert!(EnumString::new(ResponseType::TestEvent).is_event());
+        assert!(EnumString::new_from_str("CoolNewEvent").is_event());
+
+        assert_eq!(
+            EnumString::new(ResponseType::VtsFolderInfoResponse).is_event(),
+            false
+        );
+        assert_eq!(
+            EnumString::new_from_str("ExampleResponse").is_event(),
+            false
         );
 
         Ok(())

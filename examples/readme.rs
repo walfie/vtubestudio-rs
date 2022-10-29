@@ -1,23 +1,29 @@
-// This is the example from README.md, unmodified
-
 use vtubestudio::data::StatisticsRequest;
-use vtubestudio::{Client, Error};
+use vtubestudio::{Client, ClientEvent, Error};
 
 #[tokio::main]
 async fn main() -> Result<(), Error> {
     // An auth token from a previous successful authentication request
     let stored_token = Some("...".to_string());
 
-    let (mut client, mut new_tokens) = Client::builder()
+    let (mut client, mut events) = Client::builder()
         .auth_token(stored_token)
         .authentication("Plugin name", "Developer name", None)
         .build_tungstenite();
 
     tokio::spawn(async move {
-        // This returns whenever the authentication middleware receives a new auth token.
-        // We can handle it by saving it somewhere, etc.
-        while let Some(token) = new_tokens.next().await {
-            println!("Got new auth token: {}", token);
+        while let Some(event) = events.next().await {
+            match event {
+                ClientEvent::NewAuthToken(new_token) => {
+                    // This returns whenever the authentication middleware receives a new auth
+                    // token. We can handle it by saving it somewhere, etc.
+                    println!("Got new auth token: {new_token}");
+                }
+                _ => {
+                    // Other events, such as connections/disconnections, API events, etc
+                    println!("Got event: {:?}", event);
+                }
+            }
         }
     });
 

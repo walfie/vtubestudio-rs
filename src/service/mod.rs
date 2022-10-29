@@ -16,6 +16,7 @@ pub use crate::service::retry::RetryPolicy;
 crate::cfg_feature! {
     #![feature = "tokio-tungstenite"]
     pub use crate::service::api::TungsteniteApiService;
+    pub use crate::service::maker::TungsteniteConnector;
 }
 
 /// A [`Clone`]able [`Service`] that is compatible with [`Client`](crate::client::Client).

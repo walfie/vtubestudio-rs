@@ -1,7 +1,8 @@
 //! Request/response types for the VTube Studio API.
 //!
-//! For a list of all request types, see the implementors for [`Request`].
-//! For the corresponding response types, see [`Response`].
+//! * For a list of all request types, see the implementors for [`Request`].
+//! * For the corresponding response types, see [`Response`].
+//! * For event types specifically, see [`Event`] and [`EventConfig`].
 
 mod enumeration;
 mod envelope;
@@ -13,12 +14,14 @@ pub use crate::data::envelope::{
 };
 pub use crate::data::error_id::ErrorId;
 
+use crate::data::enumeration::Enum;
 use paste::paste;
 use serde::de::DeserializeOwned;
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
 use std::borrow::Cow;
+use std::convert::TryFrom;
 
-/// Trait describing a VTube Studio request.
+/// Trait describing a VTube Studio request. Used to set data in [`RequestEnvelope`].
 pub trait Request: Serialize {
     /// The message type of this request.
     const MESSAGE_TYPE: EnumString<RequestType>;
@@ -27,14 +30,28 @@ pub trait Request: Serialize {
     type Response: Response;
 }
 
-/// Trait describing a VTube Studio response.
+/// Trait describing a VTube Studio response. Typically parsed from [`ResponseEnvelope`].
 pub trait Response: DeserializeOwned + Send + 'static {
     /// The message type of this response.
     const MESSAGE_TYPE: EnumString<ResponseType>;
 }
 
+/// Trait describing VTube Studio event data.
+///
+/// See [`Event`] for an enum of known event types.
+pub trait EventData: Response {
+    /// The config for this event.
+    type Config: EventConfig;
+}
+
+/// Trait describing a VTube Studio event's config.
+pub trait EventConfig: Serialize {
+    /// The corresponding event for this config.
+    type Event: EventData;
+}
+
 // https://github.com/DenchiSoft/VTubeStudio/blob/08681904e285d37b8c22d17d7d3a36c8c6834425/Files/HotkeyAction.cs
-/// Known hotkey types for [`EnumString<HotkeyAction>`] (used in [`Hotkey`]).
+/// Known hotkey types for [`EnumString<HotkeyAction>`]. Used in [`Hotkey`].
 #[non_exhaustive]
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
 pub enum HotkeyAction {
@@ -75,6 +92,8 @@ pub enum HotkeyAction {
     ExecuteItemAction,
     /// Loads the recorded ArtMesh multiply/screen color preset.
     ArtMeshColorPreset,
+    /// Toggles the tracking on/off. Can be webcam or USB/WiFi connected phone.
+    ToggleTracker,
 }
 
 impl Default for HotkeyAction {
@@ -83,16 +102,31 @@ impl Default for HotkeyAction {
     }
 }
 
-macro_rules! define_request_response_pairs {
-    ($({
-        rust_name = $rust_name:ident,
-        $(req_name = $req_name:literal,)?
-        $(resp_name = $resp_name:literal,)?
-        $(#[doc = $req_doc:expr])+
-        req = { $($req:tt)* },
-        $(#[doc = $resp_doc:expr])+
-        resp = $(( $($resp_inner:tt)+ ))? $({ $($resp_fields:tt)* })?,
-    },)*) => {
+macro_rules! define_request_response {
+    (
+        req_resp = [
+            $({
+                rust_name = $rust_name:ident,
+                $(req_name = $req_name:literal,)?
+                $(resp_name = $resp_name:literal,)?
+                $(#[doc = $req_doc:expr])+
+                $(#[derive($extra_derives:tt)])?
+                req = { $($req:tt)* },
+                $(#[doc = $resp_doc:expr])+
+                resp = $(( $($resp_inner:tt)+ ))? $({ $($resp_fields:tt)* })?,
+            },)*
+        ],
+        events = [
+            $({
+                rust_name = $rust_event_name:ident,
+                $(event_name = $event_name:literal,)?
+                $(#[doc = $event_config_doc:expr])*
+                config = { $($event_config_fields:tt)* },
+                $(#[doc = $event_data_doc:expr])+
+                data = { $($event_data_fields:tt)* },
+            },)*
+        ],
+    ) => {
         paste! {
             /// Known message types for [`EnumString<RequestType>`].
             #[allow(missing_docs)]
@@ -116,9 +150,89 @@ macro_rules! define_request_response_pairs {
                     $(#[serde(rename = $resp_name)])?
                     [<$rust_name Response>],
                 )*
+
                 #[serde(rename = "VTubeStudioAPIStateBroadcast")]
                 VTubeStudioApiStateBroadcast,
+
+                $(
+                    $(#[serde(rename = $event_name)])?
+                    [<$rust_event_name Event>],
+                )*
             }
+
+            impl ResponseType {
+                /// Whether this response type corresponds to an [`Event`].
+                pub fn is_event(&self) -> bool {
+                    match self {
+                        $( Self::[<$rust_event_name Event>] => true, )*
+                        _ => false
+                    }
+                }
+            }
+        }
+
+        $(
+            paste! {
+                $(#[doc = $event_data_doc])+
+                ///
+                #[doc = concat!("This event can be configured using [`", stringify!($rust_event_name), "EventConfig`].")]
+                #[derive(Default, Debug, Clone, PartialEq, Serialize, Deserialize)]
+                #[serde(rename_all = "camelCase")]
+                pub struct [<$rust_event_name Event>] { $($event_data_fields)* }
+
+                impl Response for [<$rust_event_name Event>] {
+                    #[doc = concat!("[`ResponseType::", stringify!($rust_event_name), "Event`]")]
+                    const MESSAGE_TYPE: EnumString<ResponseType> =
+                        EnumString::new(ResponseType::[<$rust_event_name Event>]);
+                }
+
+                impl EventData for [<$rust_event_name Event>] {
+                    #[doc = concat!("[`", stringify!($rust_event_name), "EventConfig`]")]
+                    type Config = [<$rust_event_name EventConfig>];
+                }
+            }
+        )*
+
+        paste! {
+            #[derive(Debug, Clone, Serialize)]
+            #[serde(untagged)]
+            #[non_exhaustive]
+            #[allow(missing_docs)]
+            /// Event types. Events can be requested via [`EventSubscriptionRequest`].
+            pub enum Event {
+                $( $rust_event_name( [<$rust_event_name Event>] ), )*
+                Unknown(ResponseData),
+            }
+
+            impl TryFrom<ResponseData> for Event {
+                type Error = serde_json::Error;
+
+                fn try_from(data: ResponseData) -> Result<Self, Self::Error> {
+                    Ok(match data.message_type.0 {
+                        $(
+                            Enum::Known(ResponseType::[<$rust_event_name Event>]) =>
+                                Event::$rust_event_name(
+                                    data.data.deserialize::<[<$rust_event_name Event>]>()?
+                                ),
+                        )*
+                        _ => Event::Unknown(data),
+                    })
+                }
+            }
+
+            $(
+                #[doc = concat!("Config for [`", stringify!($rust_event_name), "Event`].")]
+                /// Used in [`EventSubscriptionRequest`].
+                ///
+                $(#[doc = $event_config_doc])*
+                #[derive(Default, Debug, Clone, PartialEq, Serialize, Deserialize)]
+                #[serde(rename_all = "camelCase")]
+                pub struct [<$rust_event_name EventConfig>] { $($event_config_fields)* }
+
+                impl EventConfig for [<$rust_event_name EventConfig>] {
+                    type Event = [<$rust_event_name Event>];
+                }
+            )*
         }
 
         $(
@@ -126,7 +240,8 @@ macro_rules! define_request_response_pairs {
                 $(#[doc = $req_doc])+
                 ///
                 #[doc = concat!("This request returns [`", stringify!($rust_name), "Response`].")]
-                #[derive(Default, Debug, Clone, PartialEq, Serialize, Deserialize)]
+                #[derive(Default, Debug, Clone, Serialize, Deserialize)]
+                $(#[derive($extra_derives)])*
                 #[serde(rename_all = "camelCase")]
                 pub struct [<$rust_name Request>] { $($req)* }
 
@@ -154,6 +269,53 @@ macro_rules! define_request_response_pairs {
     };
 }
 
+impl EventSubscriptionRequest {
+    /// Subscribe to a specific event type.
+    ///
+    /// ```
+    /// use vtubestudio::data::{EventSubscriptionRequest, TestEventConfig};
+    /// let req = EventSubscriptionRequest::subscribe(&TestEventConfig {
+    ///     test_message_for_event: "text the event will return".to_owned(),
+    /// });
+    /// ```
+    pub fn subscribe<T>(config: &T) -> Result<Self, serde_json::Error>
+    where
+        T: EventConfig,
+    {
+        Ok(Self {
+            subscribe: true,
+            event_name: Some(T::Event::MESSAGE_TYPE),
+            config: Some(OpaqueValue::new(config)?),
+        })
+    }
+
+    /// Unsubscribe from a specific event type.
+    ///
+    /// ```
+    /// use vtubestudio::data::{EventSubscriptionRequest, TestEvent};
+    /// let req = EventSubscriptionRequest::unsubscribe::<TestEvent>();
+    /// ```
+    pub fn unsubscribe<T>() -> Self
+    where
+        T: EventData,
+    {
+        Self {
+            subscribe: false,
+            event_name: Some(T::MESSAGE_TYPE),
+            config: None,
+        }
+    }
+
+    /// Unsubscribe from all events.
+    pub fn unsubscribe_all() -> Self {
+        Self {
+            subscribe: false,
+            event_name: None,
+            config: None,
+        }
+    }
+}
+
 impl Default for RequestType {
     fn default() -> Self {
         Self::ApiStateRequest
@@ -166,12 +328,13 @@ impl Default for ResponseType {
     }
 }
 
-define_request_response_pairs!(
-    {
+define_request_response!(
+    req_resp = [{
         rust_name = ApiState,
         req_name = "APIStateRequest",
         resp_name = "APIStateResponse",
         /// Get the current state of the API.
+        #[derive(PartialEq)]
         req = {},
         /// The API state.
         resp = {
@@ -186,8 +349,29 @@ define_request_response_pairs!(
     },
 
     {
+        rust_name = EventSubscription,
+        /// Subscribe or unsubscribe from events.
+        req = {
+            /// Set to `true` to subscribe, `false` to unsubscribe.
+            pub subscribe: bool,
+            /// The event type.
+            pub event_name: Option<EnumString<ResponseType>>,
+            /// Config for the event subscription.
+            pub config: Option<OpaqueValue>,
+        },
+        /// Information about subscriptions.
+        resp = {
+            /// Number of event types that are subscribed to.
+            pub subscribed_event_count: i32,
+            /// Subscribed event types.
+            pub subscribed_events: Vec<EnumString<ResponseType>>,
+        },
+    },
+
+    {
         rust_name = AuthenticationToken,
         /// Request an authentication token.
+        #[derive(PartialEq)]
         req = {
             /// The name of the plugin.
             pub plugin_name: Cow<'static, str>,
@@ -207,6 +391,7 @@ define_request_response_pairs!(
     {
         rust_name = Authentication,
         /// Authenticate with the API using a token.
+        #[derive(PartialEq)]
         req = {
             /// The name of the plugin.
             pub plugin_name: Cow<'static, str>,
@@ -227,6 +412,7 @@ define_request_response_pairs!(
     {
         rust_name = Statistics,
         /// Getting current VTS statistics.
+        #[derive(PartialEq)]
         req = {},
         /// Statistics about the VTube Studio session.
         resp = {
@@ -257,6 +443,7 @@ define_request_response_pairs!(
         req_name = "VTSFolderInfoRequest",
         resp_name = "VTSFolderInfoResponse",
         /// Getting list of VTS folders.
+        #[derive(PartialEq)]
         req = {},
         /// Names of various folders in the `StreamingAssets` directory.
         resp = {
@@ -278,6 +465,7 @@ define_request_response_pairs!(
     {
         rust_name = CurrentModel,
         /// Getting the currently loaded model.
+        #[derive(PartialEq)]
         req = {},
         /// Information about the current model.
         resp = {
@@ -323,6 +511,7 @@ define_request_response_pairs!(
     {
         rust_name = AvailableModels,
         /// Getting a list of available VTS models
+        #[derive(PartialEq)]
         req = {},
         /// List of available models.
         resp = {
@@ -336,6 +525,7 @@ define_request_response_pairs!(
     {
         rust_name = ModelLoad,
         /// Loading a VTS model by its ID.
+        #[derive(PartialEq)]
         req = {
             /// The ID of the model to load.
             #[serde(rename = "modelID")]
@@ -352,6 +542,7 @@ define_request_response_pairs!(
     {
         rust_name = MoveModel,
         /// Moving the currently loaded VTS model.
+        #[derive(PartialEq)]
         req = {
             /// How many seconds the animation should take. Maximum `2`.
             pub time_in_seconds: f64,
@@ -382,6 +573,7 @@ define_request_response_pairs!(
         ///
         /// If both `model_id` and `live2d_item_file_name` are provided, only `model_id` is used
         /// and the other field will be ignored.
+        #[derive(PartialEq)]
         req = {
             /// The ID of the model.
             #[serde(skip_serializing_if = "Option::is_none")]
@@ -409,6 +601,7 @@ define_request_response_pairs!(
     {
         rust_name = HotkeyTrigger,
         /// Requesting execution of hotkeys.
+        #[derive(PartialEq)]
         req = {
             /// The ID of the hotkey.
             #[serde(rename = "hotkeyID")]
@@ -430,6 +623,7 @@ define_request_response_pairs!(
     {
         rust_name = ArtMeshList,
         /// Requesting list of art meshes in current model.
+        #[derive(PartialEq)]
         req = {},
         /// List of art meshes.
         resp = {
@@ -449,6 +643,7 @@ define_request_response_pairs!(
     {
         rust_name = ColorTint,
         /// Tint art meshes with color
+        #[derive(PartialEq)]
         req = {
             /// The color tint information.
             pub color_tint: ColorTint,
@@ -465,6 +660,7 @@ define_request_response_pairs!(
     {
         rust_name = SceneColorOverlayInfo,
         /// Getting scene lighting overlay color.
+        #[derive(PartialEq)]
         req = {},
         /// Info about the color overlay.
         resp = {
@@ -506,6 +702,7 @@ define_request_response_pairs!(
     {
         rust_name = FaceFound,
         /// Checking if face is currently found by tracker.
+        #[derive(PartialEq)]
         req = {},
         /// Whether the face was found.
         resp = {
@@ -517,6 +714,7 @@ define_request_response_pairs!(
     {
         rust_name = InputParameterList,
         /// Requesting list of available tracking parameters.
+        #[derive(PartialEq)]
         req = {},
         /// List of available parameters.
         resp = {
@@ -537,6 +735,7 @@ define_request_response_pairs!(
     {
         rust_name = ParameterValue,
         /// Get the value for one specific parameter, default or custom.
+        #[derive(PartialEq)]
         req = {
             /// The name of the parameter.
             pub name: String,
@@ -551,6 +750,7 @@ define_request_response_pairs!(
     {
         rust_name = Live2DParameterList,
         /// Get the value for all Live2D parameters in the current model.
+        #[derive(PartialEq)]
         req = {},
         /// Info about the current model and list of parameters.
         resp = {
@@ -569,6 +769,7 @@ define_request_response_pairs!(
     {
         rust_name = ParameterCreation,
         /// Adding new tracking parameters ("custom parameters").
+        #[derive(PartialEq)]
         req = {
             /// Name of the parameter.
             pub parameter_name: String,
@@ -592,6 +793,7 @@ define_request_response_pairs!(
     {
         rust_name = ParameterDeletion,
         /// Delete custom parameters.
+        #[derive(PartialEq)]
         req = {
             /// The name of the parameter to delete.
             pub parameter_name: String,
@@ -606,6 +808,7 @@ define_request_response_pairs!(
     {
         rust_name = InjectParameterData,
         /// Feeding in data for default or custom parameters.
+        #[derive(PartialEq)]
         req = {
             /// The parameter values to inject.
             pub parameter_values: Vec<ParameterValue>,
@@ -635,6 +838,7 @@ define_request_response_pairs!(
     {
         rust_name = ExpressionState,
         /// Requesting current expression state list.
+        #[derive(PartialEq)]
         req = {
             /// Whether to return more details in the response.
             ///
@@ -662,6 +866,7 @@ define_request_response_pairs!(
     {
         rust_name = ExpressionActivation,
         /// Requesting activation or deactivation of expressions.
+        #[derive(PartialEq)]
         req = {
             /// File name of the expression file.
             ///
@@ -683,6 +888,7 @@ define_request_response_pairs!(
         /// Note that the boolean fields (`ndi_optional`, `use_ndi5`, etc) are optional in this
         /// library since they're not strictly required by the API, but the API currently treats
         /// them the same as `false` if unspecified.
+        #[derive(PartialEq)]
         req = {
             /// Set to `false` to only return existing config (other fields will be ignored).
             pub set_new_config: bool,
@@ -734,6 +940,7 @@ define_request_response_pairs!(
     {
         rust_name = GetCurrentModelPhysics,
         /// Get the physics settings of the current model.
+        #[derive(PartialEq)]
         req = {},
         /// Data about the requested physics settings.
         resp = {
@@ -799,6 +1006,7 @@ define_request_response_pairs!(
         ///
         /// When all timers run out, the API will no longer consider your plugin as controlling the
         /// physics system so another plugin could start controlling the physics system.
+        #[derive(PartialEq)]
         req = {
             /// Strength overrides.
             pub strength_overrides: Vec<PhysicsOverride>,
@@ -847,6 +1055,7 @@ define_request_response_pairs!(
         /// Please also note that item filenames are unique, meaning there cannot be two item files
         /// with the same filename. They are also case-sensitive, so if you want to refer to one
         /// specific file, make sure to not change the capitalization.
+        #[derive(PartialEq)]
         req = {
             /// Include available spots.
             pub include_available_spots: bool,
@@ -889,6 +1098,7 @@ define_request_response_pairs!(
     {
         rust_name = ItemLoad,
         /// Loading item into the scene.
+        #[derive(PartialEq)]
         req = {
             /// File name. E.g., `some_item_name.jpg`.
             pub file_name: String,
@@ -935,6 +1145,7 @@ define_request_response_pairs!(
         ///
         /// This may return an error of type `CannotCurrentlyUnloadItem` if the user currently has
         /// menus open that prevent VTS from loading/unloading items.
+        #[derive(PartialEq)]
         req = {
             /// Whether to unload all items in the scene.
             pub unload_all_in_scene: bool,
@@ -965,6 +1176,7 @@ define_request_response_pairs!(
         /// items. This request does not work with Live2D items and will return an error of type
         /// `ItemAnimationControlUnsupportedItemType` if you try. This can be useful for "reactive
         /// PNG"-type plugins and more.
+        #[derive(PartialEq)]
         req = {
             /// Item instance ID.
             #[serde(rename = "itemInstanceID")]
@@ -1014,6 +1226,7 @@ define_request_response_pairs!(
     {
         rust_name = ItemMove,
         /// Moving items in the scene.
+        #[derive(PartialEq)]
         req = {
             /// Items to move. Entries beyond the 64th item will be ignored.
             pub items_to_move: Vec<ItemToMove>,
@@ -1040,14 +1253,17 @@ define_request_response_pairs!(
         ///
         /// The user can hover over ArtMeshes to show their ID and click them to filter the shown
         /// list for all ArtMeshes under on the click position.
+        #[derive(PartialEq)]
         req = {
             /// This text is shown over the ArtMesh selection list.
             ///
             /// Must be between 4 and 1024 characters long, otherwise the default will be used.
+            #[serde(skip_serializing_if = "Option::is_none")]
             pub text_override: Option<String>,
             /// This text is shown when the user presses the `?` button.
             ///
             /// Must be between 4 and 1024 characters long, otherwise the default will be used.
+            #[serde(skip_serializing_if = "Option::is_none")]
             pub help_override: Option<String>,
             /// How many art meshes must be selected by the user.
             ///
@@ -1059,6 +1275,7 @@ define_request_response_pairs!(
             ///
             /// If any of these IDs are not contained in the current model, an error will be
             /// returned.
+            #[serde(skip_serializing_if = "Vec::is_empty")]
             pub active_art_meshes: Vec<String>,
         },
         /// ArtMesh selection response.
@@ -1071,8 +1288,167 @@ define_request_response_pairs!(
             /// ArtMeshes that were not selected.
             pub inactive_art_meshes: Vec<String>,
         },
-    },
+    },],
+
+    events = [
+        {
+            rust_name = Test,
+            config = {
+                /// Message to be returned every second.
+                pub test_message_for_event: String,
+            },
+            /// An event for testing the event API.
+            data = {
+                /// Test message specified in [`TestEventConfig`].
+                pub your_test_message: String,
+                /// Number of seconds since VTube Studio has been started.
+                pub counter: i32,
+            },
+        },
+
+        {
+            rust_name = ModelLoaded,
+            /// You can pass in one or more model IDs in the `modelID` array (optional). If you do,
+            /// an event will only be sent every time the model with one of the specific IDs is
+            /// loaded or unloaded. If you pass in model IDs, they all have to have the correct
+            /// format (32 characters, only hex characters), otherwise an error is returned.
+            config = {
+                /// Optional model IDs to filter for.
+                #[serde(rename = "modelID", skip_serializing_if = "Vec::is_empty")]
+                pub model_id: Vec<String>
+            },
+            /// An event that is triggered every time a VTube Studio model is loaded or unloaded.
+            data = {
+                /// Whether the model is loaded.
+                pub model_loaded: bool,
+                /// Name of the model.
+                pub model_name: String,
+                /// Model ID.
+                ///
+                /// E.g., `165131471d8a4e42aae01a9738f255ef`.
+                #[serde(rename = "modelID")]
+                pub model_id: String,
+            },
+        },
+
+        {
+            rust_name = TrackingStatusChanged,
+            config = {},
+            /// An event that is triggered every time the face tracker finds/loses the face or
+            /// hands.
+            data = {
+                /// Whether the face is found.
+                pub face_found: bool,
+                /// Whether the left hand is found.
+                pub left_hand_found: bool,
+                /// Whether the right hand is found.
+                pub right_hand_found: bool,
+            },
+        },
+
+        {
+            rust_name = BackgroundChanged,
+            config = {},
+            /// An event that is triggered every time the background is changed by the user
+            /// (manually or via hotkey).
+            data = {
+                /// Background name, as shown in the background selection list.
+                ///
+                /// This is typically the file name without the file extension.
+                pub background_name: String,
+            },
+        },
+
+        {
+            rust_name = ModelConfigChanged,
+            config = {},
+            /// An event that is triggered every time the user manually changes the the
+            /// settings/config of the currently loaded VTube Studio model.
+            data = {
+                /// Model ID.
+                #[serde(rename = "modelID")]
+                pub model_id: String,
+                /// Model name.
+                pub model_name: String,
+                /// Whether the changed config is related to hotkeys.
+                pub hotkey_config_changed: bool,
+            },
+        },
+
+        {
+            rust_name = ModelMoved,
+            config = {},
+            /// An event that is triggered every time a model is moved, resized or rotated.
+            ///
+            /// This will also be triggered right after subscribing, so it will send you the
+            /// current position/scale/rotation of the currently loaded model the moment you
+            /// subscribe (unless no model is loaded) and then send the current
+            /// position/scale/rotation in every frame when there's a change.
+            data = {
+                /// Model ID.
+                #[serde(rename = "modelID")]
+                pub model_id: String,
+                /// Model name.
+                pub model_name: String,
+                /// Model position.
+                pub model_position: ModelPosition,
+            },
+        },
+
+        {
+            rust_name = ModelOutline,
+            config = {
+                /// Whether to draw the model outline.
+                ///
+                /// Drawing the outline in VTube Studio may not be performant so you should only do
+                /// that for debugging purposes or to show the outline to the user for setup
+                /// purposes. The outline will be drawn if at least one subscribed plugin has set
+                /// "draw" to true.
+                pub draw: bool,
+            },
+            /// An event that is triggered at a constant 15 FPS and sends subscribed plugins the
+            /// model outline.
+            ///
+            /// Specifically, it sends an approximated convex polygon based on the bounding-box
+            /// center points of all (visible) ArtMeshes in the model. If no model is loaded, the
+            /// event isn't sent.
+            data = {
+                /// Model name. E.g., `"My VTS Model Name"`.
+                pub model_name: String,
+                /// Model ID. E.g., `"165131471d8a4e42aae01a9738f255ef"`.
+                #[serde(rename = "modelID")]
+                pub model_id: String,
+                /// 2D points describing the rough outline of the model.
+                ///
+                /// This list is ordered. The x/y coordinate of each point is its position within
+                /// the VTube Studio window. X or Y coordinates may be bigger than 1 or smaller
+                /// than -1 if an outline point is outside of the window boundaries.
+                ///
+                /// The `convex_hull` list is guaranteed to have at least 3 entries. There is no
+                /// limit to how many entries it can have, but for most normal Live2D models, it
+                /// has between 5 and 25 entries. Please also keep in mind that the number of list
+                /// entries can (and will most likely) change between events you receive. Do not
+                /// implement your plugin expecting the number of outline points to remain
+                /// constant.
+                pub convex_hull: Vec<Vec2>,
+                /// The center/average of all the `convex_hull` points.
+                pub convex_hull_center: Vec2,
+                /// The current VTube Studio window size.
+                pub window_size: Vec2,
+            },
+        },
+
+    ],
 );
+
+/// Struct representing a coordinate or dimensions. Used in [`ModelOutlineEvent`].
+#[derive(Default, Deserialize, Serialize, Debug, PartialEq, Clone)]
+pub struct Vec2 {
+    /// X coordinate.
+    pub x: f64,
+    /// Y coordinate.
+    pub y: f64,
+}
 
 #[allow(missing_docs)]
 #[derive(Deserialize, Serialize, Debug, PartialEq, Clone)]
@@ -1095,7 +1471,7 @@ impl Default for InjectParameterDataMode {
 #[allow(missing_docs)]
 #[derive(Deserialize, Serialize, Debug, PartialEq, Clone)]
 #[non_exhaustive]
-/// Known message types for [`EnumString<ItemType>`] (used in [`ItemInstanceInScene`]).
+/// Known message types for [`EnumString<ItemType>`]. Used in [`ItemInstanceInScene`].
 pub enum ItemType {
     #[serde(rename = "PNG")]
     Png,
@@ -1354,7 +1730,7 @@ impl Response for VTubeStudioApiStateBroadcast {
         EnumString::new(ResponseType::VTubeStudioApiStateBroadcast);
 }
 
-/// Used in [`CurrentModelResponse`].
+/// Used in [`CurrentModelResponse`] and [`ModelMovedEvent`].
 #[derive(Default, Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct ModelPosition {
@@ -1798,6 +2174,65 @@ mod tests {
         let parsed = resp.parse::<ApiStateResponse>()?;
 
         assert_eq!(parsed, data);
+
+        Ok(())
+    }
+
+    #[test]
+    fn serialize_event_request() -> Result {
+        let req = RequestEnvelope::new(&EventSubscriptionRequest::subscribe(&TestEventConfig {
+            test_message_for_event: "text the event will return".to_owned(),
+        })?)?
+        .with_id(Some("SomeID".into()));
+
+        // https://github.com/DenchiSoft/VTubeStudio/tree/5e45a961/Events#test-event
+        let expected = json!({
+            "apiName": "VTubeStudioPublicAPI",
+            "apiVersion": "1.0",
+            "requestID": "SomeID",
+            "messageType": "EventSubscriptionRequest",
+            "data": {
+                "eventName": "TestEvent",
+                "subscribe": true,
+                "config": {
+                    "testMessageForEvent": "text the event will return"
+                }
+            }
+        });
+
+        assert_eq!(
+            serde_json::from_value::<RequestEnvelope>(expected.clone())?,
+            req
+        );
+        assert_eq!(serde_json::to_value(&req)?, expected);
+
+        Ok(())
+    }
+
+    #[test]
+    fn parse_response_as_event() -> Result {
+        // https://github.com/DenchiSoft/VTubeStudio/tree/5e45a961/Events#test-event
+        let json = json!({
+            "apiName": "VTubeStudioPublicAPI",
+            "apiVersion": "1.0",
+            "timestamp": 1625405710728i64,
+            "requestID": "SomeID",
+            "messageType": "TestEvent",
+            "data": {
+                "yourTestMessage": "text the event will return",
+                "counter": 672
+            }
+        });
+
+        let resp = serde_json::from_value::<ResponseEnvelope>(json)?;
+        let parsed = resp.parse_event()?;
+
+        let expected = TestEvent {
+            your_test_message: "text the event will return".to_owned(),
+            counter: 672,
+        };
+
+        assert!(matches!(parsed, Event::Test(event) if event == expected));
 
         Ok(())
     }

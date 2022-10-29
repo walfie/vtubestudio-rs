@@ -10,7 +10,7 @@ A library for interacting with the [VTube Studio API].
 
 ## Basic usage
 
-This example creates a `Client` using the provided builder, which:
+The example below creates a `Client` using the provided builder, which:
 
 * connects to `ws://localhost:8001` using [`tokio_tungstenite`](https://docs.rs/tokio_tungstenite)
 * authenticates with an existing token (if present and valid)
@@ -18,25 +18,33 @@ This example creates a `Client` using the provided builder, which:
 * requests a new auth token on receiving an auth error, and retries the initial failed
   request on authentication success
 
-```rust
-use vtubestudio::{Client, Error};
+```rust,no_run
 use vtubestudio::data::StatisticsRequest;
+use vtubestudio::{Client, ClientEvent, Error};
 
 #[tokio::main]
 async fn main() -> Result<(), Error> {
     // An auth token from a previous successful authentication request
     let stored_token = Some("...".to_string());
 
-    let (mut client, mut new_tokens) = Client::builder()
+    let (mut client, mut events) = Client::builder()
         .auth_token(stored_token)
         .authentication("Plugin name", "Developer name", None)
         .build_tungstenite();
 
     tokio::spawn(async move {
-        // This returns whenever the authentication middleware receives a new auth token.
-        // We can handle it by saving it somewhere, etc.
-        while let Some(token) = new_tokens.next().await {
-            println!("Got new auth token: {}", token);
+        while let Some(event) = events.next().await {
+            match event {
+                ClientEvent::NewAuthToken(new_token) => {
+                    // This returns whenever the authentication middleware receives a new auth
+                    // token. We can handle it by saving it somewhere, etc.
+                    println!("Got new auth token: {new_token}");
+                }
+                _ => {
+                    // Other events, such as connections/disconnections, API events, etc
+                    println!("Got event: {:?}", event);
+                }
+            }
         }
     });
 

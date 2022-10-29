@@ -1,12 +1,12 @@
 pub(crate) mod api;
-pub(crate) mod connector;
+pub(crate) mod buffered;
+pub(crate) mod event;
 
 pub use crate::transport::api::ApiTransport;
+pub use crate::transport::event::EventStream;
 
 crate::cfg_feature! {
     #![feature = "tokio-tungstenite"]
-    pub use crate::transport::connector::TungsteniteConnector;
-
     use crate::codec::TungsteniteCodec;
     use tokio_tungstenite::{WebSocketStream, MaybeTlsStream};
     use tokio::net::TcpStream;

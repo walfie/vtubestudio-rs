@@ -1,5 +1,5 @@
 use crate::data::enumeration::EnumString;
-use crate::data::{ApiError, Request, RequestType, Response, ResponseType};
+use crate::data::{ApiError, Event, Request, RequestType, Response, ResponseType};
 
 use crate::error::{Error, UnexpectedResponseError};
 
@@ -7,6 +7,7 @@ use serde::de::DeserializeOwned;
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
 use serde_json::value::RawValue;
 use std::borrow::Cow;
+use std::convert::TryFrom;
 use std::fmt;
 
 /// The default `api_name` value in requests and responses.
@@ -192,8 +193,9 @@ impl ResponseEnvelope {
         }
     }
 
-    /// Attempts to parse the response into a the given [`Response`] type. This can return an error
-    /// if the message type is an [`ApiError`] or isn't the expected type.
+    /// Attempts to parse the response into a the given [`Response`] type.
+    ///
+    /// This can return an error if the message type is an [`ApiError`] or isn't the expected type.
     pub fn parse<Resp: Response>(self) -> Result<Resp, Error> {
         let data = self.data?;
 
@@ -206,6 +208,16 @@ impl ResponseEnvelope {
             }
             .into())
         }
+    }
+
+    /// Attempts to parse the response as an [`Event`].
+    ///
+    /// This can return an error if the message type is an [`ApiError`] or has an unexpected JSON
+    /// structure. If the message type is not a known [`Event`] variant, it will be returned as
+    /// [`Event::Unknown`] instead of an error.
+    pub fn parse_event(self) -> Result<Event, Error> {
+        let data = self.data?;
+        Ok(Event::try_from(data)?)
     }
 
     /// Returns `true` if the message type is `APIError`.
@@ -221,7 +233,7 @@ impl ResponseEnvelope {
 }
 
 /// Response data wrapper for [`ResponseEnvelope`] (typically for non-error responses).
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Serialize)]
 #[cfg_attr(test, derive(PartialEq))]
 pub struct ResponseData {
     /// The message type.

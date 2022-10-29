@@ -1,6 +1,6 @@
 [package]
 name = "vtubestudio"
-version = "0.7.1-alpha.0"
+version = "0.8.0-alpha.0"
 edition = "2018"
 authors = ["Walfie <walfington@gmail.com"]
 license = "MIT"
@@ -25,10 +25,11 @@ pin-project-lite = "0.2"
 serde = { version = "1", features = ["derive"] }
 serde_json = { version = "1", features = ["raw_value"] }
 smol_str = { version = "0.1", features = ["serde"] }
+split-stream-by = "0.1"
 thiserror = "1"
-tokio = "1"
+tokio = { version = "1", features = ["sync"] }
 tokio-tower = "0.6"
-tokio-tungstenite = { version = "0.15", optional = true }
+tokio-tungstenite = { version = "0.17", optional = true }
 tower = { version = "0.4.11", features = ["util", "retry", "reconnect", "buffer"] }
 tracing = "0.1"
 
@@ -59,5 +60,9 @@ required-features = ["tokio-tungstenite"]
 
 [[example]]
 name = "hotkey"
+required-features = ["tokio-tungstenite"]
+
+[[example]]
+name = "events"
 required-features = ["tokio-tungstenite"]
 

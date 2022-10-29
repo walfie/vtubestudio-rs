@@ -20,7 +20,7 @@
 //!
 //! # Basic usage
 //!
-//! This example creates a [`Client`] using the provided [builder](ClientBuilder), which:
+//! The example below creates a [`Client`] using the provided [builder](ClientBuilder), which:
 //!
 //! * connects to `ws://localhost:8001` using [`tokio_tungstenite`](https://docs.rs/tokio_tungstenite)
 //! * authenticates with an existing token (if present and valid)
@@ -30,34 +30,7 @@
 //!
 #![cfg_attr(feature = "tokio-tungstenite", doc = "```no_run")]
 #![cfg_attr(not(feature = "tokio-tungstenite"), doc = "```ignore")]
-//! use vtubestudio::{Client, Error};
-//! use vtubestudio::data::StatisticsRequest;
-//!
-//! #[tokio::main]
-//! async fn main() -> Result<(), Error> {
-//!     // An auth token from a previous successful authentication request
-//!     let stored_token = Some("...".to_string());
-//!
-//!     let (mut client, mut new_tokens) = Client::builder()
-//!         .auth_token(stored_token)
-//!         .authentication("Plugin name", "Developer name", None)
-//!         .build_tungstenite();
-//!
-//!     tokio::spawn(async move {
-//!         // This returns whenever the authentication middleware receives a new auth token.
-//!         // We can handle it by saving it somewhere, etc.
-//!         while let Some(token) = new_tokens.next().await {
-//!             println!("Got new auth token: {}", token);
-//!         }
-//!     });
-//!
-//!     // Use the client to send a `StatisticsRequest`, handling authentication if necessary.
-//!     // The return type is inferred from the input type to be `StatisticsResponse`.
-//!     let resp = client.send(&StatisticsRequest {}).await?;
-//!     println!("VTube Studio has been running for {}ms", resp.uptime);
-//!
-//!     Ok(())
-//! }
+#![doc = include_str!("../examples/readme.rs")]
 //! ```
 //!
 //! To send multiple outgoing requests at the same time without waiting for a request to come back,
@@ -69,6 +42,19 @@
 //! [`no_middleware` example] in the repo.
 //!
 //! [`no_middleware` example]: https://github.com/walfie/vtubestudio-rs/blob/master/examples/no_middleware.rs
+//!
+//! # Events
+//!
+//! The [`ClientEventStream`] returned from the [`ClientBuilder`] will also return
+//! [`Event`](crate::data::Event)s if we subscribe to them.
+//!
+//! The example below demonstrates subscribing to [`TestEvent`](crate::data::TestEvent)s, which
+//! will be emitted every second.
+//!
+#![cfg_attr(feature = "tokio-tungstenite", doc = "```no_run")]
+#![cfg_attr(not(feature = "tokio-tungstenite"), doc = "```ignore")]
+#![doc = include_str!("../examples/events.rs")]
+//! ```
 //!
 //! # Project structure
 //!
@@ -139,5 +125,9 @@ macro_rules! cfg_feature {
 
 pub(crate) use cfg_feature;
 
-pub use crate::client::{Client, ClientBuilder, TokenReceiver};
+pub use crate::client::{Client, ClientBuilder, ClientEvent, ClientEventStream};
 pub use crate::error::{Error, ErrorKind, Result};
+
+#[cfg(doctest)]
+#[cfg_attr(feature = "tokio-tungstenite", doc = include_str!("../README.md"))]
+pub struct ReadmeDoctests;

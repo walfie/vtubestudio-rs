@@ -1,6 +1,6 @@
 use futures_core::TryStream;
 use futures_sink::Sink;
-use std::error::Error as StdError;
+pub(crate) use std::error::Error as StdError;
 
 use crate::data::ResponseType;
 pub use crate::data::{ApiError, EnumString, ErrorId};

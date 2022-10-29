@@ -10,16 +10,14 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         println!("Attempting to use stored auth token");
     }
 
-    let (mut client, mut new_tokens) = Client::builder()
+    let (mut client, mut events) = Client::builder()
         .auth_token(stored_token)
         .authentication("vtubestudio-rs example", "Walfie", None)
         .build_tungstenite();
 
     tokio::spawn(async move {
-        // This returns whenever the authentication middleware receives a new auth token.
-        // We can handle it by saving it somewhere, etc.
-        while let Some(token) = new_tokens.next().await {
-            println!("Received new token: {}", token);
+        while let Some(event) = events.next().await {
+            println!("Received new event: {:?}", event);
         }
     });
 

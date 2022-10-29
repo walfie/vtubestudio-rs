@@ -1,15 +1,19 @@
-use crate::data::{AuthenticationTokenRequest, Request, RequestEnvelope, ResponseEnvelope};
-use crate::error::Error;
-use crate::service::{send_request, AuthenticationLayer, ResponseWithToken, RetryPolicy};
-
-use crate::error::BoxError;
+use crate::data::{AuthenticationTokenRequest, Event, Request, RequestEnvelope, ResponseEnvelope};
+use crate::error::{BoxError, Error};
 use crate::service::BoxCloneApiService;
+use crate::service::{
+    send_request, AuthenticationLayer, MakeApiService, ResponseWithToken, RetryPolicy,
+};
+
+use futures_util::StreamExt;
 use std::borrow::Cow;
 use std::error::Error as StdError;
 use tokio::sync::mpsc;
+use tokio::sync::mpsc::error::SendError;
+use tokio_tower::MakeTransport;
 use tower::reconnect::Reconnect;
 use tower::util::BoxCloneService;
-use tower::{Service, ServiceBuilder};
+use tower::{Service, ServiceBuilder, ServiceExt};
 
 /// A client for interacting with the VTube Studio API.
 ///
@@ -20,6 +24,30 @@ pub struct Client<S = BoxCloneApiService> {
     service: S,
 }
 
+/// A client event received outside of the typical request/response flow.
+///
+/// This includes [`Event`]s received from the API, as requested via
+/// [`EventSubscriptionRequest`](crate::data::EventSubscriptionRequest).
+#[non_exhaustive]
+#[derive(Debug)]
+pub enum ClientEvent {
+    /// The underlying event transport established a connection.
+    ///
+    /// Note that by default, [`Client`] connects lazily, so this event might not be received until
+    /// after making the first request.
+    Connected,
+    /// The underlying event transport disconnected.
+    ///
+    /// You can use this as a signal to resubscribe to events.
+    Disconnected,
+    /// Received new auth token.
+    NewAuthToken(String),
+    /// Event received from the API.
+    Api(Event),
+    /// Error received outside the request/response flow.
+    Error(Error),
+}
+
 impl Client<BoxCloneApiService> {
     /// Creates a builder to configure a new client.
     ///
@@ -28,7 +56,7 @@ impl Client<BoxCloneApiService> {
     #[cfg_attr(feature = "tokio-tungstenite", doc = "```no_run")]
     #[cfg_attr(not(feature = "tokio-tungstenite"), doc = "```ignore")]
     /// # use vtubestudio::Client;
-    /// let (mut client, mut new_tokens) = Client::builder()
+    /// let (mut client, mut events) = Client::builder()
     ///     .auth_token(Some("...".to_string()))
     ///     .authentication("Plugin name", "Developer name", None)
     ///     .build_tungstenite();
@@ -86,21 +114,24 @@ where
 #[cfg_attr(feature = "tokio-tungstenite", doc = "```no_run")]
 #[cfg_attr(not(feature = "tokio-tungstenite"), doc = "```ignore")]
 /// # async fn run() -> Result<(), vtubestudio::error::BoxError> {
-/// # fn do_something_with_new_token(token: String) { unimplemented!(); }
-/// # use vtubestudio::Client;
+/// use vtubestudio::{Client, ClientEvent};
+///
 /// // An auth token from a previous successful authentication request
 /// let stored_token = Some("...".to_string());
 ///
-/// let (mut client, mut new_tokens) = Client::builder()
+/// let (mut client, mut events) = Client::builder()
 ///     .authentication("Plugin name", "Developer name", None)
 ///     .auth_token(stored_token)
 ///     .build_tungstenite();
 ///
 /// tokio::spawn(async move {
-///     // This returns whenever the authentication middleware receives a new auth token.
-///     // We can handle it by saving it somewhere, etc.
-///     while let Some(token) = new_tokens.next().await {
-///         do_something_with_new_token(token);
+///     while let Some(event) = events.next().await {
+///         match event {
+///             ClientEvent::NewAuthToken(token) =>
+///                println!("Got new token: {token}"),
+///             _ =>
+///                println!("Received event {:?}", event),
+///         }
 ///     }
 /// });
 /// # Ok(())
@@ -111,7 +142,7 @@ pub struct ClientBuilder {
     url: String,
     retry_on_disconnect: bool,
     request_buffer_size: usize,
-    token_stream_buffer_size: usize,
+    event_buffer_size: usize,
     auth_token: Option<String>,
     token_request: Option<AuthenticationTokenRequest>,
 }
@@ -121,21 +152,21 @@ impl Default for ClientBuilder {
         Self {
             url: "ws://localhost:8001".to_string(),
             retry_on_disconnect: true,
-            request_buffer_size: 256,
-            token_stream_buffer_size: 32,
+            request_buffer_size: 128,
+            event_buffer_size: 128,
             auth_token: None,
             token_request: None,
         }
     }
 }
 
-/// A wrapper for a [`mpsc::Receiver`] that yields new auth tokens.
+/// A wrapper for a [`mpsc::Receiver`] that yields client events.
 #[derive(Debug)]
-pub struct TokenReceiver {
-    receiver: mpsc::Receiver<String>,
+pub struct ClientEventStream {
+    receiver: mpsc::Receiver<ClientEvent>,
 }
 
-impl TokenReceiver {
+impl ClientEventStream {
     /// Returns new tokens after successful authentication. If `None` is returned, it means the
     /// sender (the underlying [`Client`]) has been dropped.
     ///
@@ -144,27 +175,31 @@ impl TokenReceiver {
     #[cfg_attr(feature = "tokio-tungstenite", doc = "```no_run")]
     #[cfg_attr(not(feature = "tokio-tungstenite"), doc = "```ignore")]
     /// # async fn run() -> Result<(), vtubestudio::error::BoxError> {
-    /// # fn do_something_with_new_token(token: String) { unimplemented!(); }
-    /// # use vtubestudio::Client;
-    /// let (mut client, mut new_tokens) = Client::builder()
+    /// use vtubestudio::{Client, ClientEvent};
+    /// use vtubestudio::data::EventData;
+    ///
+    /// let (mut client, mut events) = Client::builder()
     ///     .authentication("Plugin name", "Developer name", None)
     ///     .build_tungstenite();
     ///
     /// tokio::spawn(async move {
-    ///     // This returns whenever the authentication middleware receives a new auth token.
-    ///     // We can handle it by saving it somewhere, etc.
-    ///     while let Some(token) = new_tokens.next().await {
-    ///         do_something_with_new_token(token);
+    ///     while let Some(event) = events.next().await {
+    ///         match event {
+    ///             ClientEvent::NewAuthToken(token) =>
+    ///                println!("Got new token: {token}"),
+    ///             _ =>
+    ///                println!("Received event {:?}", event),
+    ///         }
     ///     }
     /// });
     /// # Ok(())
     /// # }
-    pub async fn next(&mut self) -> Option<String> {
+    pub async fn next(&mut self) -> Option<ClientEvent> {
         self.receiver.recv().await
     }
 
     /// Consume this receiver and return the underlying [`mpsc::Receiver`].
-    pub fn into_inner(self) -> mpsc::Receiver<String> {
+    pub fn into_inner(self) -> mpsc::Receiver<ClientEvent> {
         self.receiver
     }
 }
@@ -177,11 +212,12 @@ impl ClientBuilder {
 
     crate::cfg_feature! {
         #![feature = "tokio-tungstenite"]
-        /// Consumes the builder and initializes a [`Client`] and [`TokenReceiver`] using
+        /// Consumes the builder and initializes a [`Client`] and [`ClientEventStream`] using
         /// [`tokio_tungstenite`] as the underlying websocket transport library.
-        pub fn build_tungstenite(self) -> (Client, TokenReceiver) {
-            use crate::service::MakeApiService;
-            self.build_reconnecting_service(MakeApiService::new_tungstenite())
+        pub fn build_tungstenite(self) -> (Client, ClientEventStream)
+        {
+            use crate::service::maker::TungsteniteConnector;
+            self.build_connector(TungsteniteConnector)
         }
     }
 
@@ -220,32 +256,62 @@ impl ClientBuilder {
         self
     }
 
-    /// The max number of outstanding requests. The default value is `256`.
+    /// The max number of outstanding requests/responses.
+    ///
+    /// The default value is `128`.
     pub fn request_buffer_size(mut self, size: usize) -> Self {
         self.request_buffer_size = size;
         self
     }
 
-    /// The max capacity of the [`TokenReceiver`] buffer. This represents the max number of
-    /// unacknowledged new tokens before client stops sending tokens. The default value is `32`.
-    pub fn token_stream_buffer_size(mut self, size: usize) -> Self {
-        self.token_stream_buffer_size = size;
+    /// The max capacity of the [`ClientEventStream`] buffer.
+    ///
+    /// This represents the max number of unacknowledged new events before the client stops sending
+    /// them.
+    ///
+    /// The default value is `128`.
+    pub fn event_buffer_size(mut self, size: usize) -> Self {
+        self.event_buffer_size = size;
         self
     }
 
-    /// Consumes the builder and initializes a [`Client`] and [`TokenReceiver`] using a custom
+    /// Consumes the builder and initializes a [`Client`] and [`ClientEventStream`] using a custom
     /// [`Service`].
-    pub fn build_service<S>(self, service: S) -> (Client, TokenReceiver)
+    ///
+    /// Note the [`ClientEventStream`] will only yield [`ClientEvent::NewAuthToken`] events. To
+    /// receive all events, use [`ClientBuilder::build_connector`].
+    pub fn build_service<S>(self, service: S) -> (Client, ClientEventStream)
     where
         S: Service<RequestEnvelope, Response = ResponseEnvelope> + Send + 'static,
         S::Error: Into<BoxError> + Send + Sync,
         S::Future: Send,
     {
+        let (event_tx, event_rx) = mpsc::channel(self.event_buffer_size);
+        let client = self.build_service_internal(service, event_tx, false);
+        let event_receiver = ClientEventStream { receiver: event_rx };
+        (client, event_receiver)
+    }
+
+    fn build_service_internal<S>(
+        self,
+        service: S,
+        event_tx: mpsc::Sender<ClientEvent>,
+        send_disconnect: bool,
+    ) -> Client
+    where
+        S: Service<RequestEnvelope, Response = ResponseEnvelope> + Send + 'static,
+        S::Error: Into<BoxError> + Send + Sync,
+        S::Future: Send,
+    {
+        if send_disconnect {
+            if let Err(_) = event_tx.try_send(ClientEvent::Disconnected) {
+                tracing::warn!("Failed to send Disconnected event to EventStream on startup");
+            }
+        }
+
         let policy = RetryPolicy::new()
             .on_disconnect(self.retry_on_disconnect)
             .on_auth_error(self.token_request.is_some());
-
-        let (token_tx, token_rx) = mpsc::channel(self.token_stream_buffer_size);
 
         let service = if let Some(token_req) = self.token_request {
             BoxCloneService::new(
@@ -253,9 +319,8 @@ impl ClientBuilder {
                     .retry(policy)
                     .and_then(|resp: ResponseWithToken| async move {
                         if let Some(token) = resp.new_token {
-                            // Ignore send errors (the consumer probably isn't reading the new
-                            // token stream)
-                            let _ = token_tx.send(token).await;
+                            // Ignore send errors (the consumer probably isn't reading the stream)
+                            let _ = event_tx.send(ClientEvent::NewAuthToken(token)).await;
                         }
                         Ok(resp.response)
                     })
@@ -274,17 +339,65 @@ impl ClientBuilder {
             )
         };
 
-        let token_receiver = TokenReceiver { receiver: token_rx };
-
-        return (Client::new_from_service(service), token_receiver);
+        Client::new_from_service(service)
     }
 
-    /// Consumes the builder and initializes a [`Client`] and [`TokenReceiver`] with a reconnecting
-    /// service.
+    /// Consumes the builder and initializes a [`Client`] and [`ClientEventStream`] with a
+    /// connector.
+    ///
+    /// The input connector should be a [`MakeTransport`](tokio_tower::MakeTransport) that meets
+    /// the requirements of [`Reconnect`].
+    pub fn build_connector<M>(self, connector: M) -> (Client, ClientEventStream)
+    where
+        M: MakeTransport<String, RequestEnvelope, Item = ResponseEnvelope> + Send + Clone + 'static,
+        M::Future: Send + 'static,
+        M::Transport: Send + 'static,
+        M::MakeError: StdError + Send + Sync + 'static,
+        M::Error: Send,
+        BoxError: From<M::Error> + From<M::SinkError>,
+    {
+        let (event_tx, event_rx) = mpsc::channel(self.event_buffer_size);
+        let event_tx_cloned = event_tx.clone();
+
+        let log_err = |result: Result<(), SendError<ClientEvent>>| {
+            if let Err(SendError(event)) = result {
+                tracing::warn!(
+                    ?event,
+                    "Failed to send event to EventStream because buffer is full"
+                );
+            }
+        };
+
+        let service = MakeApiService::<M, String>::new(connector, self.request_buffer_size)
+            .map_response(move |(service, mut events)| {
+                let event_tx = event_tx.clone();
+                tokio::spawn(async move {
+                    log_err(event_tx.send(ClientEvent::Connected).await);
+                    while let Some(result) = events.next().await {
+                        let event = result.map_or_else(ClientEvent::Error, ClientEvent::Api);
+                        log_err(event_tx.send(event).await);
+                    }
+                    log_err(event_tx.send(ClientEvent::Disconnected).await);
+                });
+
+                service
+            });
+
+        let client = self.build_reconnecting_service_internal(service, event_tx_cloned);
+
+        let event_receiver = ClientEventStream { receiver: event_rx };
+        (client, event_receiver)
+    }
+
+    /// Consumes the builder and initializes a [`Client`] and [`ClientEventStream`] with a
+    /// reconnecting service.
     ///
     /// The input service should be a [`MakeService`](tower::MakeService) that satisfies the
     /// requirements of [`Reconnect`].
-    pub fn build_reconnecting_service<S>(self, service: S) -> (Client, TokenReceiver)
+    ///
+    /// Note the [`ClientEventStream`] will only yield [`ClientEvent::NewAuthToken`] events. To
+    /// receive all events, use [`ClientBuilder::build_connector`].
+    pub fn build_reconnecting_service<S>(self, maker: S) -> (Client, ClientEventStream)
     where
         S: Service<String> + Send + 'static,
         S::Error: StdError + Send + Sync,
@@ -293,8 +406,26 @@ impl ClientBuilder {
         <S::Response as Service<RequestEnvelope>>::Error: StdError + Send + Sync,
         <S::Response as Service<RequestEnvelope>>::Future: Send,
     {
-        let service = Reconnect::new::<S, String>(service, self.url.clone());
+        let service = Reconnect::new::<S, String>(maker, self.url.clone());
 
         self.build_service(service)
+    }
+
+    fn build_reconnecting_service_internal<S>(
+        self,
+        maker: S,
+        event_tx: mpsc::Sender<ClientEvent>,
+    ) -> Client
+    where
+        S: Service<String> + Send + 'static,
+        S::Error: StdError + Send + Sync,
+        S::Future: Send + Unpin,
+        S::Response: Service<RequestEnvelope, Response = ResponseEnvelope> + Send + 'static,
+        <S::Response as Service<RequestEnvelope>>::Error: StdError + Send + Sync,
+        <S::Response as Service<RequestEnvelope>>::Future: Send,
+    {
+        let service = Reconnect::new::<S, String>(maker, self.url.clone());
+
+        self.build_service_internal(service, event_tx, true)
     }
 }
