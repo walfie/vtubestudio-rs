@@ -1,4 +1,4 @@
-use crate::data::{EventData, RequestEnvelope, ResponseEnvelope};
+use crate::data::{Event, RequestEnvelope, ResponseEnvelope};
 use crate::error::Error;
 
 use futures_core::{Stream, TryStream};
@@ -25,7 +25,7 @@ pin_project! {
         #[pin]
         stream: RightSplitByMapBuffered<
             Result<ResponseEnvelope, T::Error>,
-            Result<EventData, Error>,
+            Result<Event, Error>,
             Result<ResponseEnvelope, T::Error>,
             SplitStream<IntoStream<T>>,
             SplitFn<T::Error>,
@@ -35,12 +35,12 @@ pin_project! {
 }
 
 pin_project! {
-    /// A stream of [`Event`]s.
+    /// A stream of events.
     pub struct EventStream<S> where S: TryStream {
         #[pin]
         events: LeftSplitByMapBuffered<
             Result<ResponseEnvelope, S::Error>,
-            Result<EventData, Error>,
+            Result<Event, Error>,
             Result<ResponseEnvelope, S::Error>,
             SplitStream<IntoStream<S>>,
             SplitFn<S::Error>,
@@ -61,9 +61,8 @@ where
     }
 }
 
-type SplitFn<E> = fn(
-    Result<ResponseEnvelope, E>,
-) -> Either<Result<EventData, Error>, Result<ResponseEnvelope, E>>;
+type SplitFn<E> =
+    fn(Result<ResponseEnvelope, E>) -> Either<Result<Event, Error>, Result<ResponseEnvelope, E>>;
 
 impl<T> EventlessApiTransport<T>
 where
@@ -128,7 +127,7 @@ impl<T> Stream for EventStream<T>
 where
     T: TryStream<Ok = ResponseEnvelope>,
 {
-    type Item = Result<EventData, Error>;
+    type Item = Result<Event, Error>;
 
     fn poll_next(self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Option<Self::Item>> {
         self.project().events.try_poll_next(cx)

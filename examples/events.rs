@@ -1,4 +1,4 @@
-use vtubestudio::data::{EventData, EventSubscriptionRequest, TestEventConfig};
+use vtubestudio::data::{Event, EventSubscriptionRequest, TestEventConfig};
 use vtubestudio::{Client, ClientEvent, Error};
 
 #[tokio::main]
@@ -34,7 +34,7 @@ async fn main() -> Result<(), Error> {
                 }
             }
 
-            ClientEvent::Api(EventData::Test(event)) => {
+            ClientEvent::Api(Event::Test(event)) => {
                 assert_eq!(event.your_test_message, "Hello from vtubestudio-rs!");
                 println!(
                     "VTube Studio has been running for {} seconds.",

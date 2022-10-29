@@ -1,5 +1,5 @@
 use crate::data::enumeration::EnumString;
-use crate::data::{ApiError, EventData, Request, RequestType, Response, ResponseType};
+use crate::data::{ApiError, Event, Request, RequestType, Response, ResponseType};
 
 use crate::error::{Error, UnexpectedResponseError};
 
@@ -210,14 +210,14 @@ impl ResponseEnvelope {
         }
     }
 
-    /// Attempts to parse the response as an [`EventData`].
+    /// Attempts to parse the response as an [`Event`].
     ///
     /// This can return an error if the message type is an [`ApiError`] or has an unexpected JSON
-    /// structure. If the message type is not a known [`EventData`] variant, it will be returned as
-    /// [`EventData::Unknown`] instead of an error.
-    pub fn parse_event(self) -> Result<EventData, Error> {
+    /// structure. If the message type is not a known [`Event`] variant, it will be returned as
+    /// [`Event::Unknown`] instead of an error.
+    pub fn parse_event(self) -> Result<Event, Error> {
         let data = self.data?;
-        Ok(EventData::try_from(data)?)
+        Ok(Event::try_from(data)?)
     }
 
     /// Returns `true` if the message type is `APIError`.

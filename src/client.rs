@@ -1,6 +1,4 @@
-use crate::data::{
-    AuthenticationTokenRequest, EventData, Request, RequestEnvelope, ResponseEnvelope,
-};
+use crate::data::{AuthenticationTokenRequest, Event, Request, RequestEnvelope, ResponseEnvelope};
 use crate::error::{BoxError, Error};
 use crate::service::BoxCloneApiService;
 use crate::service::{
@@ -27,23 +25,26 @@ pub struct Client<S = BoxCloneApiService> {
     service: S,
 }
 
-/// Client events received outside of the typical request/response flow.
+/// A client event received outside of the typical request/response flow.
+///
+/// This includes [`Event`]s received from the API, as requested via
+/// [`EventSubscriptionRequest`](crate::data::EventSubscriptionRequest).
 #[non_exhaustive]
 #[derive(Debug)]
 pub enum ClientEvent {
     /// The underlying event transport established a connection.
     ///
-    /// Note that [`Client`] connects lazily, so this event might not be received until after after
-    /// making the first request.
+    /// Note that by default, [`Client`] connects lazily, so this event might not be received until
+    /// after making the first request.
     Connected,
     /// The underlying event transport disconnected.
     ///
-    /// You can use this as a signal to reconnect and resubscribe to events.
+    /// You can use this as a signal to resubscribe to events.
     Disconnected,
     /// Received new auth token.
     NewAuthToken(String),
-    /// API event.
-    Api(EventData),
+    /// Event received from the API.
+    Api(Event),
     /// Error received outside the request/response flow.
     Error(Error),
 }
