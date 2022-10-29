@@ -362,9 +362,9 @@ define_request_response!(
         /// Information about subscriptions.
         resp = {
             /// Number of event types that are subscribed to.
-            subscribed_event_count: i32,
+            pub subscribed_event_count: i32,
             /// Subscribed event types.
-            subscribed_events: Vec<EnumString<ResponseType>>,
+            pub subscribed_events: Vec<EnumString<ResponseType>>,
         },
     },
 

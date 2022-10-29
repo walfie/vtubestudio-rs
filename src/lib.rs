@@ -30,44 +30,7 @@
 //!
 #![cfg_attr(feature = "tokio-tungstenite", doc = "```no_run")]
 #![cfg_attr(not(feature = "tokio-tungstenite"), doc = "```ignore")]
-//! use vtubestudio::{Client, ClientEvent, Error};
-//! use vtubestudio::data::StatisticsRequest;
-//!
-//! #[tokio::main]
-//! async fn main() -> Result<(), Error> {
-//!     // An auth token from a previous successful authentication request
-//!     let stored_token = Some("...".to_string());
-//!
-//!     let (mut client, mut events) = Client::builder()
-//!         .auth_token(stored_token)
-//!         .authentication("Plugin name", "Developer name", None)
-//!         .build_tungstenite();
-//!
-//!     tokio::spawn(async move {
-//!         // This returns whenever the authentication middleware receives a new auth token.
-//!         // We can handle it by saving it somewhere, etc.
-//!         while let Some(event) = events.next().await {
-//!             match event {
-//!                 ClientEvent::NewAuthToken(new_token) => {
-//!                     // This returns whenever the authentication middleware receives a new auth
-//!                     // token. We can handle it by saving it somewhere, etc.
-//!                     println!("Got new auth token: {new_token}");
-//!                 }
-//!                 _ => {
-//!                     // Other events, such as connections/disconnections, API events, etc
-//!                     println!("Got event: {:?}", event);
-//!                 }
-//!             }
-//!         }
-//!     });
-//!
-//!     // Use the client to send a `StatisticsRequest`, handling authentication if necessary.
-//!     // The return type is inferred from the input type to be `StatisticsResponse`.
-//!     let resp = client.send(&StatisticsRequest {}).await?;
-//!     println!("VTube Studio has been running for {}ms", resp.uptime);
-//!
-//!     Ok(())
-//! }
+#![doc = include_str!("../examples/readme.rs")]
 //! ```
 //!
 //! To send multiple outgoing requests at the same time without waiting for a request to come back,
@@ -152,3 +115,7 @@ pub(crate) use cfg_feature;
 pub use crate::client::{Client, ClientBuilder, ClientEvent, ClientEventStream};
 pub use crate::error::{Error, ErrorKind, Result};
 pub use crate::transport::EventStream;
+
+#[doc = include_str!("../README.md")]
+#[cfg(doctest)]
+pub struct ReadmeDoctests;
