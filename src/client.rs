@@ -114,7 +114,8 @@ where
 #[cfg_attr(feature = "tokio-tungstenite", doc = "```no_run")]
 #[cfg_attr(not(feature = "tokio-tungstenite"), doc = "```ignore")]
 /// # async fn run() -> Result<(), vtubestudio::error::BoxError> {
-/// # use vtubestudio::Client;
+/// use vtubestudio::{Client, ClientEvent};
+///
 /// // An auth token from a previous successful authentication request
 /// let stored_token = Some("...".to_string());
 ///
@@ -128,10 +129,8 @@ where
 ///         match event {
 ///             ClientEvent::NewAuthToken(token) =>
 ///                println!("Got new token: {token}"),
-///             ClientEvent::Disconnected =>
-///                println!("Disconnected"),
 ///             _ =>
-///                println!("Received event {:?}"),
+///                println!("Received event {:?}", event),
 ///         }
 ///     }
 /// });
@@ -176,9 +175,7 @@ impl ClientEventStream {
     #[cfg_attr(feature = "tokio-tungstenite", doc = "```no_run")]
     #[cfg_attr(not(feature = "tokio-tungstenite"), doc = "```ignore")]
     /// # async fn run() -> Result<(), vtubestudio::error::BoxError> {
-    /// # fn do_something_with_new_token(token: String) { unimplemented!(); }
-    /// # use vtubestudio::Client;
-    /// use vtubestudio::ClientEvent;
+    /// use vtubestudio::{Client, ClientEvent};
     /// use vtubestudio::data::EventData;
     ///
     /// let (mut client, mut events) = Client::builder()
@@ -186,16 +183,12 @@ impl ClientEventStream {
     ///     .build_tungstenite();
     ///
     /// tokio::spawn(async move {
-    ///     // This returns whenever the authentication middleware receives a new auth token.
-    ///     // We can handle it by saving it somewhere, etc.
     ///     while let Some(event) = events.next().await {
     ///         match event {
     ///             ClientEvent::NewAuthToken(token) =>
     ///                println!("Got new token: {token}"),
-    ///             ClientEvent::Disconnected =>
-    ///                println!("Disconnected"),
     ///             _ =>
-    ///                println!("Received event {:?}"),
+    ///                println!("Received event {:?}", event),
     ///         }
     ///     }
     /// });

@@ -30,7 +30,7 @@
 //!
 #![cfg_attr(feature = "tokio-tungstenite", doc = "```no_run")]
 #![cfg_attr(not(feature = "tokio-tungstenite"), doc = "```ignore")]
-//! use vtubestudio::{Client, Error};
+//! use vtubestudio::{Client, ClientEvent, Error};
 //! use vtubestudio::data::StatisticsRequest;
 //!
 //! #[tokio::main]
@@ -46,8 +46,18 @@
 //!     tokio::spawn(async move {
 //!         // This returns whenever the authentication middleware receives a new auth token.
 //!         // We can handle it by saving it somewhere, etc.
-//!         while let Some(token) = events.next().await {
-//!             println!("Got new auth token: {}", token);
+//!         while let Some(event) = events.next().await {
+//!             match event {
+//!                 ClientEvent::NewAuthToken(new_token) => {
+//!                     // This returns whenever the authentication middleware receives a new auth
+//!                     // token. We can handle it by saving it somewhere, etc.
+//!                     println!("Got new auth token: {new_token}");
+//!                 }
+//!                 _ => {
+//!                     // Other events, such as connections/disconnections, API events, etc
+//!                     println!("Got event: {:?}", event);
+//!                 }
+//!             }
 //!         }
 //!     });
 //!
