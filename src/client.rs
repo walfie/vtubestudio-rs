@@ -129,7 +129,7 @@ where
 ///     while let Some(event) = events.next().await {
 ///         match event {
 ///             ClientEvent::NewAuthToken(token) =>
-///                println!("Got new token: {token}"),
+///                println!("Got new token: {}", token),
 ///             _ =>
 ///                println!("Received event {:?}", event),
 ///         }
@@ -187,7 +187,7 @@ impl ClientEventStream {
     ///     while let Some(event) = events.next().await {
     ///         match event {
     ///             ClientEvent::NewAuthToken(token) =>
-    ///                println!("Got new token: {token}"),
+    ///                println!("Got new token: {}", token),
     ///             _ =>
     ///                println!("Received event {:?}", event),
     ///         }
