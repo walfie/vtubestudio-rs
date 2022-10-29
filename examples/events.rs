@@ -28,7 +28,7 @@ async fn main() -> Result<(), Error> {
                 // Try to subscribe to test events, retrying on failure. Note that the client
                 // attempts to reconnect automatically when sending a request.
                 while let Err(e) = client.send(&req).await {
-                    eprintln!("Failed to subscribe to test events: {}", e);
+                    eprintln!("Failed to subscribe to test events: {e}");
                     eprintln!("Retrying in 2s...");
                     tokio::time::sleep(std::time::Duration::from_secs(2)).await;
                 }
