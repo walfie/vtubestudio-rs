@@ -58,7 +58,8 @@ impl fmt::Display for RequestId {
     }
 }
 
-/// Arbitrary JSON data used in [`RequestEnvelope`] and [`ResponseEnvelope`].
+/// Arbitrary JSON data used in [`RequestEnvelope`], [`ResponseEnvelope`], and
+/// [`EventSubscriptionRequest`](crate::data::EventSubscriptionRequest).
 #[derive(Default, Clone, Debug, Serialize, Deserialize)]
 pub struct OpaqueValue(Box<RawValue>);
 

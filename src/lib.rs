@@ -69,9 +69,8 @@
 //!
 //! * using a different combination of tower middleware
 //! * using a different websocket library
-//! * adding custom request/response types
-//!   * as an escape hatch, if new request types or fields are added to the API and you don't feel
-//!     like waiting for them to be added to this library
+//! * adding custom request/response types (as an escape hatch, if new request types or fields are
+//!   added to the API and you don't feel like waiting for them to be added to this library)
 //!
 //! [`Request`]: crate::data::Request
 //! [`Response`]: crate::data::Response

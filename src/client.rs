@@ -167,8 +167,7 @@ pub struct ClientEventStream {
 }
 
 impl ClientEventStream {
-    /// Returns new tokens after successful authentication. If `None` is returned, it means the
-    /// sender (the underlying [`Client`]) has been dropped.
+    /// Returns [`ClientEvent`]s.
     ///
     /// # Example
     ///

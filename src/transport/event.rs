@@ -36,6 +36,8 @@ pin_project! {
 
 pin_project! {
     /// A stream of events.
+    ///
+    /// This is created when constructing an [`ApiService`](crate::service::ApiService).
     pub struct EventStream<S> where S: TryStream {
         #[pin]
         events: LeftSplitByMapBuffered<

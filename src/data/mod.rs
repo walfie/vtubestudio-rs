@@ -2,7 +2,10 @@
 //!
 //! * For a list of all request types, see the implementors for [`Request`].
 //! * For the corresponding response types, see [`Response`].
-//! * For event types specifically, see [`Event`] and [`EventConfig`].
+//! * For event types specifically:
+//!   * [`EventSubscriptionRequest`] is a [`Request`] used to subscribe to events.
+//!   * [`EventData`] is a trait used to correlate [`Event`]s with their corresponding [`EventConfig`]s.
+//!   * [`Event`] is an enum of known event types.
 
 mod enumeration;
 mod envelope;
@@ -351,6 +354,9 @@ define_request_response!(
     {
         rust_name = EventSubscription,
         /// Subscribe or unsubscribe from events.
+        ///
+        /// For a type-safe way to set the relevant fields, consider using the `subscribe` and
+        /// `unsubscribe` constructors instead of setting them manually.
         req = {
             /// Set to `true` to subscribe, `false` to unsubscribe.
             pub subscribe: bool,
