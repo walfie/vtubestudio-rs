@@ -10,7 +10,7 @@ A library for interacting with the [VTube Studio API].
 
 ## Basic usage
 
-This example creates a `Client` using the provided builder, which:
+The example below creates a `Client` using the provided builder, which:
 
 * connects to `ws://localhost:8001` using [`tokio_tungstenite`](https://docs.rs/tokio_tungstenite)
 * authenticates with an existing token (if present and valid)

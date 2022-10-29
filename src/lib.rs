@@ -20,7 +20,7 @@
 //!
 //! # Basic usage
 //!
-//! This example creates a [`Client`] using the provided [builder](ClientBuilder), which:
+//! The example below creates a [`Client`] using the provided [builder](ClientBuilder), which:
 //!
 //! * connects to `ws://localhost:8001` using [`tokio_tungstenite`](https://docs.rs/tokio_tungstenite)
 //! * authenticates with an existing token (if present and valid)
@@ -42,6 +42,19 @@
 //! [`no_middleware` example] in the repo.
 //!
 //! [`no_middleware` example]: https://github.com/walfie/vtubestudio-rs/blob/master/examples/no_middleware.rs
+//!
+//! # Events
+//!
+//! The [`ClientEventStream`] returned from the [`ClientBuilder`] will also return
+//! [`Event`](crate::data::Event)s if we subscribe to them.
+//!
+//! The example below demonstrates subscribing to [`TestEvent`](crate::data::TestEvent)s, which
+//! will be emitted every second.
+//!
+#![cfg_attr(feature = "tokio-tungstenite", doc = "```no_run")]
+#![cfg_attr(not(feature = "tokio-tungstenite"), doc = "```ignore")]
+#![doc = include_str!("../examples/events.rs")]
+//! ```
 //!
 //! # Project structure
 //!
@@ -114,7 +127,6 @@ pub(crate) use cfg_feature;
 
 pub use crate::client::{Client, ClientBuilder, ClientEvent, ClientEventStream};
 pub use crate::error::{Error, ErrorKind, Result};
-pub use crate::transport::EventStream;
 
 #[doc = include_str!("../README.md")]
 #[cfg(doctest)]
