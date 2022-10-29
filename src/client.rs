@@ -3,7 +3,6 @@ use crate::error::{BoxError, Error};
 use crate::service::BoxCloneApiService;
 use crate::service::{
     send_request, AuthenticationLayer, MakeApiService, ResponseWithToken, RetryPolicy,
-    TungsteniteConnector,
 };
 
 use futures_util::StreamExt;
@@ -217,6 +216,7 @@ impl ClientBuilder {
         /// [`tokio_tungstenite`] as the underlying websocket transport library.
         pub fn build_tungstenite(self) -> (Client, ClientEventStream)
         {
+            use crate::service::maker::TungsteniteConnector;
             self.build_connector(TungsteniteConnector)
         }
     }

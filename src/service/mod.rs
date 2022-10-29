@@ -10,12 +10,13 @@ use tower::{Service, ServiceExt};
 
 pub use crate::service::api::ApiService;
 pub use crate::service::auth::{Authentication, AuthenticationLayer, ResponseWithToken};
-pub use crate::service::maker::{MakeApiService, TungsteniteConnector};
+pub use crate::service::maker::MakeApiService;
 pub use crate::service::retry::RetryPolicy;
 
 crate::cfg_feature! {
     #![feature = "tokio-tungstenite"]
     pub use crate::service::api::TungsteniteApiService;
+    pub use crate::service::maker::TungsteniteConnector;
 }
 
 /// A [`Clone`]able [`Service`] that is compatible with [`Client`](crate::client::Client).

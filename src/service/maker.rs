@@ -4,7 +4,9 @@ use crate::service::api::ApiService;
 use crate::transport::EventStream;
 
 use futures_util::TryFutureExt;
+use std::future::Future;
 use std::marker::PhantomData;
+use std::pin::Pin;
 use std::task::{Context, Poll};
 use tokio_tower::MakeTransport;
 use tower::Service;
@@ -73,8 +75,6 @@ crate::cfg_feature! {
 
     use crate::transport::TungsteniteApiTransport;
     use futures_util::FutureExt;
-    use std::future::Future;
-    use std::pin::Pin;
     use tokio_tungstenite::tungstenite::client::IntoClientRequest;
 
     /// A [`Service`] for creating new [`TungsteniteApiTransport`]s.

@@ -128,6 +128,6 @@ pub(crate) use cfg_feature;
 pub use crate::client::{Client, ClientBuilder, ClientEvent, ClientEventStream};
 pub use crate::error::{Error, ErrorKind, Result};
 
-#[doc = include_str!("../README.md")]
 #[cfg(doctest)]
+#[cfg_attr(feature = "tokio-tungstenite", doc = include_str!("../README.md"))]
 pub struct ReadmeDoctests;
