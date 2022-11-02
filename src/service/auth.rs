@@ -265,6 +265,10 @@ where
     fn call(&mut self, req: RequestEnvelope) -> Self::Future {
         let mut this = self.clone();
 
+        // Use the service that was ready.
+        // https://docs.rs/tower/0.4.13/tower/trait.Service.html#be-careful-when-cloning-inner-services
+        std::mem::swap(&mut self.service, &mut this.service);
+
         let f = async move {
             // Attempt to authenticate if we aren't already authenticated (on initial connection,
             // after disconnects, after unrecoverable auth failures, etc)
