@@ -1,14 +1,17 @@
 // This example demonstrates pinning items.
 
+use std::time::{Duration, Instant};
+
 use base64::Engine;
 use vtubestudio::data::{
-    AngleRelativeTo, ArtMeshHitInfo, Event, EventSubscriptionRequest, ItemLoadRequest,
-    ItemPinRequest, ModelClickedEventConfig, Permission, PermissionRequest, SizeRelativeTo,
-    VertexPinType,
+    AngleRelativeTo, ArtMeshHitInfo, Event, EventSubscriptionRequest, ItemEventConfig,
+    ItemEventType, ItemLoadRequest, ItemPinRequest, ItemUnloadRequest, ModelClickedEventConfig,
+    Permission, PermissionRequest, SizeRelativeTo, VertexPinType,
 };
 use vtubestudio::{Client, ClientEvent};
 
 const PNG_IMAGE_DATA: &[u8] = include_bytes!("walfie-point.png");
+const VTS_IMAGE_NAME: &'static str = "example.png";
 
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
@@ -24,9 +27,15 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         )
         .build_tungstenite();
 
-    let subscribe_req = EventSubscriptionRequest::subscribe(&ModelClickedEventConfig {
-        only_clicks_on_model: true,
-    })?;
+    let subscribe_reqs = [
+        EventSubscriptionRequest::subscribe(&ModelClickedEventConfig {
+            only_clicks_on_model: true,
+        })?,
+        EventSubscriptionRequest::subscribe(&ItemEventConfig {
+            item_instance_ids: Vec::new(),
+            item_file_names: vec![VTS_IMAGE_NAME.to_owned()],
+        })?,
+    ];
 
     let mut permission_granted = false;
     while !permission_granted {
@@ -44,7 +53,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
             .any(|perm| perm.name == Permission::LoadCustomImagesAsItems && perm.granted);
     }
 
-    println!("Click in VTube Studio to pin an item");
+    println!("Right-click in VTube Studio to pin an item. Click a pinned item to unload it.");
 
     while let Some(client_event) = events.next().await {
         match client_event {
@@ -53,21 +62,28 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
             ClientEvent::Disconnected => {
                 println!("Connecting...");
 
-                // Try to subscribe to events, retrying on failure. Note that the client
-                // attempts to reconnect automatically when sending a request.
-                while let Err(e) = client.send(&subscribe_req).await {
-                    eprintln!("Failed to subscribe to events: {e}");
-                    eprintln!("Retrying in 2s...");
-                    tokio::time::sleep(std::time::Duration::from_secs(2)).await;
+                for req in &subscribe_reqs {
+                    // Try to subscribe to events, retrying on failure. Note that the client
+                    // attempts to reconnect automatically when sending a request.
+                    while let Err(e) = client.send(req).await {
+                        eprintln!("Failed to subscribe to events: {e}");
+                        eprintln!("Retrying in 2s...");
+                        tokio::time::sleep(std::time::Duration::from_secs(2)).await;
+                    }
                 }
             }
 
             ClientEvent::Api(Event::ModelClicked(event)) => {
-                println!("Click event: {event:?}");
+                println!("Model click event: {event:?}");
+
+                // Ignore if not right-click
+                if event.mouse_button_id != 1 {
+                    continue;
+                }
 
                 let item = client
                     .send(&ItemLoadRequest {
-                        file_name: "custom-image.png".to_owned(),
+                        file_name: VTS_IMAGE_NAME.to_owned(),
                         position_x: 0.0,
                         position_y: 0.0,
                         size: 0.32,
@@ -94,6 +110,18 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                                 size: 0.0,
                                 ..hit.hit_info.clone()
                             },
+                        })
+                        .await?;
+                }
+            }
+
+            ClientEvent::Api(Event::Item(event)) => {
+                println!("Item click event: {event:?}");
+                if event.item_event_type == ItemEventType::Clicked {
+                    client
+                        .send(&ItemUnloadRequest {
+                            instance_ids: vec![event.item_instance_id],
+                            ..Default::default()
                         })
                         .await?;
                 }

@@ -1803,7 +1803,8 @@ define_request_response!(
                 pub loaded_model_name: String,
                 /// Whether model was clicked.
                 pub model_was_clicked: bool,
-                /// ID of the mouse button. 1 for left click, 2 for right click, 3 for middle click.
+                /// ID of the mouse button. 0 for left click, 1 for right click, 2 for middle click.
+                // TODO: Turn this into an enum?
                 #[serde(rename = "mouseButtonID")]
                 pub mouse_button_id: i32,
                 /// The position of the click in the usual coordinate system.
