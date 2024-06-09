@@ -242,6 +242,30 @@ impl Default for VertexPinType {
     }
 }
 
+
+/// Known animation event types for [`EnumString<Permission>`]. Used in [`PermissionRequest`] and [`PermissionResponse`].
+#[non_exhaustive]
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+pub enum Permission {
+    /// Load custom images as items.
+    LoadCustomImagesAsItems,
+}
+
+impl Default for Permission {
+    fn default() -> Self {
+        Self::LoadCustomImagesAsItems
+    }
+}
+
+/// Whether a permission was granted. Used in [`PermissionResponse`].
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+pub struct PermissionStatus {
+    /// Permission name.
+    pub name: EnumString<Permission>,
+    /// Whether this permission was granted.
+    pub granted: bool,
+}
+
 macro_rules! define_request_response {
     (
         req_resp = [
@@ -1491,6 +1515,26 @@ define_request_response!(
             /// Item file name. E.g., `"my_test_item_2.png"`.
             pub item_file_name: String,
         },
+    },
+
+    {
+        rust_name = Permission,
+        /// Request permission or request a list of all already granted permissions.
+        #[derive(PartialEq)]
+        req = {
+            /// Set to `None` to receive the list of currently granted/available permissions for
+            /// this plugin without actually requesting a permission.
+            pub requested_permission: Option<EnumString<Permission>>,
+        },
+        /// Permission response.
+        resp = {
+            /// Whether a permission was granted.
+            pub grant_success: bool,
+            /// Permission that was requested.
+            pub requested_permission: Option<EnumString<Permission>>,
+            /// List of permissions.
+            pub permissions: Vec<PermissionStatus>,
+        },
     },],
 
     events = [
@@ -1743,7 +1787,7 @@ define_request_response!(
             rust_name = ModelClicked,
             config = {
                 /// Set to `true` to only include clicks on model.
-                only_clicks_on_model: bool,
+                pub only_clicks_on_model: bool,
             },
             /// An event that is triggered every time the model is clicked.
             ///
