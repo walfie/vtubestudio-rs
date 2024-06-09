@@ -95,7 +95,7 @@ macro_rules! define_error_ids {
     }
 }
 
-// https://github.com/DenchiSoft/VTubeStudio/blob/3bda900ddc24ee51e2179b81e0418e8278362783/Files/ErrorID.cs
+// https://github.com/DenchiSoft/VTubeStudio/blob/cbf875f9d16f868d57e9921235a129cf2f756a4d/Files/ErrorID.cs
 define_error_ids! {
     // General errors
     (0, INTERNAL_SERVER_ERROR, InternalServerError),
@@ -107,6 +107,7 @@ define_error_ids! {
     (6, REQUEST_TYPE_MISSING_OR_EMPTY, RequestTypeMissingOrEmpty),
     (7, REQUEST_TYPE_UNKNOWN, RequestTypeUnknown),
     (8, REQUEST_REQUIRES_AUTHENTICATION, RequestRequiresAuthentication),
+    (9, REQUEST_REQUIRES_PERMISSION, RequestRequiresPermission),
 
     // Errors related to AuthenticationTokenRequest
     (50, TOKEN_REQUEST_DENIED, TokenRequestDenied),
@@ -205,6 +206,9 @@ define_error_ids! {
     (755, ITEM_ORDER_INVALID, ItemOrderInvalid),
     (756, ITEM_ORDER_ALREADY_TAKEN, ItemOrderAlreadyTaken),
     (757, ITEM_LOAD_VALUES_INVALID, ItemLoadValuesInvalid),
+    (758, ITEM_CUSTOM_DATA_INVALID, ItemCustomDataInvalid),
+    (759, ITEM_CUSTOM_DATA_CANNOT_ASK_RIGHT_NOW, ItemCustomDataCannotAskRightNow),
+    (760, ITEM_CUSTOM_DATA_LOAD_REQUEST_REJECTED_BY_USER, ItemCustomDataLoadRequestRejectedByUser),
 
     // Errors related to ItemUnloadRequest
     (800, CANNOT_CURRENTLY_UNLOAD_ITEM, CannotCurrentlyUnloadItem),
@@ -224,6 +228,36 @@ define_error_ids! {
 
     // Errors related to EventSubscriptionRequest
     (950, EVENT_SUBSCRIPTION_REQUEST_EVENT_TYPE_UNKNOWN, EventSubscriptionRequestEventTypeUnknown),
+
+    // Errors related to ArtMeshSelectionRequest
+    (1000, ART_MESH_SELECTION_REQUEST_NO_MODEL_LOADED, ArtMeshSelectionRequestNoModelLoaded),
+    (1001, ART_MESH_SELECTION_REQUEST_OTHER_WINDOWS_OPEN, ArtMeshSelectionRequestOtherWindowsOpen),
+    (1002, ART_MESH_SELECTION_REQUEST_MODEL_DOES_NOT_HAVE_ART_MESH, ArtMeshSelectionRequestModelDoesNotHaveArtMesh),
+    (1003, ART_MESH_SELECTION_REQUEST_ART_MESH_ID_LIST_ERROR, ArtMeshSelectionRequestArtMeshIDListError),
+
+    // Errors related to ItemPinRequest
+    (1050, ITEM_PIN_REQUEST_GIVEN_ITEM_NOT_LOADED, ItemPinRequestGivenItemNotLoaded),
+    (1051, ITEM_PIN_REQUEST_INVALID_ANGLE_OR_SIZE_TYPE, ItemPinRequestInvalidAngleOrSizeType),
+    (1052, ITEM_PIN_REQUEST_MODEL_NOT_FOUND, ItemPinRequestModelNotFound),
+    (1053, ITEM_PIN_REQUEST_ART_MESH_NOT_FOUND, ItemPinRequestArtMeshNotFound),
+    (1054, ITEM_PIN_REQUEST_PIN_POSITION_INVALID, ItemPinRequestPinPositionInvalid),
+
+    // Errors related to PermissionRequest
+    (1100, PERMISSION_REQUEST_UNKNOWN_PERMISSION, PermissionRequestUnknownPermission),
+    (1101, PERMISSION_REQUEST_CANNOT_REQUEST_RIGHT_NOW, PermissionRequestCannotRequestRightNow),
+    (1102, PERMISSION_REQUEST_FILE_PROBLEM, PermissionRequestFileProblem),
+
+    // Errors related to PostProcessingListReqest
+    (1150, POST_PROCESSING_LIST_REQEST_INVALID_FILTER, PostProcessingListReqestInvalidFilter),
+
+    // Errors related to PostProcessingUpdateReqest
+    (1200, POST_PROCESSING_UPDATE_REQEST_CANNOT_UPDATE_RIGHT_NOW, PostProcessingUpdateReqestCannotUpdateRightNow),
+    (1201, POST_PROCESSING_UPDATE_REQUEST_FADE_TIME_INVALID, PostProcessingUpdateRequestFadeTimeInvalid),
+    (1202, POST_PROCESSING_UPDATE_REQUEST_LOADING_PRESET_AND_VALUES, PostProcessingUpdateRequestLoadingPresetAndValues),
+    (1203, POST_PROCESSING_UPDATE_REQUEST_PRESET_FILE_LOAD_FAILED, PostProcessingUpdateRequestPresetFileLoadFailed),
+    (1204, POST_PROCESSING_UPDATE_REQUEST_VALUE_LIST_INVALID, PostProcessingUpdateRequestValueListInvalid),
+    (1205, POST_PROCESSING_UPDATE_REQUEST_VALUE_LIST_CONTAINS_DUPLICATES, PostProcessingUpdateRequestValueListContainsDuplicates),
+    (1206, POST_PROCESSING_UPDATE_REQUEST_TRIED_TO_LOAD_RESTRICTED_EFFECT, PostProcessingUpdateRequestTriedToLoadRestrictedEffect),
 
     // Event config errors
     (100_000, EVENT_TEST_EVENT_TEST_MESSAGE_TOO_LONG, Event_TestEvent_TestMessageTooLong),
