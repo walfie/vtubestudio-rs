@@ -53,12 +53,7 @@ pub trait EventConfig: Serialize {
     type Event: EventData;
 }
 
-/// Used for serde default. E.g., `#[serde(default = "serde_true")]`
-fn serde_true() -> bool {
-    true
-}
-
-// https://github.com/DenchiSoft/VTubeStudio/blob/08681904e285d37b8c22d17d7d3a36c8c6834425/Files/HotkeyAction.cs
+// https://github.com/DenchiSoft/VTubeStudio/blob/4d284d4d62d9a7349d6e069cad1ff06391332283/Files/HotkeyAction.cs
 /// Known hotkey types for [`EnumString<HotkeyAction>`]. Used in [`Hotkey`].
 #[non_exhaustive]
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
@@ -799,8 +794,7 @@ define_request_response!(
             pub hotkey_id: String,
             /// If present, trigger the hotkey for the given Live2D item. If absent, the hotkey
             /// will be triggered for the currently loaded model.
-            #[serde(skip_serializing_if = "Option::is_none")]
-            #[serde(rename = "itemInstanceID")]
+            #[serde(rename = "itemInstanceID", skip_serializing_if = "Option::is_none")]
             pub item_instance_id: Option<String>,
         },
         /// The hotkey that was triggered.
@@ -1302,12 +1296,12 @@ define_request_response!(
             /// `0.32` is roughly the "default" size that items will have when the user loads them manually.
             pub size: f64,
             /// Rotation, in degrees.
-            pub rotation: i32,
+            pub rotation: f64,
             /// Fade time, in seconds. Should be between `0` and `2`.
             pub fade_time: f64,
             /// Item order. If the order is taken, VTube Studio will automatically try to find the
             /// next available order, unless `fail_if_order_taken` is `true`.
-            pub order: Option<i32>,
+            pub order: i32,
             /// Set to `true` to fail with an `ItemOrderAlreadyTaken` error if the desired `order`
             /// is already taken.
             pub fail_if_order_taken: bool,
@@ -1332,7 +1326,6 @@ define_request_response!(
             /// Set to `true` to ask the user for permission before loading custom data.
             pub custom_data_ask_user_first: bool,
             /// Set to `false` to always ask for confirmation to load custom data.
-            #[serde(default = "serde_true")]
             pub custom_data_skip_asking_user_if_whitelisted: bool,
             /// Timeout for asking user permission to load custom data.
             ///
@@ -1786,11 +1779,12 @@ define_request_response!(
             rust_name = Item,
             config = {
                 /// Item instance IDs to match on. Set to empty to match all IDs.
-                #[serde(rename = "itemInstanceIDs")]
+                #[serde(rename = "itemInstanceIDs", skip_serializing_if = "Vec::is_empty")]
                 pub item_instance_ids: Vec<String>,
                 /// Item file names to match on. Set to empty to match all file names.
                 ///
                 /// This does "contains-matching", so for example if you pass in `"my"`, it will match the item `"my_item.png"`.
+                #[serde(skip_serializing_if = "Vec::is_empty")]
                 pub item_file_names: Vec<String>,
             },
             /// An event that is triggered every time certain actions are done with/by an item.
@@ -2094,8 +2088,8 @@ pub struct ItemToMove {
     /// Rotation, in degrees.
     ///
     /// A value of `None` will be serialized as `-1000` as recommended by the documentation.
-    #[serde(serialize_with = "item_move_default_i32")]
-    pub rotation: Option<i32>,
+    #[serde(serialize_with = "item_move_default_f64")]
+    pub rotation: Option<f64>,
     /// Change the order of the item.
     ///
     /// A value of `None` will be serialized as `-1000` as recommended by the documentation.
