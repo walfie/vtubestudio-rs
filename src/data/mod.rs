@@ -132,7 +132,7 @@ impl Default for AnimationEventType {
     }
 }
 
-/// Known animation event types for [`EnumString<ItemEventType>`]. Used in [`ItemEvent`].
+/// Known event types for [`EnumString<ItemEventType>`]. Used in [`ItemEvent`].
 #[non_exhaustive]
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
 pub enum ItemEventType {
@@ -155,6 +155,90 @@ pub enum ItemEventType {
 impl Default for ItemEventType {
     fn default() -> Self {
         Self::Clicked
+    }
+}
+
+/// Known values for [`EnumString<AngleRelativeTo>`]. Used in [`ItemPinRequest`].
+#[non_exhaustive]
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+pub enum AngleRelativeTo {
+    /// Absolute angle.
+    ///
+    /// That means if you pass in 0 as angle, the item will be pinned upright at an angle of 0
+    /// compared to the VTS window. You'd use this if you want the item to face a certain direction
+    /// relative to the VTS window.
+    RelativeToWorld,
+    /// Relative to the angle the item currently is at.
+    ///
+    /// If you pass in 0 as angle, that means the item will be pinned at the angle it is already at
+    /// meaning its current rotation will not be changed. You'd use this if you don't want to
+    /// change the item rotation and just pin it as is.
+    RelativeToCurrentItemRotation,
+    /// Relative angle to model rotation.
+    ///
+    /// That means if you pass in 0 as angle and the user has rotated the model, the item will be
+    /// pinned upright in relation to the model. This "model rotation" doesn't include rotation
+    /// caused by Live2D ArtMesh deformation, only the actual rotation applied to the whole model
+    /// by VTube Studio. You'd use this if you want the item to face a certain direction relative
+    /// to the current rotation of the model.
+    RelativeToModel,
+    /// Relative angle to the pin position.
+    ///
+    /// This is what you should use if you want to pin an item at a certain position within a
+    /// certain ArtMesh at a certain angle and you want that angle to be exactly the same no matter
+    /// how the model is rotated right now or how the ArtMesh is deformed. However, what angle you
+    /// have to pass in to get the desired effect will be completely different for each
+    /// pin-position.
+    RelativeToPinPosition,
+}
+
+impl Default for AngleRelativeTo {
+    fn default() -> Self {
+        Self::RelativeToWorld
+    }
+}
+
+/// Known values for [`EnumString<SizeRelativeTo>`]. Used in [`ItemPinRequest`].
+#[non_exhaustive]
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+pub enum SizeRelativeTo {
+    /// Absolute size. Between 0 (smallest) and 1 (largest).
+    ///
+    /// See also [`ItemLoadRequest`].
+    RelativeToWorld,
+    /// Relative to current item size.
+    ///
+    /// You can pass in numbers between `-1` and `1`, which will be added to the current item size,
+    /// meaning you can pass in 0 if you want to pin the item at its current size without changing
+    /// it.
+    RelativeToCurrentItemSize,
+}
+
+impl Default for SizeRelativeTo {
+    fn default() -> Self {
+        Self::RelativeToWorld
+    }
+}
+
+/// Known animation event types for [`EnumString<VertexPinType>`]. Used in [`ItemPinRequest`].
+#[non_exhaustive]
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+pub enum VertexPinType {
+    /// The item will be pinned to the given ArtMesh using the pin position provided in the fields
+    /// `vertexID1`, `vertexID2`, `vertexID3`, `vertexWeight1`, `vertexWeight2` and
+    /// `vertexWeight3`.
+    Provided,
+    /// The item will be pinned to the "center" of the given ArtMesh. It's not really the center
+    /// (spacially) but actually the triangle in the middle of the triangle list of the mesh. This
+    /// will give you the same position every time for a given ArtMesh.
+    Center,
+    /// The item will be pinned to a random triangle within the given ArtMesh.
+    Random,
+}
+
+impl Default for VertexPinType {
+    fn default() -> Self {
+        Self::Provided
     }
 }
 
@@ -1376,6 +1460,37 @@ define_request_response!(
             /// ArtMeshes that were not selected.
             pub inactive_art_meshes: Vec<String>,
         },
+    },
+
+    {
+        rust_name = ItemPin,
+        /// Pin items in the scene to the currently loaded model.
+        #[derive(PartialEq)]
+        req = {
+            /// Set to `false` to unpin the item.
+            pub pin: bool,
+            /// Item instance ID.
+            #[serde(rename = "itemInstanceID")]
+            pub item_instance_id: String,
+            /// How to interpret angles.
+            pub angle_relative_to: EnumString<AngleRelativeTo>,
+            /// How to interpret sizes.
+            pub size_relative_to: EnumString<SizeRelativeTo>,
+            /// Vertex pin type.
+            pub vertex_pin_type: EnumString<VertexPinType>,
+            /// Pin info.
+            pub pin_info: ArtMeshHitInfo,
+        },
+        /// Item pinned successfully.
+        resp = {
+            /// Whether item is pinned.
+            pub is_pinned: bool,
+            /// Item instance ID. E.g., `"4a241269394f463ca16b8b21aa636568"`.
+            #[serde(rename = "itemInstanceID")]
+            pub item_instance_id: String,
+            /// Item file name. E.g., `"my_test_item_2.png"`.
+            pub item_file_name: String,
+        },
     },],
 
     events = [
@@ -1661,6 +1776,8 @@ define_request_response!(
             },
         },
 
+        /*
+        // Disabled for now since PostProcessingListRequest/etc are only available in beta.
         {
             rust_name = PostProcessing,
             config = {},
@@ -1678,6 +1795,7 @@ define_request_response!(
                 pub current_preset: String,
             },
         },
+        */
 
         {
             rust_name = Live2DCubismEditorConnected,
@@ -1717,7 +1835,7 @@ pub struct ArtMeshHit {
     pub hit_info: ArtMeshHitInfo,
 }
 
-/// ArtMesh hit info, used in [`ArtMeshHit`].
+/// ArtMesh hit info, used in [`ArtMeshHit`] and [`ItemPinRequest`].
 ///
 /// The exact click position within the ArtMesh is given via the `vertexID1`, `vertexID2`,
 /// `vertexID3`, `vertexWeight1`, `vertexWeight2`, `vertexWeight3` fields as [barycentric
