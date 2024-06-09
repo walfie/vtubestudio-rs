@@ -242,7 +242,6 @@ impl Default for VertexPinType {
     }
 }
 
-
 /// Known animation event types for [`EnumString<Permission>`]. Used in [`PermissionRequest`] and [`PermissionResponse`].
 #[non_exhaustive]
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
@@ -264,6 +263,27 @@ pub struct PermissionStatus {
     pub name: EnumString<Permission>,
     /// Whether this permission was granted.
     pub granted: bool,
+}
+
+/// Mouse button ID. Used in [`ModelClickedEvent`].
+#[derive(Default, Debug, Clone, Serialize, Deserialize, PartialEq)]
+pub struct MouseButtonId(pub i32);
+
+impl MouseButtonId {
+    /// Is left mouse button.
+    pub fn is_left(&self) -> bool {
+        self.0 == 0
+    }
+
+    /// Is right mouse button.
+    pub fn is_right(&self) -> bool {
+        self.0 == 1
+    }
+
+    /// Is middle mouse button.
+    pub fn is_middle(&self) -> bool {
+        self.0 == 2
+    }
 }
 
 macro_rules! define_request_response {
@@ -1806,7 +1826,7 @@ define_request_response!(
                 /// ID of the mouse button. 0 for left click, 1 for right click, 2 for middle click.
                 // TODO: Turn this into an enum?
                 #[serde(rename = "mouseButtonID")]
-                pub mouse_button_id: i32,
+                pub mouse_button_id: MouseButtonId,
                 /// The position of the click in the usual coordinate system.
                 ///
                 /// If you need the exact pixel position of the click, you can use `windowSize`

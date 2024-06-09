@@ -67,3 +67,7 @@ required-features = ["tokio-tungstenite"]
 name = "events"
 required-features = ["tokio-tungstenite"]
 
+[[example]]
+name = "pin_item"
+required-features = ["tokio-tungstenite"]
+

@@ -1,7 +1,5 @@
 // This example demonstrates pinning items.
 
-use std::time::{Duration, Instant};
-
 use base64::Engine;
 use vtubestudio::data::{
     AngleRelativeTo, ArtMeshHitInfo, Event, EventSubscriptionRequest, ItemEventConfig,
@@ -53,7 +51,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
             .any(|perm| perm.name == Permission::LoadCustomImagesAsItems && perm.granted);
     }
 
-    println!("Right-click in VTube Studio to pin an item. Click a pinned item to unload it.");
+    println!("\n\nRight-click in VTube Studio to pin an item. Click a pinned item to unload it.\n\n");
 
     while let Some(client_event) = events.next().await {
         match client_event {
@@ -77,7 +75,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                 println!("Model click event: {event:?}");
 
                 // Ignore if not right-click
-                if event.mouse_button_id != 1 {
+                if !event.mouse_button_id.is_right() {
                     continue;
                 }
 
