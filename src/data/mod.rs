@@ -1520,7 +1520,7 @@ define_request_response!(
             /// Vertex pin type.
             pub vertex_pin_type: EnumString<VertexPinType>,
             /// Pin info.
-            pub pin_info: ArtMeshHitInfo,
+            pub pin_info: ArtMeshPosition,
         },
         /// Item pinned successfully.
         resp = {
@@ -1895,10 +1895,10 @@ pub struct ArtMeshHit {
     /// Whether the ArtMesh is masked.
     pub is_masked: bool,
     /// Info about the art mesh.
-    pub hit_info: ArtMeshHitInfo,
+    pub hit_info: ArtMeshPosition,
 }
 
-/// ArtMesh hit info, used in [`ArtMeshHit`] and [`ItemPinRequest`].
+/// ArtMesh position info, used in [`ArtMeshHit`] and [`ItemPinRequest`].
 ///
 /// The exact click position within the ArtMesh is given via the `vertexID1`, `vertexID2`,
 /// `vertexID3`, `vertexWeight1`, `vertexWeight2`, `vertexWeight3` fields as [barycentric
@@ -1913,7 +1913,7 @@ pub struct ArtMeshHit {
 /// [barycentric coordinates]: https://en.wikipedia.org/wiki/Barycentric_coordinate_system
 #[derive(Default, Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
-pub struct ArtMeshHitInfo {
+pub struct ArtMeshPosition {
     /// Model ID. E.g., `"d87b771d2902473bbaa0226d03ef4754"`.
     #[serde(rename = "modelID")]
     pub model_id: String,
