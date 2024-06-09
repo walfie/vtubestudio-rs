@@ -102,6 +102,10 @@ pub enum HotkeyAction {
     ArtMeshColorPreset,
     /// Toggles the tracking on/off. Can be webcam or USB/WiFi connected phone.
     ToggleTracker,
+    /// Toggles a Twitch feature (for example Emote Dropper) on/off.
+    ToggleTwitchFeature,
+    /// Loads post processing effect preset.
+    LoadEffectPreset,
 }
 
 impl Default for HotkeyAction {
