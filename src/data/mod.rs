@@ -105,6 +105,54 @@ impl Default for HotkeyAction {
     }
 }
 
+/// Known animation event types for [`EnumString<AnimationEventType>`]. Used in [`ModelAnimationEvent`].
+#[non_exhaustive]
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+pub enum AnimationEventType {
+    /// Triggered when an animation **starts** (idle-animations or normal one-time animations).
+    Start,
+    /// Triggered when an animation **ends** (idle-animations or normal one-time animations)
+    End,
+    /// Triggered when a custom event is encountered in the animation.
+    ///
+    /// These events can be added at any point in the animation when creating animations in the
+    /// Live2D Cubism Animation Editor. You can find more details about how to create/use those
+    /// events below.
+    Custom,
+}
+
+impl Default for AnimationEventType {
+    fn default() -> Self {
+        Self::Custom
+    }
+}
+
+/// Known animation event types for [`EnumString<ItemEventType>`]. Used in [`ItemEvent`].
+#[non_exhaustive]
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+pub enum ItemEventType {
+    /// Item was added to the scene.
+    Added,
+    /// Item was removed from the scene.
+    Removed,
+    /// Item was dropped on the model and is now pinned.
+    DroppedPinned,
+    /// Item was dropped but not on the model. It is now unpinned.
+    DroppedUnpinned,
+    /// Item was clicked.
+    Clicked,
+    /// Item was locked.
+    Locked,
+    /// Item was unlocked.
+    Unlocked,
+}
+
+impl Default for ItemEventType {
+    fn default() -> Self {
+        Self::Clicked
+    }
+}
+
 macro_rules! define_request_response {
     (
         req_resp = [
@@ -1444,8 +1492,239 @@ define_request_response!(
             },
         },
 
+        {
+            rust_name = HotkeyTriggered,
+            config = {
+                /// If provided, only hotkeys of the provided type (with the given action) will
+                /// trigger this event. Otherwise, all hotkey activations will trigger the event.
+                pub only_for_action: Option<EnumString<HotkeyAction>>,
+                /// Set to `true` to avoid receiving events when a hotkey is triggered by a plugin
+                /// via the trigger-hotkey-API
+                #[serde(rename = "ignoreHotkeysTriggeredByAPI")]
+                pub ignore_hotkeys_triggered_by_api: bool,
+            },
+            /// An event that is triggered every time a hotkey is triggered manually by the user
+            /// (keyboard/hand-gesture) or via the hotkey-trigger-API.
+            data = {
+                /// Hotkey ID. E.g., `"21bf7ade9e664f3ec29d05156e4ce5c1"`.
+                #[serde(rename = "hotkeyID")]
+                pub hotkey_id: String,
+                /// Hotkey name. E.g., `"Eyes Cry"`.
+                pub hotkey_name: String,
+                /// Hotkey action. E.g., `"ToggleExpression"`.
+                pub hotkey_action: EnumString<HotkeyAction>,
+                /// Hotkey file. E.g., `"EyesCry.exp3.json"`.
+                pub hotkey_file: String,
+                /// Whether the hotkey was triggered by the API.
+                #[serde(rename = "hotkeyTriggeredByAPI")]
+                pub hotkey_triggered_by_api: bool,
+                /// Model ID. E.g., `"d8ee771d2909873b1aa0226d03ef4f51"`.
+                #[serde(rename = "modelID")]
+                pub model_id: String,
+                /// Model name. E.g., `"Akari"`.
+                pub model_name: String,
+                /// Whether the hotkey is for a Live2D item.
+                #[serde(rename = "isLive2DItem")]
+                pub is_live2d_item: bool,
+            },
+        },
+
+        {
+            rust_name = ModelAnimation,
+            config = {
+                /// Ignore events triggered by Live2D items.
+                #[serde(rename = "ignoreLive2DItems")]
+                pub ignore_live2d_items: bool,
+                /// Ignore events triggered by idle animations.
+                pub ignore_idle_animations: bool,
+            },
+            /// An event that is triggered every time there's an `animation-event` encountered in
+            /// an animation playing for any Live2D model in the scene (so for the main model and
+            /// any Live2D items).
+            data = {
+                /// Animation event type.
+                pub animation_event_type: EnumString<AnimationEventType>,
+                /// Time in seconds within the animation when the animation-event was encountered.
+                pub animation_event_time: f64,
+                /// Animation event data. E.g., `"My Test Event 123456789"`.
+                pub animation_event_data: String,
+                /// Animation name. E.g., `"event_test_anim_4_final.motion3.json"`.
+                pub animation_name: String,
+                /// Length of animation in seconds.
+                pub animation_length: f64,
+                /// Whether the animation is an idle animation.
+                pub is_idle_animation: bool,
+                /// Model ID. E.g., `"d8ee771d2909873b1aa0226d03ef4f51"`.
+                #[serde(rename = "modelID")]
+                pub model_id: String,
+                /// Model name. E.g., `"Akari"`.
+                pub model_name: String,
+                /// Whether the event is for a Live2D item.
+                #[serde(rename = "isLive2DItem")]
+                pub is_live2d_item: bool,
+            },
+        },
+
+        {
+            rust_name = Item,
+            config = {
+                /// Item instance IDs to match on. Set to empty to match all IDs.
+                #[serde(rename = "itemInstanceIDs")]
+                pub item_instance_ids: Vec<String>,
+                /// Item file names to match on. Set to empty to match all file names.
+                ///
+                /// This does "contains-matching", so for example if you pass in `"my"`, it will match the item `"my_item.png"`.
+                pub item_file_names: Vec<String>,
+            },
+            /// An event that is triggered every time certain actions are done with/by an item.
+            data = {
+                /// Item event type.
+                pub item_event_type: EnumString<ItemEventType>,
+                /// Item instance ID. E.g., `"3dcfc2456ac94a37bad369ec1875a15b"`.
+                #[serde(rename = "itemInstanceID")]
+                pub item_instance_id: String,
+                /// Item file name. E.g., `"my_item.png"`
+                pub item_file_name: String,
+                /// Item position.
+                pub item_position: Vec2,
+            },
+        },
+
+        {
+            rust_name = ModelClicked,
+            config = {
+                /// Set to `true` to only include clicks on model.
+                only_clicks_on_model: bool,
+            },
+            /// An event that is triggered every time the model is clicked.
+            ///
+            /// Depending on the config, it is also triggered when you click anywhere in the VTS
+            /// window even if the click wasn't on the model.
+            data = {
+                /// Whether the model is currently loaded.
+                pub model_loaded: bool,
+                /// Model ID. E.g., `"d8ee771d2909873b1aa0226d03ef4f51"`.
+                #[serde(rename = "loadedModelID")]
+                pub loaded_model_id: String,
+                /// Model name. E.g., `"Akari"`.
+                pub loaded_model_name: String,
+                /// Whether model was clicked.
+                pub model_was_clicked: bool,
+                /// ID of the mouse button. 1 for left click, 2 for right click, 3 for middle click.
+                #[serde(rename = "mouseButtonID")]
+                pub mouse_button_id: i32,
+                /// The position of the click in the usual coordinate system.
+                ///
+                /// If you need the exact pixel position of the click, you can use `windowSize`
+                /// (current VTS window size in pixels) to calculate that.
+                pub click_position: Vec2,
+                /// Current VTS window size in pixels.
+                pub window_size: Vec2,
+                /// The number of ArtMeshes at the click position.
+                pub clicked_art_mesh_count: i32,
+                /// ArtMesh hits.
+                pub art_mesh_hits: Vec<ArtMeshHit>,
+            },
+        },
+
+        {
+            rust_name = PostProcessing,
+            config = {},
+            /// An event that is triggered every time the post-processing system is turned on/off or a preset is loaded/unloaded.
+            ///
+            /// For more information about post-processing, check the [visual effects page](https://github.com/DenchiSoft/VTubeStudio/wiki/Visual-Effects).
+            ///
+            /// If after receiving this event you want to read the detailed post-processing state
+            /// including all configs and their values use the [`PostProcessingListRequest`] and if
+            /// you want to send post-processing values, use the [`PostProcessingUpdateRequest`].
+            data = {
+                /// Current on state.
+                pub current_on_state: bool,
+                /// Current preset. E.g., `"my_preset"`.
+                pub current_preset: String,
+            },
+        },
+
+        {
+            rust_name = Live2DCubismEditorConnected,
+            config = {},
+            /// This event is triggered every time the `Connect`/`Send parameters` toggles are
+            /// toggled by the user and every time the connection state with the Live2D Cubism API
+            /// changes.
+            ///
+            /// Additionally, the event is also sent exactly once when you first subscribe to the
+            /// event. That way, you can easily get the initial state.
+            data = {
+                /// Is VTube Studio trying to connect to Live2D Cubism? `true` if the `Connect` toggle is turned on in VTS.
+                pub trying_to_connect: bool,
+                /// Is VTube Studio fully connected to and authenticated with Live2D Cubism?
+                pub connected: bool,
+                /// Has the user turned on the `Send parameters` toggle?
+                ///
+                /// If this is on and `connected` is true, VTube Studio is actively sending parameter data into Live2D Cubism.
+                pub should_send_parameters: bool,
+            },
+        },
     ],
 );
+
+/// Art mesh hit. Used in [`ModelClickedEvent`].
+#[derive(Default, Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct ArtMeshHit {
+    /// The order in the ArtMesh stack at the click position.
+    ///
+    /// The topmost ArtMesh at the click position will have `"artMeshOrder": 0`. This would be the
+    /// ArtMesh that items pin to when dropped by users at that exact position.
+    pub art_mesh_order: i32,
+    /// Whether the ArtMesh is masked.
+    pub is_masked: bool,
+    /// Info about the art mesh.
+    pub hit_info: ArtMeshHitInfo,
+}
+
+/// ArtMesh hit info, used in [`ArtMeshHit`].
+///
+/// The exact click position within the ArtMesh is given via the `vertexID1`, `vertexID2`,
+/// `vertexID3`, `vertexWeight1`, `vertexWeight2`, `vertexWeight3` fields as [barycentric
+/// coordinates]. In short, VTS checks which specific triangle was clicked in the ArtMesh and
+/// returns the three vertex IDs that make up this triangle, including the weights that if
+/// multiplied with the vertex positions will result in the exact click position within the
+/// triangle.
+///
+/// The ArtMesh ID and barycentric coordinates can be used to identify an exact position on the
+/// model and can be used to pin an item at that position using the `ItemPinRequest`.
+///
+/// [barycentric coordinates]: https://en.wikipedia.org/wiki/Barycentric_coordinate_system
+#[derive(Default, Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct ArtMeshHitInfo {
+    /// Model ID. E.g., `"d87b771d2902473bbaa0226d03ef4754"`.
+    #[serde(rename = "modelID")]
+    pub model_id: String,
+    /// ArtMesh ID. E.g., `"hair_right6"`.
+    #[serde(rename = "artMeshID")]
+    pub art_mesh_id: String,
+    /// Angle.
+    pub angle: f64,
+    /// Size.
+    pub size: f64,
+    /// Vertex ID 1.
+    #[serde(rename = "vertexID1")]
+    pub vertex_id1: i32,
+    /// Vertex ID 2.
+    #[serde(rename = "vertexID2")]
+    pub vertex_id2: i32,
+    /// Vertex ID 3.
+    #[serde(rename = "vertexID3")]
+    pub vertex_id3: i32,
+    /// Vertex weight 1.
+    pub vertex_weight1: f64,
+    /// Vertex weight 2.
+    pub vertex_weight2: f64,
+    /// Vertex weight 3.
+    pub vertex_weight3: f64,
+}
 
 /// Struct representing a coordinate or dimensions. Used in [`ModelOutlineEvent`].
 #[derive(Default, Deserialize, Serialize, Debug, PartialEq, Clone)]
