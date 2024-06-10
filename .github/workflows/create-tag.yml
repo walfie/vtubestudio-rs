@@ -15,7 +15,7 @@ jobs:
     # Generate a token (with "repo" permissions), and add it to the repo settings:
     # https://github.com/settings/tokens/new?scopes=repo
     # https://github.com/your-username/your-repo/settings/secrets/actions
-    - uses: actions/checkout@v2
+    - uses: actions/checkout@v4
       with:
         token: ${{ secrets.PERSONAL_ACCESS_TOKEN }}
     - name: Set git user
