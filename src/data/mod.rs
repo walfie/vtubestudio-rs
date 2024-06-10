@@ -1552,7 +1552,57 @@ define_request_response!(
             /// List of permissions.
             pub permissions: Vec<PermissionStatus>,
         },
-    },],
+    },
+
+    {
+        rust_name = PostProcessingList,
+        /// Request the general state of the post-processing system.
+        ///
+        /// Includes a list of all existing (user-created) post-processing presets and a list of
+        /// all available post-processing effects with their current value (current post-processing
+        /// state).
+        #[derive(PartialEq)]
+        req = {
+            /// If set to `true`, `post_processing_presets` will be set in the response.
+            pub fill_post_processing_presets_array: bool,
+            /// If set to `true`, `post_processing_effects` will be set in the response.
+            pub fill_post_processing_effects_array: bool,
+            /// Set to return only specific effect IDs.
+            #[serde(rename = "effectIDFilter", skip_serializing_if = "Vec::is_empty")]
+            pub effect_id_filter: Vec<String>,
+        },
+        /// Post-processing list response.
+        resp = {
+            /// Whether post-processing is supported.
+            pub post_processing_supported: bool,
+            /// Whether post-processing is active.
+            pub post_processing_active: bool,
+            /// Whether an update request can be sent.
+            pub can_send_post_processing_update_request_right_now: bool,
+            /// Whether restricted effects are allowed.
+            pub restricted_effects_allowed: bool,
+            /// Whether preset is active.
+            pub preset_is_active: bool,
+            /// Name of active preset.
+            pub active_preset: String,
+            /// Preset count.
+            pub preset_count: i32,
+            /// Active effect count.
+            pub active_effect_count: i32,
+            /// Effect count before filter.
+            pub effect_count_before_filter: i32,
+            /// Config count before filter.
+            pub config_count_before_filter: i32,
+            /// Effect count after filter.
+            pub effect_count_after_filter: i32,
+            /// Config count after filter.
+            pub config_count_after_filter: i32,
+            /// Post processing effects.
+            pub post_processing_effects: Vec<PostProcessingEffect>,
+            /// Post processing presets.
+            pub post_processing_presets: Vec<String>,
+        },
+    }, ],
 
     events = [
         {
@@ -2119,6 +2169,80 @@ pub struct MovedItem {
         deserialize_with = "moved_item_error_deserialize"
     )]
     pub error_id: Option<ErrorId>,
+}
+
+/// Post-processing effect, used in [`PostProcessingListResponse`]
+#[derive(Default, Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct PostProcessingEffect {
+    /// Internal ID. E.g., `"color_grading"`.
+    #[serde(rename = "internalID")]
+    pub internal_id: String,
+    /// Enum ID. E.g., `"ColorGrading"`.
+    #[serde(rename = "enumID")]
+    pub enum_id: String,
+    /// Explanation. E.g., `"Color grading"`.
+    pub explanation: String,
+    /// Whether effect is active.
+    pub effect_is_active: bool,
+    /// Whether effect is restricted.
+    pub effect_is_restricted: bool,
+    /// Config entries.
+    pub config_entries: Vec<PostProcessingEffectConfigEntry>,
+}
+
+// TODO: Make this an enum
+/// Config entry used in [`PostProcessingEffect`].
+#[derive(Default, Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct PostProcessingEffectConfigEntry {
+    /// Internal ID. E.g., `"color_grading-strength"`.
+    #[serde(rename = "internalID")]
+    pub internal_id: String,
+    /// Enum ID. E.g., `"ColorGrading_Strength"`.
+    #[serde(rename = "enumID")]
+    pub enum_id: String,
+    /// Explanation. E.g., `"Effect on/off"`.
+    pub explanation: String,
+    /// Type. E.g., `"Float"`.
+    #[serde(rename = "type")]
+    pub type_: String,
+    /// Activation config.
+    pub activation_config: bool,
+    /// Float value.
+    pub float_value: f64,
+    /// Float min.
+    pub float_min: f64,
+    /// Float max.
+    pub float_max: f64,
+    /// Float default.
+    pub float_default: f64,
+    /// Int value.
+    pub int_value: i32,
+    /// Int min.
+    pub int_min: i32,
+    /// Int max.
+    pub int_max: i32,
+    /// Int default.
+    pub int_default: i32,
+    /// Color value. E.g., `"77CCAAFF"`.
+    pub color_value: String,
+    /// Color default.
+    pub color_default: String,
+    /// Whether color has alpha.
+    pub color_has_alpha: bool,
+    /// Bool value.
+    pub bool_value: bool,
+    /// Bool default.
+    pub bool_default: bool,
+    /// String value.
+    pub string_value: String,
+    /// String default.
+    pub string_default: String,
+    /// Scene item value.
+    pub scene_item_value: String,
+    /// Scene item default.
+    pub scene_item_default: String,
 }
 
 fn moved_item_error_deserialize<'de, D>(deserializer: D) -> Result<Option<ErrorId>, D::Error>

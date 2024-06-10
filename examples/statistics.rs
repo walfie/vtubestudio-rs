@@ -1,7 +1,7 @@
 // This example authenticates and sends a request every time you press the Enter key.
 
 use base64::Engine;
-use vtubestudio::data::StatisticsRequest;
+use vtubestudio::data::{StatisticsRequest, PostProcessingListRequest};
 use vtubestudio::Client;
 
 const PNG_IMAGE_DATA: &[u8] = include_bytes!("walfie-point.png");
