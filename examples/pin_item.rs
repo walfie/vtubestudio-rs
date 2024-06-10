@@ -51,7 +51,9 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
             .any(|perm| perm.name == Permission::LoadCustomImagesAsItems && perm.granted);
     }
 
-    println!("\n\nRight-click in VTube Studio to pin an item. Click a pinned item to unload it.\n\n");
+    println!(
+        "\n\nRight-click in VTube Studio to pin an item. Click a pinned item to unload it.\n\n"
+    );
 
     while let Some(client_event) = events.next().await {
         match client_event {
