@@ -1602,6 +1602,52 @@ define_request_response!(
             /// Post processing presets.
             pub post_processing_presets: Vec<String>,
         },
+    },
+
+    {
+        rust_name = PostProcessingUpdate,
+        /// Update post-processing values.
+        #[derive(PartialEq)]
+        req = {
+            /// Set post-processing values.
+            pub post_processing_on: bool,
+            /// Set post processing preset. See `preset_to_set` field.
+            pub set_post_processing_preset: bool,
+            /// Set post processing values. See `post_processing_values` field.
+            pub set_post_processing_values: bool,
+            /// Prset to use if `set_post_processing_preset` is `true`.
+            pub preset_to_set: String,
+            /// Post-processing fade time, in seconds. Must be between 0 and 2.
+            pub post_processing_fade_time: f64,
+            /// Set all unspecified values to default.
+            ///
+            /// I.e., whether all other values (the ones you didn't put in your payload) will be
+            /// left unchanged or faded back to their default value, meaning all unmentioned
+            /// effects will be turned off.
+            pub set_all_other_values_to_default: bool,
+            /// Set to `true` to use restricted effects.
+            pub using_restricted_effects: bool,
+            /// Randomize all values.
+            pub randomize_all: bool,
+            /// Amount of chaos for randomized values, if `randomize_all` is set.
+            ///
+            /// Should be between 0 and 1.
+            pub randomize_all_chaos_level: f64,
+            /// Post-processing values to set if `set_post_processing_values` is `true`.
+            pub post_processing_values: Vec<PostProcessingValue>,
+        },
+        /// Post-processing updated.
+        resp = {
+            /// Whether post-processing is active.
+            pub post_processing_active: bool,
+            /// Whether preset is active.
+            pub preset_is_active: bool,
+            /// Name of active preset, if `preset_is_active` is true.
+            pub active_preset: String,
+            /// Active effect count.
+            pub active_effect_count: i32,
+        },
+
     }, ],
 
     events = [
@@ -1889,12 +1935,11 @@ define_request_response!(
             },
         },
 
-        /*
-        // Disabled for now since PostProcessingListRequest/etc are only available in beta.
         {
             rust_name = PostProcessing,
             config = {},
-            /// An event that is triggered every time the post-processing system is turned on/off or a preset is loaded/unloaded.
+            /// An event that is triggered every time the post-processing system is turned on/off
+            /// or a preset is loaded/unloaded.
             ///
             /// For more information about post-processing, check the [visual effects page](https://github.com/DenchiSoft/VTubeStudio/wiki/Visual-Effects).
             ///
@@ -1908,7 +1953,6 @@ define_request_response!(
                 pub current_preset: String,
             },
         },
-        */
 
         {
             rust_name = Live2DCubismEditorConnected,
@@ -2243,6 +2287,17 @@ pub struct PostProcessingEffectConfigEntry {
     pub scene_item_value: String,
     /// Scene item default.
     pub scene_item_default: String,
+}
+
+/// Post-processing value used in [`PostProcessingUpdateRequest`].
+#[derive(Default, Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct PostProcessingValue {
+    /// Config ID. E.g., `"Backlight_Strength"`.
+    #[serde(rename = "configID")]
+    pub config_id: String,
+    /// Config value. E.g., `"0.8"` or `"false"` or `"220308FF"`.
+    pub config_value: String,
 }
 
 fn moved_item_error_deserialize<'de, D>(deserializer: D) -> Result<Option<ErrorId>, D::Error>
