@@ -2,7 +2,7 @@
 
 use base64::Engine;
 use vtubestudio::data::{
-    AngleRelativeTo, ArtMeshHitInfo, Event, EventSubscriptionRequest, ItemEventConfig,
+    AngleRelativeTo, ArtMeshPosition, Event, EventSubscriptionRequest, ItemEventConfig,
     ItemEventType, ItemLoadRequest, ItemPinRequest, ItemUnloadRequest, ModelClickedEventConfig,
     Permission, PermissionRequest, SizeRelativeTo, VertexPinType,
 };
@@ -87,7 +87,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                         position_x: 0.0,
                         position_y: 0.0,
                         size: 0.32,
-                        rotation: 0,
+                        rotation: 0.0,
                         fade_time: 0.1,
                         unload_when_plugin_disconnects: true,
                         custom_data_base64: Some(base64_image.clone()),
@@ -105,7 +105,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                             angle_relative_to: AngleRelativeTo::RelativeToModel.into(),
                             size_relative_to: SizeRelativeTo::RelativeToCurrentItemSize.into(),
                             vertex_pin_type: VertexPinType::Provided.into(),
-                            pin_info: ArtMeshHitInfo {
+                            pin_info: ArtMeshPosition {
                                 angle: 0.0,
                                 size: 0.0,
                                 ..hit.hit_info.clone()
