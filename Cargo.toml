@@ -16,7 +16,6 @@ description = "A library for interacting with the VTube Studio API."
 default = ["tokio-tungstenite"]
 
 [dependencies]
-base64 = "0.22.1"
 displaydoc = "0.2"
 futures-core = "0.3"
 futures-sink = "0.3"
@@ -35,6 +34,7 @@ tower = { version = "0.4.11", features = ["util", "retry", "reconnect", "buffer"
 tracing = "0.1"
 
 [dev-dependencies]
+base64 = "0.22.1"
 tokio = { version = "1", features = ["macros", "rt-multi-thread"] }
 
 [package.metadata.docs.rs]
