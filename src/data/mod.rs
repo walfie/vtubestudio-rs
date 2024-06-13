@@ -53,7 +53,7 @@ pub trait EventConfig: Serialize {
     type Event: EventData;
 }
 
-// https://github.com/DenchiSoft/VTubeStudio/blob/08681904e285d37b8c22d17d7d3a36c8c6834425/Files/HotkeyAction.cs
+// https://github.com/DenchiSoft/VTubeStudio/blob/4d284d4d62d9a7349d6e069cad1ff06391332283/Files/HotkeyAction.cs
 /// Known hotkey types for [`EnumString<HotkeyAction>`]. Used in [`Hotkey`].
 #[non_exhaustive]
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
@@ -97,11 +97,191 @@ pub enum HotkeyAction {
     ArtMeshColorPreset,
     /// Toggles the tracking on/off. Can be webcam or USB/WiFi connected phone.
     ToggleTracker,
+    /// Toggles a Twitch feature (for example Emote Dropper) on/off.
+    ToggleTwitchFeature,
+    /// Loads post processing effect preset.
+    LoadEffectPreset,
 }
 
 impl Default for HotkeyAction {
     fn default() -> Self {
         Self::Unset
+    }
+}
+
+/// Known animation event types for [`EnumString<AnimationEventType>`]. Used in [`ModelAnimationEvent`].
+#[non_exhaustive]
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+pub enum AnimationEventType {
+    /// Triggered when an animation **starts** (idle-animations or normal one-time animations).
+    Start,
+    /// Triggered when an animation **ends** (idle-animations or normal one-time animations)
+    End,
+    /// Triggered when a custom event is encountered in the animation.
+    ///
+    /// These events can be added at any point in the animation when creating animations in the
+    /// Live2D Cubism Animation Editor. You can find more details about how to create/use those
+    /// events below.
+    Custom,
+}
+
+impl Default for AnimationEventType {
+    fn default() -> Self {
+        Self::Custom
+    }
+}
+
+/// Known event types for [`EnumString<ItemEventType>`]. Used in [`ItemEvent`].
+#[non_exhaustive]
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+pub enum ItemEventType {
+    /// Item was added to the scene.
+    Added,
+    /// Item was removed from the scene.
+    Removed,
+    /// Item was dropped on the model and is now pinned.
+    DroppedPinned,
+    /// Item was dropped but not on the model. It is now unpinned.
+    DroppedUnpinned,
+    /// Item was clicked.
+    Clicked,
+    /// Item was locked.
+    Locked,
+    /// Item was unlocked.
+    Unlocked,
+}
+
+impl Default for ItemEventType {
+    fn default() -> Self {
+        Self::Clicked
+    }
+}
+
+/// Known values for [`EnumString<AngleRelativeTo>`]. Used in [`ItemPinRequest`].
+#[non_exhaustive]
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+pub enum AngleRelativeTo {
+    /// Absolute angle.
+    ///
+    /// That means if you pass in 0 as angle, the item will be pinned upright at an angle of 0
+    /// compared to the VTS window. You'd use this if you want the item to face a certain direction
+    /// relative to the VTS window.
+    RelativeToWorld,
+    /// Relative to the angle the item currently is at.
+    ///
+    /// If you pass in 0 as angle, that means the item will be pinned at the angle it is already at
+    /// meaning its current rotation will not be changed. You'd use this if you don't want to
+    /// change the item rotation and just pin it as is.
+    RelativeToCurrentItemRotation,
+    /// Relative angle to model rotation.
+    ///
+    /// That means if you pass in 0 as angle and the user has rotated the model, the item will be
+    /// pinned upright in relation to the model. This "model rotation" doesn't include rotation
+    /// caused by Live2D ArtMesh deformation, only the actual rotation applied to the whole model
+    /// by VTube Studio. You'd use this if you want the item to face a certain direction relative
+    /// to the current rotation of the model.
+    RelativeToModel,
+    /// Relative angle to the pin position.
+    ///
+    /// This is what you should use if you want to pin an item at a certain position within a
+    /// certain ArtMesh at a certain angle and you want that angle to be exactly the same no matter
+    /// how the model is rotated right now or how the ArtMesh is deformed. However, what angle you
+    /// have to pass in to get the desired effect will be completely different for each
+    /// pin-position.
+    RelativeToPinPosition,
+}
+
+impl Default for AngleRelativeTo {
+    fn default() -> Self {
+        Self::RelativeToWorld
+    }
+}
+
+/// Known values for [`EnumString<SizeRelativeTo>`]. Used in [`ItemPinRequest`].
+#[non_exhaustive]
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+pub enum SizeRelativeTo {
+    /// Absolute size. Between 0 (smallest) and 1 (largest).
+    ///
+    /// See also [`ItemLoadRequest`].
+    RelativeToWorld,
+    /// Relative to current item size.
+    ///
+    /// You can pass in numbers between `-1` and `1`, which will be added to the current item size,
+    /// meaning you can pass in 0 if you want to pin the item at its current size without changing
+    /// it.
+    RelativeToCurrentItemSize,
+}
+
+impl Default for SizeRelativeTo {
+    fn default() -> Self {
+        Self::RelativeToWorld
+    }
+}
+
+/// Known animation event types for [`EnumString<VertexPinType>`]. Used in [`ItemPinRequest`].
+#[non_exhaustive]
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+pub enum VertexPinType {
+    /// The item will be pinned to the given ArtMesh using the pin position provided in the fields
+    /// `vertexID1`, `vertexID2`, `vertexID3`, `vertexWeight1`, `vertexWeight2` and
+    /// `vertexWeight3`.
+    Provided,
+    /// The item will be pinned to the "center" of the given ArtMesh. It's not really the center
+    /// (spacially) but actually the triangle in the middle of the triangle list of the mesh. This
+    /// will give you the same position every time for a given ArtMesh.
+    Center,
+    /// The item will be pinned to a random triangle within the given ArtMesh.
+    Random,
+}
+
+impl Default for VertexPinType {
+    fn default() -> Self {
+        Self::Provided
+    }
+}
+
+/// Known animation event types for [`EnumString<Permission>`]. Used in [`PermissionRequest`] and [`PermissionResponse`].
+#[non_exhaustive]
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+pub enum Permission {
+    /// Load custom images as items.
+    LoadCustomImagesAsItems,
+}
+
+impl Default for Permission {
+    fn default() -> Self {
+        Self::LoadCustomImagesAsItems
+    }
+}
+
+/// Whether a permission was granted. Used in [`PermissionResponse`].
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+pub struct PermissionStatus {
+    /// Permission name.
+    pub name: EnumString<Permission>,
+    /// Whether this permission was granted.
+    pub granted: bool,
+}
+
+/// Mouse button ID. Used in [`ModelClickedEvent`].
+#[derive(Default, Debug, Clone, Serialize, Deserialize, PartialEq)]
+pub struct MouseButtonId(pub i32);
+
+impl MouseButtonId {
+    /// Is left mouse button.
+    pub fn is_left(&self) -> bool {
+        self.0 == 0
+    }
+
+    /// Is right mouse button.
+    pub fn is_right(&self) -> bool {
+        self.0 == 1
+    }
+
+    /// Is middle mouse button.
+    pub fn is_middle(&self) -> bool {
+        self.0 == 2
     }
 }
 
@@ -614,8 +794,7 @@ define_request_response!(
             pub hotkey_id: String,
             /// If present, trigger the hotkey for the given Live2D item. If absent, the hotkey
             /// will be triggered for the currently loaded model.
-            #[serde(skip_serializing_if = "Option::is_none")]
-            #[serde(rename = "itemInstanceID")]
+            #[serde(rename = "itemInstanceID", skip_serializing_if = "Option::is_none")]
             pub item_instance_id: Option<String>,
         },
         /// The hotkey that was triggered.
@@ -1117,12 +1296,12 @@ define_request_response!(
             /// `0.32` is roughly the "default" size that items will have when the user loads them manually.
             pub size: f64,
             /// Rotation, in degrees.
-            pub rotation: i32,
+            pub rotation: f64,
             /// Fade time, in seconds. Should be between `0` and `2`.
             pub fade_time: f64,
             /// Item order. If the order is taken, VTube Studio will automatically try to find the
             /// next available order, unless `fail_if_order_taken` is `true`.
-            pub order: Option<i32>,
+            pub order: i32,
             /// Set to `true` to fail with an `ItemOrderAlreadyTaken` error if the desired `order`
             /// is already taken.
             pub fail_if_order_taken: bool,
@@ -1136,12 +1315,40 @@ define_request_response!(
             pub locked: bool,
             /// Unload item when plugin disconnects.
             pub unload_when_plugin_disconnects: bool,
+            /// Custom base 64 data to load.
+            ///
+            /// Must contain valid data of a PNG, JPG or GIF file. Custom data Live2D items are not
+            /// currently supported. The dimensions must be between (inclusive) 64 and 2048 pixels
+            /// and the data has to be smaller than 5 MB (the binary data before you encode it to
+            /// base64). For GIF data, the GIF must contain 1024 frames or less but at least 1
+            /// frame and all frames must have the same size.
+            pub custom_data_base64: Option<String>,
+            /// Set to `true` to ask the user for permission before loading custom data.
+            pub custom_data_ask_user_first: bool,
+            /// Set to `false` to always ask for confirmation to load custom data.
+            pub custom_data_skip_asking_user_if_whitelisted: bool,
+            /// Timeout for asking user permission to load custom data.
+            ///
+            /// If you set it to 0 (or smaller), the popup will be shown forever (until the user
+            /// clicks OK or cancel). If you set it to any other positive number, the popup will be
+            /// shown for that number in seconds, with a visible countdown shown to the user. If
+            /// the user doesn't make a decision before the countdown is done, the item load
+            /// request is considered rejected by the user.
+            pub custom_data_ask_timer: f64,
         },
         /// Item loaded successfully.
         resp = {
             /// Instance ID of the loaded item.
             #[serde(rename = "instanceID")]
             pub instance_id: String,
+            /// File name of the loaded item.
+            ///
+            /// If you loaded a custom data item, the filename will be generated by VTube Studio,
+            /// so it will be different from the filename that you passed in. You can use that
+            /// filename to request that item to be loaded again without passing in custom data.
+            /// However, when VTube Studio is restarted, all temporary files are cleared, which
+            /// includes custom data items.
+            pub file_name: String,
         },
     },
 
@@ -1294,7 +1501,154 @@ define_request_response!(
             /// ArtMeshes that were not selected.
             pub inactive_art_meshes: Vec<String>,
         },
-    },],
+    },
+
+    {
+        rust_name = ItemPin,
+        /// Pin items in the scene to the currently loaded model.
+        #[derive(PartialEq)]
+        req = {
+            /// Set to `false` to unpin the item.
+            pub pin: bool,
+            /// Item instance ID.
+            #[serde(rename = "itemInstanceID")]
+            pub item_instance_id: String,
+            /// How to interpret angles.
+            pub angle_relative_to: EnumString<AngleRelativeTo>,
+            /// How to interpret sizes.
+            pub size_relative_to: EnumString<SizeRelativeTo>,
+            /// Vertex pin type.
+            pub vertex_pin_type: EnumString<VertexPinType>,
+            /// Pin info.
+            pub pin_info: ArtMeshPosition,
+        },
+        /// Item pinned successfully.
+        resp = {
+            /// Whether item is pinned.
+            pub is_pinned: bool,
+            /// Item instance ID. E.g., `"4a241269394f463ca16b8b21aa636568"`.
+            #[serde(rename = "itemInstanceID")]
+            pub item_instance_id: String,
+            /// Item file name. E.g., `"my_test_item_2.png"`.
+            pub item_file_name: String,
+        },
+    },
+
+    {
+        rust_name = Permission,
+        /// Request permission or request a list of all already granted permissions.
+        #[derive(PartialEq)]
+        req = {
+            /// Set to `None` to receive the list of currently granted/available permissions for
+            /// this plugin without actually requesting a permission.
+            pub requested_permission: Option<EnumString<Permission>>,
+        },
+        /// Permission response.
+        resp = {
+            /// Whether a permission was granted.
+            pub grant_success: bool,
+            /// Permission that was requested.
+            pub requested_permission: Option<EnumString<Permission>>,
+            /// List of permissions.
+            pub permissions: Vec<PermissionStatus>,
+        },
+    },
+
+    {
+        rust_name = PostProcessingList,
+        /// Request the general state of the post-processing system.
+        ///
+        /// Includes a list of all existing (user-created) post-processing presets and a list of
+        /// all available post-processing effects with their current value (current post-processing
+        /// state).
+        #[derive(PartialEq)]
+        req = {
+            /// If set to `true`, `post_processing_presets` will be set in the response.
+            pub fill_post_processing_presets_array: bool,
+            /// If set to `true`, `post_processing_effects` will be set in the response.
+            pub fill_post_processing_effects_array: bool,
+            /// Set to return only specific effect IDs.
+            #[serde(rename = "effectIDFilter", skip_serializing_if = "Vec::is_empty")]
+            pub effect_id_filter: Vec<String>,
+        },
+        /// Post-processing list response.
+        resp = {
+            /// Whether post-processing is supported.
+            pub post_processing_supported: bool,
+            /// Whether post-processing is active.
+            pub post_processing_active: bool,
+            /// Whether an update request can be sent.
+            pub can_send_post_processing_update_request_right_now: bool,
+            /// Whether restricted effects are allowed.
+            pub restricted_effects_allowed: bool,
+            /// Whether preset is active.
+            pub preset_is_active: bool,
+            /// Name of active preset.
+            pub active_preset: String,
+            /// Preset count.
+            pub preset_count: i32,
+            /// Active effect count.
+            pub active_effect_count: i32,
+            /// Effect count before filter.
+            pub effect_count_before_filter: i32,
+            /// Config count before filter.
+            pub config_count_before_filter: i32,
+            /// Effect count after filter.
+            pub effect_count_after_filter: i32,
+            /// Config count after filter.
+            pub config_count_after_filter: i32,
+            /// Post processing effects.
+            pub post_processing_effects: Vec<PostProcessingEffect>,
+            /// Post processing presets.
+            pub post_processing_presets: Vec<String>,
+        },
+    },
+
+    {
+        rust_name = PostProcessingUpdate,
+        /// Update post-processing values.
+        #[derive(PartialEq)]
+        req = {
+            /// Set post-processing values.
+            pub post_processing_on: bool,
+            /// Set post processing preset. See `preset_to_set` field.
+            pub set_post_processing_preset: bool,
+            /// Set post processing values. See `post_processing_values` field.
+            pub set_post_processing_values: bool,
+            /// Prset to use if `set_post_processing_preset` is `true`.
+            pub preset_to_set: String,
+            /// Post-processing fade time, in seconds. Must be between 0 and 2.
+            pub post_processing_fade_time: f64,
+            /// Set all unspecified values to default.
+            ///
+            /// I.e., whether all other values (the ones you didn't put in your payload) will be
+            /// left unchanged or faded back to their default value, meaning all unmentioned
+            /// effects will be turned off.
+            pub set_all_other_values_to_default: bool,
+            /// Set to `true` to use restricted effects.
+            pub using_restricted_effects: bool,
+            /// Randomize all values.
+            pub randomize_all: bool,
+            /// Amount of chaos for randomized values, if `randomize_all` is set.
+            ///
+            /// Should be between 0 and 1.
+            pub randomize_all_chaos_level: f64,
+            /// Post-processing values to set if `set_post_processing_values` is `true`.
+            pub post_processing_values: Vec<PostProcessingValue>,
+        },
+        /// Post-processing updated.
+        resp = {
+            /// Whether post-processing is active.
+            pub post_processing_active: bool,
+            /// Whether preset is active.
+            pub preset_is_active: bool,
+            /// Name of active preset, if `preset_is_active` is true.
+            pub active_preset: String,
+            /// Active effect count.
+            pub active_effect_count: i32,
+        },
+
+    }, ],
 
     events = [
         {
@@ -1444,8 +1798,242 @@ define_request_response!(
             },
         },
 
+        {
+            rust_name = HotkeyTriggered,
+            config = {
+                /// If provided, only hotkeys of the provided type (with the given action) will
+                /// trigger this event. Otherwise, all hotkey activations will trigger the event.
+                pub only_for_action: Option<EnumString<HotkeyAction>>,
+                /// Set to `true` to avoid receiving events when a hotkey is triggered by a plugin
+                /// via the trigger-hotkey-API
+                #[serde(rename = "ignoreHotkeysTriggeredByAPI")]
+                pub ignore_hotkeys_triggered_by_api: bool,
+            },
+            /// An event that is triggered every time a hotkey is triggered manually by the user
+            /// (keyboard/hand-gesture) or via the hotkey-trigger-API.
+            data = {
+                /// Hotkey ID. E.g., `"21bf7ade9e664f3ec29d05156e4ce5c1"`.
+                #[serde(rename = "hotkeyID")]
+                pub hotkey_id: String,
+                /// Hotkey name. E.g., `"Eyes Cry"`.
+                pub hotkey_name: String,
+                /// Hotkey action. E.g., `"ToggleExpression"`.
+                pub hotkey_action: EnumString<HotkeyAction>,
+                /// Hotkey file. E.g., `"EyesCry.exp3.json"`.
+                pub hotkey_file: String,
+                /// Whether the hotkey was triggered by the API.
+                #[serde(rename = "hotkeyTriggeredByAPI")]
+                pub hotkey_triggered_by_api: bool,
+                /// Model ID. E.g., `"d8ee771d2909873b1aa0226d03ef4f51"`.
+                #[serde(rename = "modelID")]
+                pub model_id: String,
+                /// Model name. E.g., `"Akari"`.
+                pub model_name: String,
+                /// Whether the hotkey is for a Live2D item.
+                #[serde(rename = "isLive2DItem")]
+                pub is_live2d_item: bool,
+            },
+        },
+
+        {
+            rust_name = ModelAnimation,
+            config = {
+                /// Ignore events triggered by Live2D items.
+                #[serde(rename = "ignoreLive2DItems")]
+                pub ignore_live2d_items: bool,
+                /// Ignore events triggered by idle animations.
+                pub ignore_idle_animations: bool,
+            },
+            /// An event that is triggered every time there's an `animation-event` encountered in
+            /// an animation playing for any Live2D model in the scene (so for the main model and
+            /// any Live2D items).
+            data = {
+                /// Animation event type.
+                pub animation_event_type: EnumString<AnimationEventType>,
+                /// Time in seconds within the animation when the animation-event was encountered.
+                pub animation_event_time: f64,
+                /// Animation event data. E.g., `"My Test Event 123456789"`.
+                pub animation_event_data: String,
+                /// Animation name. E.g., `"event_test_anim_4_final.motion3.json"`.
+                pub animation_name: String,
+                /// Length of animation in seconds.
+                pub animation_length: f64,
+                /// Whether the animation is an idle animation.
+                pub is_idle_animation: bool,
+                /// Model ID. E.g., `"d8ee771d2909873b1aa0226d03ef4f51"`.
+                #[serde(rename = "modelID")]
+                pub model_id: String,
+                /// Model name. E.g., `"Akari"`.
+                pub model_name: String,
+                /// Whether the event is for a Live2D item.
+                #[serde(rename = "isLive2DItem")]
+                pub is_live2d_item: bool,
+            },
+        },
+
+        {
+            rust_name = Item,
+            config = {
+                /// Item instance IDs to match on. Set to empty to match all IDs.
+                #[serde(rename = "itemInstanceIDs", skip_serializing_if = "Vec::is_empty")]
+                pub item_instance_ids: Vec<String>,
+                /// Item file names to match on. Set to empty to match all file names.
+                ///
+                /// This does "contains-matching", so for example if you pass in `"my"`, it will match the item `"my_item.png"`.
+                #[serde(skip_serializing_if = "Vec::is_empty")]
+                pub item_file_names: Vec<String>,
+            },
+            /// An event that is triggered every time certain actions are done with/by an item.
+            data = {
+                /// Item event type.
+                pub item_event_type: EnumString<ItemEventType>,
+                /// Item instance ID. E.g., `"3dcfc2456ac94a37bad369ec1875a15b"`.
+                #[serde(rename = "itemInstanceID")]
+                pub item_instance_id: String,
+                /// Item file name. E.g., `"my_item.png"`
+                pub item_file_name: String,
+                /// Item position.
+                pub item_position: Vec2,
+            },
+        },
+
+        {
+            rust_name = ModelClicked,
+            config = {
+                /// Set to `true` to only include clicks on model.
+                pub only_clicks_on_model: bool,
+            },
+            /// An event that is triggered every time the model is clicked.
+            ///
+            /// Depending on the config, it is also triggered when you click anywhere in the VTS
+            /// window even if the click wasn't on the model.
+            data = {
+                /// Whether the model is currently loaded.
+                pub model_loaded: bool,
+                /// Model ID. E.g., `"d8ee771d2909873b1aa0226d03ef4f51"`.
+                #[serde(rename = "loadedModelID")]
+                pub loaded_model_id: String,
+                /// Model name. E.g., `"Akari"`.
+                pub loaded_model_name: String,
+                /// Whether model was clicked.
+                pub model_was_clicked: bool,
+                /// ID of the mouse button. 0 for left click, 1 for right click, 2 for middle click.
+                // TODO: Turn this into an enum?
+                #[serde(rename = "mouseButtonID")]
+                pub mouse_button_id: MouseButtonId,
+                /// The position of the click in the usual coordinate system.
+                ///
+                /// If you need the exact pixel position of the click, you can use `windowSize`
+                /// (current VTS window size in pixels) to calculate that.
+                pub click_position: Vec2,
+                /// Current VTS window size in pixels.
+                pub window_size: Vec2,
+                /// The number of ArtMeshes at the click position.
+                pub clicked_art_mesh_count: i32,
+                /// ArtMesh hits.
+                pub art_mesh_hits: Vec<ArtMeshHit>,
+            },
+        },
+
+        {
+            rust_name = PostProcessing,
+            config = {},
+            /// An event that is triggered every time the post-processing system is turned on/off
+            /// or a preset is loaded/unloaded.
+            ///
+            /// For more information about post-processing, check the [visual effects page](https://github.com/DenchiSoft/VTubeStudio/wiki/Visual-Effects).
+            ///
+            /// If after receiving this event you want to read the detailed post-processing state
+            /// including all configs and their values use the [`PostProcessingListRequest`] and if
+            /// you want to send post-processing values, use the [`PostProcessingUpdateRequest`].
+            data = {
+                /// Current on state.
+                pub current_on_state: bool,
+                /// Current preset. E.g., `"my_preset"`.
+                pub current_preset: String,
+            },
+        },
+
+        {
+            rust_name = Live2DCubismEditorConnected,
+            config = {},
+            /// This event is triggered every time the `Connect`/`Send parameters` toggles are
+            /// toggled by the user and every time the connection state with the Live2D Cubism API
+            /// changes.
+            ///
+            /// Additionally, the event is also sent exactly once when you first subscribe to the
+            /// event. That way, you can easily get the initial state.
+            data = {
+                /// Is VTube Studio trying to connect to Live2D Cubism? `true` if the `Connect` toggle is turned on in VTS.
+                pub trying_to_connect: bool,
+                /// Is VTube Studio fully connected to and authenticated with Live2D Cubism?
+                pub connected: bool,
+                /// Has the user turned on the `Send parameters` toggle?
+                ///
+                /// If this is on and `connected` is true, VTube Studio is actively sending parameter data into Live2D Cubism.
+                pub should_send_parameters: bool,
+            },
+        },
     ],
 );
+
+/// Art mesh hit. Used in [`ModelClickedEvent`].
+#[derive(Default, Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct ArtMeshHit {
+    /// The order in the ArtMesh stack at the click position.
+    ///
+    /// The topmost ArtMesh at the click position will have `"artMeshOrder": 0`. This would be the
+    /// ArtMesh that items pin to when dropped by users at that exact position.
+    pub art_mesh_order: i32,
+    /// Whether the ArtMesh is masked.
+    pub is_masked: bool,
+    /// Info about the art mesh.
+    pub hit_info: ArtMeshPosition,
+}
+
+/// ArtMesh position info, used in [`ArtMeshHit`] and [`ItemPinRequest`].
+///
+/// The exact click position within the ArtMesh is given via the `vertexID1`, `vertexID2`,
+/// `vertexID3`, `vertexWeight1`, `vertexWeight2`, `vertexWeight3` fields as [barycentric
+/// coordinates]. In short, VTS checks which specific triangle was clicked in the ArtMesh and
+/// returns the three vertex IDs that make up this triangle, including the weights that if
+/// multiplied with the vertex positions will result in the exact click position within the
+/// triangle.
+///
+/// The ArtMesh ID and barycentric coordinates can be used to identify an exact position on the
+/// model and can be used to pin an item at that position using the `ItemPinRequest`.
+///
+/// [barycentric coordinates]: https://en.wikipedia.org/wiki/Barycentric_coordinate_system
+#[derive(Default, Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct ArtMeshPosition {
+    /// Model ID. E.g., `"d87b771d2902473bbaa0226d03ef4754"`.
+    #[serde(rename = "modelID")]
+    pub model_id: String,
+    /// ArtMesh ID. E.g., `"hair_right6"`.
+    #[serde(rename = "artMeshID")]
+    pub art_mesh_id: String,
+    /// Angle.
+    pub angle: f64,
+    /// Size.
+    pub size: f64,
+    /// Vertex ID 1.
+    #[serde(rename = "vertexID1")]
+    pub vertex_id1: i32,
+    /// Vertex ID 2.
+    #[serde(rename = "vertexID2")]
+    pub vertex_id2: i32,
+    /// Vertex ID 3.
+    #[serde(rename = "vertexID3")]
+    pub vertex_id3: i32,
+    /// Vertex weight 1.
+    pub vertex_weight1: f64,
+    /// Vertex weight 2.
+    pub vertex_weight2: f64,
+    /// Vertex weight 3.
+    pub vertex_weight3: f64,
+}
 
 /// Struct representing a coordinate or dimensions. Used in [`ModelOutlineEvent`].
 #[derive(Default, Deserialize, Serialize, Debug, PartialEq, Clone)]
@@ -1594,8 +2182,8 @@ pub struct ItemToMove {
     /// Rotation, in degrees.
     ///
     /// A value of `None` will be serialized as `-1000` as recommended by the documentation.
-    #[serde(serialize_with = "item_move_default_i32")]
-    pub rotation: Option<i32>,
+    #[serde(serialize_with = "item_move_default_f64")]
+    pub rotation: Option<f64>,
     /// Change the order of the item.
     ///
     /// A value of `None` will be serialized as `-1000` as recommended by the documentation.
@@ -1625,6 +2213,91 @@ pub struct MovedItem {
         deserialize_with = "moved_item_error_deserialize"
     )]
     pub error_id: Option<ErrorId>,
+}
+
+/// Post-processing effect, used in [`PostProcessingListResponse`]
+#[derive(Default, Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct PostProcessingEffect {
+    /// Internal ID. E.g., `"color_grading"`.
+    #[serde(rename = "internalID")]
+    pub internal_id: String,
+    /// Enum ID. E.g., `"ColorGrading"`.
+    #[serde(rename = "enumID")]
+    pub enum_id: String,
+    /// Explanation. E.g., `"Color grading"`.
+    pub explanation: String,
+    /// Whether effect is active.
+    pub effect_is_active: bool,
+    /// Whether effect is restricted.
+    pub effect_is_restricted: bool,
+    /// Config entries.
+    pub config_entries: Vec<PostProcessingEffectConfigEntry>,
+}
+
+// TODO: Make this an enum
+/// Config entry used in [`PostProcessingEffect`].
+#[derive(Default, Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct PostProcessingEffectConfigEntry {
+    /// Internal ID. E.g., `"color_grading-strength"`.
+    #[serde(rename = "internalID")]
+    pub internal_id: String,
+    /// Enum ID. E.g., `"ColorGrading_Strength"`.
+    #[serde(rename = "enumID")]
+    pub enum_id: String,
+    /// Explanation. E.g., `"Effect on/off"`.
+    pub explanation: String,
+    /// Type. E.g., `"Float"`.
+    #[serde(rename = "type")]
+    pub type_: String,
+    /// Activation config.
+    pub activation_config: bool,
+    /// Float value.
+    pub float_value: f64,
+    /// Float min.
+    pub float_min: f64,
+    /// Float max.
+    pub float_max: f64,
+    /// Float default.
+    pub float_default: f64,
+    /// Int value.
+    pub int_value: i32,
+    /// Int min.
+    pub int_min: i32,
+    /// Int max.
+    pub int_max: i32,
+    /// Int default.
+    pub int_default: i32,
+    /// Color value. E.g., `"77CCAAFF"`.
+    pub color_value: String,
+    /// Color default.
+    pub color_default: String,
+    /// Whether color has alpha.
+    pub color_has_alpha: bool,
+    /// Bool value.
+    pub bool_value: bool,
+    /// Bool default.
+    pub bool_default: bool,
+    /// String value.
+    pub string_value: String,
+    /// String default.
+    pub string_default: String,
+    /// Scene item value.
+    pub scene_item_value: String,
+    /// Scene item default.
+    pub scene_item_default: String,
+}
+
+/// Post-processing value used in [`PostProcessingUpdateRequest`].
+#[derive(Default, Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct PostProcessingValue {
+    /// Config ID. E.g., `"Backlight_Strength"`.
+    #[serde(rename = "configID")]
+    pub config_id: String,
+    /// Config value. E.g., `"0.8"` or `"false"` or `"220308FF"`.
+    pub config_value: String,
 }
 
 fn moved_item_error_deserialize<'de, D>(deserializer: D) -> Result<Option<ErrorId>, D::Error>

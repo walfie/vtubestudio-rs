@@ -10,23 +10,11 @@ jobs:
       matrix:
         os: [ubuntu-latest, windows-latest, macos-latest]
     steps:
-    - uses: actions/checkout@v2
-    - uses: actions-rs/toolchain@v1
-      with:
-        profile: minimal
-        toolchain: 1.58.0
-        override: true
-    - uses: Swatinem/rust-cache@v1.3.0
-    - name: test --all-features
-      uses: actions-rs/cargo@v1
-      with:
-        command: test
-        args: --all-features --verbose
-    - name: test --no-default-features
-      uses: actions-rs/cargo@v1
-      with:
-        command: test
-        args: --no-default-features --verbose
+    - uses: actions/checkout@v4
+    - uses: dtolnay/rust-toolchain@stable
+    - uses: Swatinem/rust-cache@v2
+    - run: cargo test --all-features --verbose
+    - run: cargo test --no-default-features --verbose
     - name: Check for uncommitted changes
       shell: bash
       run: |
@@ -38,16 +26,11 @@ jobs:
     name: Check formatting
     runs-on: ubuntu-latest
     steps:
-    - uses: actions/checkout@v2
-    - uses: actions-rs/toolchain@v1
+    - uses: actions/checkout@v4
+    - uses: dtolnay/rust-toolchain@stable
       with:
-        profile: minimal
-        toolchain: 1.58.0
-        override: true
+        components: "rustfmt"
     - run: rustup component add rustfmt
-    - uses: Swatinem/rust-cache@v1.3.0
-    - uses: actions-rs/cargo@v1
-      with:
-        command: fmt
-        args: --all -- --check
+    - uses: Swatinem/rust-cache@v2
+    - run: cargo fmt --all -- --check
 
